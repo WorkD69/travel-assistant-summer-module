@@ -1210,7 +1210,7 @@
     if (form.id === "profile-delete-form") handleDeleteSubmit(event, ctx);
   }
 
-  function handleLoginSubmit(event, ctx) {
+  async function handleLoginSubmit(event, ctx) {
     event.preventDefault();
     clearErrors(ctx.root);
     const emailInput = qs(ctx.root, "#login-email");
@@ -1242,7 +1242,7 @@
       focusFirst([setFieldError(ctx.root, "login-password", "Ошибка системы. Попробуйте позже.")]);
       return;
     }
-    const result = ctx.adapter.authenticate({ email, password, remember: qs(ctx.root, "#login-remember").checked });
+    const result = await Promise.resolve(ctx.adapter.authenticate({ email, password, remember: qs(ctx.root, "#login-remember").checked }));
     if (!result.ok) {
       const message = result.code === "not_found" || ctx.loginScenario === "notfound" ? "Аккаунт не найден." : "Неверный email или пароль.";
       focusFirst([setFieldError(ctx.root, result.code === "not_found" ? "login-email" : "login-password", message)]);
@@ -1251,7 +1251,7 @@
     ctx.routes.routeAfterAuth(ctx.adapter);
   }
 
-  function handleRegisterSubmit(event, ctx) {
+  async function handleRegisterSubmit(event, ctx) {
     event.preventDefault();
     clearErrors(ctx.root);
     if (!guardOnline(ctx, "Регистрация недоступна офлайн")) return;
@@ -1278,9 +1278,9 @@
       focusFirst([setFieldError(ctx.root, "register-email", "Офлайн. Регистрация временно недоступна.")]);
       return;
     }
-    const result = ctx.registerScenario === "emailTaken"
+    const result = await Promise.resolve(ctx.registerScenario === "emailTaken"
       ? { ok: false, code: "email_taken" }
-      : ctx.adapter.register({ firstName, lastName, email, password });
+      : ctx.adapter.register({ firstName, lastName, email, password }));
     if (!result.ok) {
       focusFirst([setFieldError(ctx.root, result.code === "email_taken" ? "register-email" : "register-password", result.code === "email_taken" ? "Email уже занят." : "Не удалось создать аккаунт.")]);
       return;

@@ -88,6 +88,9 @@
     },
 
     logout() {
+      if (window.TravelAPI && window.TravelAPI.auth) {
+        window.TravelAPI.auth.logout().catch(function () { /* clear local state regardless */ });
+      }
       try {
         const app = window.TravelAppState;
         if (app && typeof app.logoutSession === "function") app.logoutSession();

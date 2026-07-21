@@ -1,0 +1,41 @@
+{
+  "name": "travel-assistant-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Unified site and Telegram API for Travel Assistant",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "prisma generate",
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test",
+    "test:watch": "node --test --watch",
+    "prisma:generate": "prisma generate",
+    "migrate:deploy": "prisma migrate deploy",
+    "seed": "node prisma/seed.js",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "bcryptjs": "3.0.3",
+    "cookie-parser": "1.4.7",
+    "cors": "2.8.6",
+    "dotenv": "17.2.3",
+    "express": "5.1.0",
+    "express-rate-limit": "8.6.0",
+    "helmet": "8.3.0",
+    "jsonwebtoken": "9.0.2",
+    "multer": "2.2.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "prisma": "6.19.3",
+    "supertest": "7.2.2",
+    "yaml": "2.9.0"
+  }
+}

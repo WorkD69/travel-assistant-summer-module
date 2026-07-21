@@ -13,14 +13,18 @@
   <main id="history-root" class="tp-root"></main>
   <script src="features/app-state.js"></script>
   <script src="assets/js/app-state-bridge.js"></script>
+  <script src="assets/js/api-client.js"></script>
+  <script src="assets/js/site-sync.js"></script>
   <script src="assets/js/app-routes.js"></script>
   <script src="assets/js/app-shell.js"></script>
   <script src="assets/js/trip-pages-state.js"></script>
   <script src="assets/js/trip-pages.js"></script>
   <script>
-    if (window.appShellInit({ section: "История поездок" })) {
-      window.tripPagesHistoryInit(document.getElementById("history-root"), window.TripPagesAdapter, window.TripPagesRoutes);
-    }
+    window.TravelSite.ready.then(function () {
+      if (window.appShellInit({ section: "История поездок" })) {
+        window.tripPagesHistoryInit(document.getElementById("history-root"), window.TripPagesAdapter, window.TripPagesRoutes);
+      }
+    });
   </script>
 </body>
 </html>

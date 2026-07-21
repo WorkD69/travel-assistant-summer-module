@@ -61,7 +61,8 @@
     return false;
   };
 
-  function boot() {
+  async function boot() {
+    if (window.TravelSite && window.TravelSite.ready) await window.TravelSite.ready;
     // dev override
     try {
       if (new URLSearchParams(window.location.search).get("env") === "development") {

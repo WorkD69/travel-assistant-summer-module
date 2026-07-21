@@ -160,11 +160,7 @@
         lastLoginAt: nowIso()
       },
       users,
-      credentials: {
-        "artem@example.test": "Travel2026!",
-        "irina@example.test": "Invite2026!",
-        "boris@example.test": "Boris2026!"
-      },
+      credentials: {},
       trips: {
         "trip-turkey-2026": {
           id: "trip-turkey-2026",

@@ -463,7 +463,7 @@
       },
       accountPages: {
         session: { isAuthenticated: false, userId: "", email: "", remember: false, lastLoginAt: "" },
-        credentials: { "artem@example.test": "Password2026!", "anna@example.test": "Password2026!", "stanislav@example.test": "Password2026!", "mikhail@example.test": "Password2026!" },
+        credentials: {},
         users: {},
         invitations: {
           "invite-001": {
