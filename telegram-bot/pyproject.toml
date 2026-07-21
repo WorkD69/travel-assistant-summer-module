@@ -1,0 +1,15 @@
+[project]
+name = "travel-assistant-telegram-bot"
+version = "1.0.0"
+description = "Telegram-бот проекта «Тревел-помощник»: поездки, события, документы, SOS, уведомления и AI-помощник"
+requires-python = ">=3.12"
+readme = "README.md"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

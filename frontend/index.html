@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Тревел-помощник</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="design-tokens.css" />
+  <link rel="stylesheet" href="assets/css/app-shell.css" />
+</head>
+<body data-app-environment="production">
+  <noscript>
+    <p style="padding: 24px; font-family: sans-serif;">
+      Для работы «Тревел-помощника» нужен включённый JavaScript.
+      Откройте <a href="login.html">страницу входа</a>.
+    </p>
+  </noscript>
+  <script>
+    // Единая точка входа: с активной сессией — на Главную, без неё — на вход.
+    (function () {
+      var target = "login.html";
+      try {
+        var raw = sessionStorage.getItem("travelAssistant.final.sessionState.v1") || localStorage.getItem("travelAssistant.final.appState.v1");
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          var state = (parsed && parsed.state) || {};
+          var session = (state.accountPages && state.accountPages.session) || {};
+          if (session.isAuthenticated) target = "home.html";
+        }
+      } catch (error) { /* нет сессии — на вход */ }
+      window.location.replace(target + window.location.search.replace(/^\?/, "?"));
+    })();
+  </script>
+</body>
+</html>

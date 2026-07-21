@@ -1,0 +1,438 @@
+.coreflow-component,
+.coreflow-theme-scope {
+  --coreflow-bg: var(--bg, #0e141c);
+  --coreflow-bg-elevated: var(--bg-elevated, #121a24);
+  --coreflow-surface: var(--surface, #171f2b);
+  --coreflow-surface-2: var(--surface-2, #1d2736);
+  --coreflow-surface-3: var(--surface-3, #243142);
+  --coreflow-hover: var(--surface-hover, #2a384c);
+  --coreflow-fg: var(--fg, #f2f5f8);
+  --coreflow-secondary: var(--fg-secondary, #a8b3c2);
+  --coreflow-muted: var(--muted, #7a8799);
+  --coreflow-inverse: var(--fg-inverse, #0e141c);
+  --coreflow-border: var(--border, #2a3648);
+  --coreflow-border-strong: var(--border-strong, #3a4a60);
+  --coreflow-focus: var(--border-focus, #3db8c5);
+  --coreflow-accent: var(--accent, #3db8c5);
+  --coreflow-accent-hover: var(--accent-hover, #4fc8d4);
+  --coreflow-accent-soft: var(--accent-soft, rgba(61, 184, 197, 0.12));
+  --coreflow-accent-muted: var(--accent-muted, rgba(61, 184, 197, 0.22));
+  --coreflow-success: var(--success, #2fbb6a);
+  --coreflow-success-soft: var(--success-soft, rgba(47, 187, 106, 0.14));
+  --coreflow-warning: var(--warning, #d9a441);
+  --coreflow-warning-soft: var(--warning-soft, rgba(217, 164, 65, 0.14));
+  --coreflow-danger: var(--danger, #d94b4b);
+  --coreflow-danger-hover: var(--danger-hover, #e35c5c);
+  --coreflow-danger-soft: var(--danger-soft, rgba(217, 75, 75, 0.14));
+  --coreflow-info: var(--info, #5b9fd4);
+  --coreflow-info-soft: var(--info-soft, rgba(91, 159, 212, 0.14));
+  --coreflow-overlay: var(--overlay, rgba(6, 10, 16, 0.72));
+  --coreflow-shadow-sm: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.28));
+  --coreflow-shadow-md: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.32));
+  --coreflow-shadow-lg: var(--shadow-lg, 0 16px 48px rgba(0, 0, 0, 0.42));
+  --coreflow-font: var(--font-sans, "Segoe UI", Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif);
+  --coreflow-mono: var(--font-mono, ui-monospace, "SF Mono", Consolas, monospace);
+  --coreflow-radius-sm: var(--radius-sm, 6px);
+  --coreflow-radius-md: var(--radius-md, 10px);
+  --coreflow-radius-lg: var(--radius-lg, 14px);
+  --coreflow-radius-xl: var(--radius-xl, 18px);
+  --coreflow-radius-full: var(--radius-full, 9999px);
+  width: 100%;
+  min-width: 0;
+  color: var(--coreflow-fg);
+  font-family: var(--coreflow-font);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.coreflow-component *,
+.coreflow-component *::before,
+.coreflow-component *::after {
+  box-sizing: border-box;
+}
+
+.coreflow-component [hidden],
+.coreflow-modal-root [hidden] {
+  display: none !important;
+}
+
+.coreflow-component :focus-visible,
+.coreflow-modal-root :focus-visible {
+  outline: 2px solid var(--coreflow-focus, #3db8c5);
+  outline-offset: 2px;
+}
+
+.coreflow-icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.coreflow-muted {
+  color: var(--coreflow-muted, #7a8799);
+}
+
+.coreflow-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--coreflow-radius-md, 10px);
+  background: var(--coreflow-surface-2, #1d2736);
+  color: var(--coreflow-fg, #f2f5f8);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.coreflow-button:hover:not(:disabled) {
+  background: var(--coreflow-hover, #2a384c);
+  border-color: var(--coreflow-border-strong, #3a4a60);
+}
+
+.coreflow-button:disabled,
+.coreflow-button[aria-disabled="true"] {
+  opacity: 0.48;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.coreflow-button--primary {
+  background: var(--coreflow-accent, #3db8c5);
+  color: var(--coreflow-inverse, #0e141c);
+}
+
+.coreflow-button--primary:hover:not(:disabled) {
+  background: var(--coreflow-accent-hover, #4fc8d4);
+}
+
+.coreflow-button--secondary {
+  border-color: var(--coreflow-border, #2a3648);
+}
+
+.coreflow-button--quiet {
+  background: transparent;
+  color: var(--coreflow-secondary, #a8b3c2);
+}
+
+.coreflow-button--danger {
+  background: var(--coreflow-danger, #d94b4b);
+  color: #fff;
+  border-color: rgba(217, 75, 75, 0.45);
+}
+
+.coreflow-button--danger:hover:not(:disabled) {
+  background: var(--coreflow-danger-hover, #e35c5c);
+}
+
+.coreflow-button--icon {
+  width: 44px;
+  padding: 0;
+}
+
+.coreflow-button--block {
+  width: 100%;
+}
+
+.coreflow-fact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.coreflow-fact {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--coreflow-border, #2a3648);
+  border-radius: var(--coreflow-radius-md, 10px);
+  background: var(--coreflow-surface, #171f2b);
+}
+
+.coreflow-fact-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--coreflow-muted, #7a8799);
+  font-size: 12px;
+}
+
+.coreflow-fact-value {
+  display: block;
+  min-width: 0;
+  color: var(--coreflow-fg, #f2f5f8);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.coreflow-choice-list {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--coreflow-border, #2a3648);
+  border-radius: var(--coreflow-radius-md, 10px);
+}
+
+.coreflow-choice-list legend {
+  padding: 0 4px;
+  color: var(--coreflow-secondary, #a8b3c2);
+}
+
+.coreflow-choice-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.coreflow-badge {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--coreflow-border, #2a3648);
+  border-radius: var(--coreflow-radius-full, 9999px);
+  background: var(--coreflow-surface-2, #1d2736);
+  color: var(--coreflow-secondary, #a8b3c2);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.coreflow-badge--accent { background: var(--coreflow-accent-soft); border-color: var(--coreflow-accent-muted); color: var(--coreflow-accent); }
+.coreflow-badge--success { background: var(--coreflow-success-soft); border-color: rgba(47, 187, 106, 0.34); color: var(--coreflow-success); }
+.coreflow-badge--warning { background: var(--coreflow-warning-soft); border-color: rgba(217, 164, 65, 0.34); color: #e8c98a; }
+.coreflow-badge--danger { background: var(--coreflow-danger-soft); border-color: rgba(217, 75, 75, 0.38); color: #f0a0a0; }
+.coreflow-badge--info { background: var(--coreflow-info-soft); border-color: rgba(91, 159, 212, 0.34); color: #9bc4e6; }
+
+.coreflow-card {
+  min-width: 0;
+  border: 1px solid var(--coreflow-border, #2a3648);
+  border-radius: var(--coreflow-radius-lg, 14px);
+  background: var(--coreflow-surface, #171f2b);
+  box-shadow: var(--coreflow-shadow-sm);
+  overflow: hidden;
+}
+
+.coreflow-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--coreflow-border, #2a3648);
+}
+
+.coreflow-card-body {
+  padding: 18px 20px;
+}
+
+.coreflow-card h3,
+.coreflow-card h4 {
+  margin: 0 0 6px;
+  color: var(--coreflow-fg, #f2f5f8);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.coreflow-card p {
+  margin: 0;
+  color: var(--coreflow-secondary, #a8b3c2);
+}
+
+.coreflow-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--coreflow-border, #2a3648);
+  border-radius: var(--coreflow-radius-md, 10px);
+  background: var(--coreflow-bg-elevated, #121a24);
+  color: var(--coreflow-secondary, #a8b3c2);
+}
+
+.coreflow-banner--warning {
+  border-color: rgba(217, 164, 65, 0.34);
+  background: var(--coreflow-warning-soft, rgba(217, 164, 65, 0.14));
+  color: #e8c98a;
+}
+
+.coreflow-banner--danger {
+  border-color: rgba(217, 75, 75, 0.38);
+  background: var(--coreflow-danger-soft, rgba(217, 75, 75, 0.14));
+  color: #f0a0a0;
+}
+
+.coreflow-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.coreflow-field {
+  display: grid;
+  gap: 7px;
+}
+
+.coreflow-field label,
+.coreflow-label {
+  display: block;
+  color: var(--coreflow-secondary, #a8b3c2);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.coreflow-field input,
+.coreflow-field select,
+.coreflow-field textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--coreflow-border, #2a3648);
+  border-radius: var(--coreflow-radius-md, 10px);
+  background: var(--coreflow-bg-elevated, #121a24);
+  color: var(--coreflow-fg, #f2f5f8);
+  font: inherit;
+}
+
+.coreflow-field textarea {
+  min-height: 140px;
+  padding: 12px;
+  resize: vertical;
+}
+
+.coreflow-field-error {
+  min-height: 18px;
+  color: #f0a0a0;
+  font-size: 12px;
+}
+
+.coreflow-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.coreflow-modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: none;
+}
+
+.coreflow-modal-root.is-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--coreflow-overlay, rgba(6, 10, 16, 0.72));
+}
+
+.coreflow-modal {
+  width: min(100%, 680px);
+  max-height: min(90vh, 780px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--coreflow-border-strong, #3a4a60);
+  border-radius: var(--coreflow-radius-xl, 18px);
+  background: var(--coreflow-surface, #171f2b);
+  box-shadow: var(--coreflow-shadow-lg, 0 16px 48px rgba(0, 0, 0, 0.42));
+  color: var(--coreflow-fg, #f2f5f8);
+  overflow: hidden;
+}
+
+.coreflow-modal-header,
+.coreflow-modal-footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--coreflow-border, #2a3648);
+}
+
+.coreflow-modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.coreflow-modal-footer {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--coreflow-border, #2a3648);
+  border-bottom: 0;
+  background: var(--coreflow-bg-elevated, #121a24);
+}
+
+.coreflow-modal-body {
+  padding: 18px 20px;
+  overflow-y: auto;
+}
+
+.coreflow-toast-root {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 90;
+  width: min(360px, calc(100vw - 32px));
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.coreflow-toast {
+  padding: 12px 14px;
+  border: 1px solid var(--coreflow-border-strong, #3a4a60);
+  border-radius: var(--coreflow-radius-md, 10px);
+  background: var(--coreflow-surface-2, #1d2736);
+  color: var(--coreflow-fg, #f2f5f8);
+  box-shadow: var(--coreflow-shadow-md);
+}
+
+@media (max-width: 460px) {
+  .coreflow-button--block {
+    width: 100%;
+  }
+
+  .coreflow-button {
+    white-space: normal;
+    text-align: center;
+  }
+
+  .coreflow-button--icon {
+    width: 44px;
+  }
+
+  .coreflow-fact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .coreflow-modal-root.is-open {
+    align-items: flex-end;
+    padding: 8px;
+  }
+
+  .coreflow-modal {
+    max-height: 92vh;
+    border-radius: 18px 18px 12px 12px;
+  }
+}

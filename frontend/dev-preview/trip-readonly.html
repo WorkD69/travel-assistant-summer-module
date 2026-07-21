@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Завершённая поездка · Тревел-помощник</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="trip-pages.css" />
+</head>
+<body data-app-environment="development">
+  <main id="readonly-root" class="trip-pages-app trip-readonly-surface" data-trip-page="readonly" data-od-id="readonly-surface">
+    <header class="tp-header"><a class="tp-brand" href="home.html"><span class="tp-logo">↗</span><span>Тревел-помощник</span></a><div class="tp-header-actions"><a class="tp-button tp-button-secondary" href="history.html">История</a></div></header>
+    <div class="tp-shell">
+      <section class="readonly-banner" data-od-id="readonly-static-banner"><div><strong>Поездка завершена. Данные доступны только для просмотра.</strong>Редактирование, приглашения, загрузка, SOS, подтверждение нарушений, новый Plan B, сообщения и повторная активация отключены.</div></section>
+      <section class="trip-header-like" data-od-id="readonly-static-trip-header"><div class="trip-nav-like"><a href="history.html">← История</a></div><div class="trip-title-row"><div><h1>Весна в Тбилиси</h1><p>Москва → Тбилиси → Казбеги · 12–19 апреля 2026</p><div class="tp-chip-row"><span class="tp-badge is-success">Завершена</span><span class="tp-badge is-accent">Организатор</span></div></div></div></section>
+      <nav class="tabs workspace-tabs" data-od-id="readonly-static-tabs"><button class="tab" aria-selected="true">Обзор</button><button class="tab">Маршрут</button><button class="tab">Документы</button><button class="tab">Участники</button><button class="tab">Мониторинг</button><button class="tab">Сообщения</button><button class="tab">Настройки</button></nav>
+      <section class="readonly-workspace" data-od-id="readonly-static-content">
+        <div class="overview-grid-like"><section class="tp-card"><div class="tp-card-head"><div><h2>Итоги поездки</h2><p>Архив рабочей области без действий изменения.</p></div><span class="tp-badge">Только просмотр</span></div><div class="tp-card-body readonly-summary-grid"><div class="tp-data-cell"><strong>4</strong><span>участника</span></div><div class="tp-data-cell"><strong>7</strong><span>документов</span></div><div class="tp-data-cell"><strong>2</strong><span>нарушения</span></div><div class="tp-data-cell"><strong>Ночной трансфер</strong><span>выбранный Plan B</span></div></div></section><section class="tp-card"><div class="tp-card-head"><div><h2>Последние события</h2><p>Без подтверждения новых нарушений.</p></div></div><div class="tp-card-body timeline"><div class="timeline-item"><span class="timeline-time">08:10</span><span>Вылет Москва → Тбилиси</span></div><div class="timeline-item"><span class="timeline-time">15:20</span><span>Трансфер в отель</span></div></div></section></div>
+      </section>
+    </div>
+  </main>
+  <script src="trip-pages-state.js"></script>
+  <script src="trip-pages-routes.js"></script>
+  <script src="trip-pages.js"></script>
+</body>
+</html>

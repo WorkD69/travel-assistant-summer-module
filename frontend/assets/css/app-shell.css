@@ -1,0 +1,290 @@
+/* app-shell.css — общий каркас финальной сборки.
+   Слой 2 в каскаде: design-tokens.css → app-shell.css → CSS страницы → CSS feature-вкладки.
+   Стилизует единую глобальную шапку (компонент app-shell.js), общий toast-регион
+   и глобальные production/appearance-правила. Визуальная система — шапка основы. */
+
+html {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Development-элементы скрыты в production без пустых мест */
+body[data-app-environment="production"] [data-development-only="true"] {
+  display: none !important;
+}
+
+/* ===== Единая глобальная шапка (как в основе) ===== */
+
+#app-shell-header .app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 12px);
+  height: var(--header-h, 64px);
+  padding: 0 clamp(16px, 4vw, 32px);
+  background: color-mix(in srgb, var(--bg) 8%, var(--surface));
+  border-bottom: 1px solid var(--border);
+}
+
+#app-shell-header .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 4px 6px 4px 0;
+  color: var(--fg);
+  text-decoration: none;
+  font-weight: var(--fw-semibold);
+  border-radius: var(--radius-md);
+}
+
+#app-shell-header .brand:focus-visible,
+#app-shell-header .btn-icon:focus-visible,
+#app-shell-header .dropdown-item:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+#app-shell-header .brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+#app-shell-header .icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#app-shell-header .icon-sm {
+  width: 18px;
+  height: 18px;
+}
+
+#app-shell-header .shell-section-title {
+  color: var(--fg-secondary);
+  font-size: var(--fs-sm);
+  padding-left: var(--space-3, 12px);
+  border-left: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#app-shell-header .header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#app-shell-header .btn-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-secondary);
+  cursor: pointer;
+}
+
+#app-shell-header .btn-icon:hover {
+  background: var(--surface-hover);
+  color: var(--fg);
+}
+
+#app-shell-header .notif-dot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  display: none; /* показывается при наличии уведомлений */
+}
+
+#app-shell-header .avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--accent-muted);
+  color: var(--fg);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+#app-shell-header .avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+#app-shell-header .dropdown {
+  position: relative;
+}
+
+#app-shell-header .dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 220px;
+  padding: 6px;
+  display: none;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 60;
+}
+
+#app-shell-header .dropdown-menu.open {
+  display: flex;
+}
+
+#app-shell-header .dropdown-item {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: var(--fs-md);
+  cursor: pointer;
+}
+
+#app-shell-header .dropdown-item:hover {
+  background: var(--surface-hover);
+}
+
+#app-shell-header .dropdown-item.danger {
+  color: var(--danger);
+}
+
+#app-shell-header .dropdown-divider {
+  margin: 6px 4px;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 640px) {
+  #app-shell-header .brand-text {
+    display: none;
+  }
+  #app-shell-header .shell-section-title {
+    padding-left: 8px;
+  }
+}
+
+/* ===== Заголовок раздела страниц trip-pages (вместо второй шапки ветки) ===== */
+
+.tp-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  max-width: var(--app-max);
+  margin: 0 auto;
+  padding: clamp(28px, 3vw, 32px) clamp(16px, 4vw, 32px) 0;
+}
+
+.tp-page-title {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+}
+
+/* ===== Общий toast-регион app-shell ===== */
+
+#app-shell-toast-region {
+  position: fixed;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+  max-width: min(92vw, 480px);
+}
+
+#app-shell-toast-region .shell-toast {
+  padding: 10px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  color: var(--fg);
+  font-size: var(--fs-sm);
+}
+
+/* На странице профиля глобальную шапку даёт app-shell, а не разметка ветки */
+body.profile-surface .profile-global-header {
+  display: none !important;
+}
+
+/* ===== Оформление: глобальные data-attributes на documentElement ===== */
+
+html[data-font-scale="large"] {
+  font-size: 112.5%;
+}
+
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+html[data-contrast="high"] body {
+  --border: var(--border-strong, #55627a);
+  --fg-secondary: var(--fg);
+}
+
+html[data-density="compact"] body {
+  --control-h-md: var(--control-h-sm, 32px);
+  line-height: var(--lh-snug);
+}

@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Core Flow · Тревел-помощник</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="core-flow-shared.css" />
+  <link rel="stylesheet" href="trip-monitoring.css" />
+  <link rel="stylesheet" href="trip-messages.css" />
+  <style>
+    :root {
+      --bg: #0e141c;
+      --bg-elevated: #121a24;
+      --surface: #171f2b;
+      --surface-2: #1d2736;
+      --surface-3: #243142;
+      --surface-hover: #2a384c;
+      --fg: #f2f5f8;
+      --fg-secondary: #a8b3c2;
+      --muted: #7a8799;
+      --fg-inverse: #0e141c;
+      --border: #2a3648;
+      --border-strong: #3a4a60;
+      --border-focus: #3db8c5;
+      --accent: #3db8c5;
+      --accent-hover: #4fc8d4;
+      --accent-soft: rgba(61, 184, 197, 0.12);
+      --accent-muted: rgba(61, 184, 197, 0.22);
+      --success: #2fbb6a;
+      --success-soft: rgba(47, 187, 106, 0.14);
+      --warning: #d9a441;
+      --warning-soft: rgba(217, 164, 65, 0.14);
+      --danger: #d94b4b;
+      --danger-hover: #e35c5c;
+      --danger-soft: rgba(217, 75, 75, 0.14);
+      --info: #5b9fd4;
+      --info-soft: rgba(91, 159, 212, 0.14);
+      --overlay: rgba(6, 10, 16, 0.72);
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.32);
+      --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.42);
+      --font-sans: "Segoe UI", Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", Consolas, monospace;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 18px;
+      --radius-full: 9999px;
+      --touch-min: 44px;
+      --app-max: 1200px;
+      --header-h: 56px;
+      color-scheme: dark;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+
+    [data-app-environment="production"] [data-development-only="true"] {
+      display: none !important;
+    }
+
+    .coreflow-preview-app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .coreflow-preview-appbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      height: var(--header-h);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(14, 20, 28, 0.92);
+      backdrop-filter: blur(10px);
+    }
+
+    .coreflow-preview-brand,
+    .coreflow-preview-actions,
+    .coreflow-preview-participants,
+    .coreflow-preview-badges {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .coreflow-preview-brand {
+      color: var(--fg);
+      font-weight: 650;
+      text-decoration: none;
+    }
+
+    .coreflow-preview-brand-mark {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--accent-muted);
+      border-radius: 8px;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .coreflow-preview-page {
+      width: min(100%, var(--app-max));
+      margin: 0 auto;
+      padding: 20px 20px 72px;
+      flex: 1;
+    }
+
+    .coreflow-preview-trip {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+
+    .coreflow-preview-mobile-toggle {
+      display: none;
+      width: 100%;
+      min-height: var(--touch-min);
+      justify-content: space-between;
+      align-items: center;
+      margin: 0 0 8px;
+      padding: 0 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      color: var(--fg);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .coreflow-preview-back {
+      display: inline-flex;
+      min-height: 36px;
+      align-items: center;
+      color: var(--fg-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .coreflow-preview-trip h1 {
+      margin: 0 0 8px;
+      font-size: clamp(24px, 3vw, 32px);
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+
+    .coreflow-preview-route {
+      margin: 0 0 12px;
+      color: var(--fg-secondary);
+    }
+
+    .coreflow-preview-avatar {
+      width: 34px;
+      height: 34px;
+      display: inline-grid;
+      place-items: center;
+      margin-left: -8px;
+      border: 2px solid var(--bg);
+      border-radius: 50%;
+      background: #2a4a5c;
+      color: #9ed4e8;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .coreflow-preview-avatar:first-of-type { margin-left: 0; }
+    .coreflow-preview-avatar--b { background: #3a3a5c; color: #c4c4f0; }
+    .coreflow-preview-avatar--c { background: #3a4a3a; color: #b8d9b8; }
+    .coreflow-preview-avatar--d { background: #4a3a3a; color: #e0b8b8; }
+
+    .coreflow-preview-tabs {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .coreflow-preview-tabs::-webkit-scrollbar { display: none; }
+
+    .coreflow-preview-tab {
+      position: relative;
+      min-height: 44px;
+      flex: 0 0 auto;
+      padding: 0 16px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 550;
+      cursor: pointer;
+    }
+
+    .coreflow-preview-tab[aria-current="page"] {
+      color: var(--fg);
+      font-weight: 700;
+    }
+
+    .coreflow-preview-tab[aria-current="page"]::after {
+      content: "";
+      position: absolute;
+      right: 12px;
+      bottom: 0;
+      left: 12px;
+      height: 2px;
+      background: var(--accent);
+    }
+
+    .coreflow-preview-dev {
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg-elevated);
+    }
+
+    .coreflow-preview-dev summary {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 14px;
+      color: var(--fg-secondary);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .coreflow-preview-dev-body {
+      display: grid;
+      gap: 12px;
+      padding: 0 14px 14px;
+    }
+
+    .coreflow-preview-dev fieldset {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+
+    .coreflow-preview-dev legend {
+      padding: 0 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .coreflow-preview-dev label,
+    .coreflow-preview-dev button {
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-full);
+      background: var(--surface);
+      color: var(--fg-secondary);
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .coreflow-preview-sos {
+      position: fixed;
+      right: max(16px, env(safe-area-inset-right));
+      bottom: max(16px, env(safe-area-inset-bottom));
+      z-index: 55;
+      width: 64px;
+      height: 64px;
+      min-width: 64px;
+      min-height: 64px;
+      flex: 0 0 auto;
+      padding: 0;
+      border-radius: 50%;
+      box-shadow: var(--shadow-lg);
+    }
+
+    @media (max-width: 820px) {
+      .coreflow-preview-page { padding: 16px 12px max(136px, calc(104px + env(safe-area-inset-bottom))); }
+      .coreflow-preview-trip { flex-direction: column; }
+      .coreflow-preview-participants { justify-content: flex-start; }
+    }
+
+    @media (max-width: 719px) {
+      .coreflow-preview-mobile-toggle {
+        display: flex;
+      }
+
+      .coreflow-preview-tabs {
+        display: none;
+      }
+
+      .coreflow-preview-tabs.mobile-open {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        margin-bottom: 20px;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+      }
+
+      .coreflow-preview-tabs.mobile-open .coreflow-preview-tab {
+        width: 100%;
+        justify-content: flex-start;
+        text-align: left;
+        border-radius: var(--radius-sm);
+      }
+
+      .coreflow-preview-tabs.mobile-open .coreflow-preview-tab[aria-current="page"] {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .coreflow-preview-tabs.mobile-open .coreflow-preview-tab[aria-current="page"]::after {
+        display: none;
+      }
+
+      .coreflow-preview-sos {
+        right: max(16px, env(safe-area-inset-right));
+        bottom: max(16px, env(safe-area-inset-bottom));
+        width: 64px;
+        height: 64px;
+        min-width: 64px;
+        min-height: 64px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="coreflow-preview-app coreflow-theme-scope app" data-app-environment="development">
+    <header class="coreflow-preview-appbar app-header" data-od-id="coreflow-preview-appbar">
+      <a class="coreflow-preview-brand" href="../trip-overview.html" aria-label="Тревел-помощник">
+        <span class="coreflow-preview-brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" class="coreflow-icon"><path d="M12 3l7 3v5c0 4.2-2.6 7.8-7 10-4.4-2.2-7-5.8-7-10V6l7-3z"/><path d="M9 12l2 2 4-5"/></svg>
+        </span>
+        <span>Тревел-помощник</span>
+      </a>
+      <div class="coreflow-preview-actions">
+        <button class="coreflow-button coreflow-button--icon" type="button" aria-label="Уведомления">○</button>
+        <span class="coreflow-preview-avatar">А</span>
+      </div>
+    </header>
+
+    <div class="coreflow-preview-page page">
+      <section class="coreflow-preview-trip trip-header" data-od-id="coreflow-preview-trip-header">
+        <div>
+          <a class="coreflow-preview-back" href="../trip-overview.html">‹ Главная</a>
+          <h1>Отпуск в Турции</h1>
+          <p class="coreflow-preview-route">Сыктывкар → Москва → Анталья · 19–25 июля 2026</p>
+          <div class="coreflow-preview-badges">
+            <span class="coreflow-badge coreflow-badge--success">Активная</span>
+            <span id="coreflow-preview-role-badge" class="coreflow-badge coreflow-badge--accent">Организатор</span>
+          </div>
+        </div>
+        <div class="coreflow-preview-participants" aria-label="Участники">
+          <span class="coreflow-muted">Участники</span>
+          <span class="coreflow-preview-avatar">Ар</span>
+          <span class="coreflow-preview-avatar coreflow-preview-avatar--b">Ст</span>
+          <span class="coreflow-preview-avatar coreflow-preview-avatar--c">Ан</span>
+          <span class="coreflow-preview-avatar coreflow-preview-avatar--d">Ми</span>
+        </div>
+      </section>
+
+      <button id="coreflow-preview-mobile-toggle" class="coreflow-preview-mobile-toggle" type="button" aria-expanded="false" aria-controls="coreflow-preview-tabs">
+        <span id="coreflow-preview-mobile-label">Раздел: Мониторинг</span>
+        <span aria-hidden="true">⌄</span>
+      </button>
+      <nav id="coreflow-preview-tabs" class="coreflow-preview-tabs desktop-tabs" aria-label="Разделы поездки">
+        <button class="coreflow-preview-tab" type="button" disabled>Обзор</button>
+        <button class="coreflow-preview-tab" type="button" disabled>Маршрут</button>
+        <button class="coreflow-preview-tab" type="button" disabled>Документы</button>
+        <button class="coreflow-preview-tab" type="button" disabled>Участники</button>
+        <button id="coreflow-preview-tab-monitoring" class="coreflow-preview-tab" type="button" data-coreflow-preview-tab="monitoring" aria-current="page">Мониторинг</button>
+        <button id="coreflow-preview-tab-messages" class="coreflow-preview-tab" type="button" data-coreflow-preview-tab="messages">Сообщения</button>
+        <button class="coreflow-preview-tab" type="button" disabled>Настройки</button>
+      </nav>
+
+      <details class="coreflow-preview-dev" data-development-only="true" data-od-id="coreflow-preview-development">
+        <summary>
+          <span>Демо-режим</span>
+          <span id="coreflow-preview-dev-summary">Роль: Организатор · Сценарий: Обычный</span>
+        </summary>
+        <div class="coreflow-preview-dev-body">
+          <fieldset>
+            <legend>Роль</legend>
+            <label><input type="radio" name="coreflow-preview-role" value="organizer" checked /> Организатор</label>
+            <label><input type="radio" name="coreflow-preview-role" value="participant" /> Участник</label>
+          </fieldset>
+          <fieldset>
+            <legend>Окружение</legend>
+            <label><input type="radio" name="coreflow-preview-environment" value="development" checked /> development</label>
+            <label><input type="radio" name="coreflow-preview-environment" value="production" /> production</label>
+          </fieldset>
+          <fieldset>
+            <legend>Сценарий</legend>
+            <button type="button" data-coreflow-scenario="normal">Обычный</button>
+            <button type="button" data-coreflow-scenario="loading">Загрузка</button>
+            <button type="button" data-coreflow-scenario="empty">Пустое состояние</button>
+            <button type="button" data-coreflow-scenario="error">Ошибка</button>
+            <button type="button" data-coreflow-scenario="offline">Офлайн</button>
+            <button type="button" data-coreflow-scenario="stale">Данные устарели</button>
+            <button type="button" data-coreflow-scenario="sourceDown">Источник недоступен</button>
+            <button type="button" data-coreflow-scenario="sos">Входящий SOS</button>
+            <button type="button" data-coreflow-scenario="review">Нужна проверка</button>
+            <button type="button" data-coreflow-scenario="violation">Нарушение подтверждено</button>
+            <button type="button" data-coreflow-scenario="planBReady">Три Plan B готовы</button>
+            <button type="button" data-coreflow-scenario="planBSelected">Plan B выбран</button>
+            <button type="button" data-coreflow-scenario="draftCreated">Черновик создан</button>
+            <button type="button" data-coreflow-scenario="messageSent">Сообщение отправлено</button>
+            <button type="button" data-coreflow-scenario="completed">Завершённая поездка</button>
+            <button type="button" data-coreflow-scenario="noAccess">Нет доступа</button>
+          </fieldset>
+          <button id="coreflow-preview-reset" type="button">Сбросить демо-данные</button>
+        </div>
+      </details>
+
+      <section id="coreflow-preview-panel-monitoring" class="coreflow-preview-panel" data-preview-panel="monitoring">
+        <section id="monitoring-surface" class="monitoring-surface coreflow-component" data-feature="trip-monitoring" data-od-id="monitoring-surface">
+          <div class="monitoring-top" data-od-id="monitoring-top">
+            <div class="monitoring-title-block">
+              <h2 id="monitoring-title">Мониторинг</h2>
+              <p>Состояние маршрута, сигналы и возможные нарушения</p>
+            </div>
+            <div class="monitoring-status-strip" aria-label="Статус мониторинга">
+              <span id="monitoring-status" class="coreflow-badge coreflow-badge--warning">Требует внимания</span>
+              <span id="monitoring-updated" class="monitoring-meta">Обновлено 19 июля, 13:48</span>
+              <span id="monitoring-source" class="monitoring-meta">Демонстрационный источник</span>
+              <button id="monitoring-refresh" class="coreflow-button coreflow-button--primary" type="button" data-monitoring-action="refresh">Обновить</button>
+            </div>
+          </div>
+          <div id="monitoring-live-region" class="coreflow-sr-only" aria-live="polite"></div>
+          <div id="monitoring-content" data-od-id="monitoring-content"></div>
+        </section>
+      </section>
+
+      <section id="coreflow-preview-panel-messages" class="coreflow-preview-panel" data-preview-panel="messages" hidden>
+        <section id="messages-surface" class="messages-surface coreflow-component" data-feature="trip-messages" data-od-id="messages-surface">
+          <div class="messages-top" data-od-id="messages-top">
+            <div class="messages-title-block">
+              <h2 id="messages-title">Сообщения</h2>
+              <p>История сообщений, черновиков и действий по поездке</p>
+            </div>
+            <button id="messages-create" class="coreflow-button coreflow-button--primary" type="button">Создать сообщение</button>
+          </div>
+          <div id="messages-live-region" class="coreflow-sr-only" aria-live="polite"></div>
+          <div id="messages-content" data-od-id="messages-content"></div>
+        </section>
+      </section>
+    </div>
+
+    <button id="coreflow-preview-global-sos" class="coreflow-button coreflow-button--danger coreflow-preview-sos" type="button" aria-label="SOS">SOS</button>
+    <div id="coreflow-shared-modal-root" class="coreflow-modal-root" aria-live="polite"></div>
+    <div id="coreflow-shared-toast-root" class="coreflow-toast-root" aria-live="polite"></div>
+  </div>
+
+  <script src="core-flow-state-adapter.js"></script>
+  <script src="trip-monitoring.js"></script>
+  <script src="trip-messages.js"></script>
+  <script>
+    const coreFlowPreviewAdapter = window.coreFlowCreateStateAdapter({
+      modalRoot: document.getElementById("coreflow-shared-modal-root"),
+      toastRoot: document.getElementById("coreflow-shared-toast-root")
+    });
+    window.coreFlowPreviewAdapter = coreFlowPreviewAdapter;
+
+    const coreFlowPreviewMonitoringRoot = document.querySelector("[data-feature='trip-monitoring']");
+    const coreFlowPreviewMessagesRoot = document.querySelector("[data-feature='trip-messages']");
+    window.monitoringInit(coreFlowPreviewMonitoringRoot, coreFlowPreviewAdapter);
+    window.messagesInit(coreFlowPreviewMessagesRoot, coreFlowPreviewAdapter);
+
+    function coreFlowPreviewSyncChrome() {
+      const coreFlowPreviewState = coreFlowPreviewAdapter.getState();
+      const coreFlowPreviewNoAccess = coreFlowPreviewState.accessState !== "granted";
+      document.getElementById("coreflow-preview-role-badge").textContent = coreFlowPreviewState.role === "organizer" ? "Организатор" : "Участник";
+      document.getElementById("coreflow-preview-dev-summary").textContent = "Роль: " + (coreFlowPreviewState.role === "organizer" ? "Организатор" : "Участник") + " · Сценарий: " + coreFlowPreviewAdapter.getScenarioLabel(coreFlowPreviewState.scenario);
+      document.querySelector(".coreflow-preview-trip").hidden = coreFlowPreviewNoAccess;
+      document.querySelector(".coreflow-preview-tabs").hidden = coreFlowPreviewNoAccess;
+      document.getElementById("coreflow-preview-mobile-toggle").hidden = coreFlowPreviewNoAccess;
+      document.getElementById("coreflow-preview-global-sos").hidden = coreFlowPreviewNoAccess;
+      document.getElementById("coreflow-preview-global-sos").disabled = coreFlowPreviewState.networkState === "offline" || (coreFlowPreviewState.trip && coreFlowPreviewState.trip.status === "completed");
+      document.querySelectorAll("input[name='coreflow-preview-role']").forEach((coreFlowPreviewInput) => {
+        coreFlowPreviewInput.checked = coreFlowPreviewInput.value === coreFlowPreviewState.role;
+      });
+      document.querySelectorAll("input[name='coreflow-preview-environment']").forEach((coreFlowPreviewInput) => {
+        coreFlowPreviewInput.checked = coreFlowPreviewInput.value === document.querySelector(".coreflow-preview-app").dataset.appEnvironment;
+      });
+    }
+
+    function coreFlowPreviewShowTab(coreFlowPreviewTab) {
+      document.querySelectorAll("[data-preview-panel]").forEach((coreFlowPreviewPanel) => {
+        coreFlowPreviewPanel.hidden = coreFlowPreviewPanel.dataset.previewPanel !== coreFlowPreviewTab;
+      });
+      document.querySelectorAll("[data-coreflow-preview-tab]").forEach((coreFlowPreviewButton) => {
+        if (coreFlowPreviewButton.dataset.coreflowPreviewTab === coreFlowPreviewTab) {
+          coreFlowPreviewButton.setAttribute("aria-current", "page");
+        } else {
+          coreFlowPreviewButton.removeAttribute("aria-current");
+        }
+      });
+      document.getElementById("coreflow-preview-mobile-label").textContent = "Раздел: " + (coreFlowPreviewTab === "messages" ? "Сообщения" : "Мониторинг");
+      document.getElementById("coreflow-preview-tabs").classList.remove("mobile-open");
+      document.getElementById("coreflow-preview-mobile-toggle").setAttribute("aria-expanded", "false");
+    }
+
+    document.querySelectorAll("[data-coreflow-preview-tab]").forEach((coreFlowPreviewButton) => {
+      coreFlowPreviewButton.addEventListener("click", () => coreFlowPreviewShowTab(coreFlowPreviewButton.dataset.coreflowPreviewTab));
+    });
+    document.querySelectorAll("input[name='coreflow-preview-role']").forEach((coreFlowPreviewInput) => {
+      coreFlowPreviewInput.addEventListener("change", () => coreFlowPreviewAdapter.setRole(coreFlowPreviewInput.value));
+    });
+    document.querySelectorAll("input[name='coreflow-preview-environment']").forEach((coreFlowPreviewInput) => {
+      coreFlowPreviewInput.addEventListener("change", () => {
+        document.querySelector(".coreflow-preview-app").dataset.appEnvironment = coreFlowPreviewInput.value;
+        coreFlowPreviewSyncChrome();
+      });
+    });
+    document.querySelectorAll("[data-coreflow-scenario]").forEach((coreFlowPreviewButton) => {
+      coreFlowPreviewButton.addEventListener("click", () => coreFlowPreviewAdapter.setScenario(coreFlowPreviewButton.dataset.coreflowScenario));
+    });
+    document.getElementById("coreflow-preview-reset").addEventListener("click", () => {
+      coreFlowPreviewAdapter.resetDemoData();
+      coreFlowPreviewShowTab("monitoring");
+    });
+    document.getElementById("coreflow-preview-mobile-toggle").addEventListener("click", () => {
+      const nav = document.getElementById("coreflow-preview-tabs");
+      const expanded = !nav.classList.contains("mobile-open");
+      nav.classList.toggle("mobile-open", expanded);
+      document.getElementById("coreflow-preview-mobile-toggle").setAttribute("aria-expanded", String(expanded));
+    });
+    document.getElementById("coreflow-preview-global-sos").addEventListener("click", () => window.coreFlowOpenSos({ source: "preview-global-sos" }));
+
+    coreFlowPreviewAdapter.subscribe(coreFlowPreviewSyncChrome);
+    const coreFlowPreviewParams = new URLSearchParams(window.location.search);
+    document.querySelector(".coreflow-preview-app").dataset.appEnvironment = coreFlowPreviewParams.get("environment") || "development";
+    coreFlowPreviewAdapter.setRole(coreFlowPreviewParams.get("role") || "organizer", { silent: true, participantId: coreFlowPreviewParams.get("participant") || "anna" });
+    coreFlowPreviewAdapter.setScenario(coreFlowPreviewParams.get("scenario") || "normal", { silent: true });
+    if (coreFlowPreviewParams.get("message")) {
+      coreFlowPreviewAdapter.selectMessage(coreFlowPreviewParams.get("message"));
+    }
+    if (coreFlowPreviewParams.get("mobile")) {
+      coreFlowPreviewAdapter.setMobileMessageMode(coreFlowPreviewParams.get("mobile"));
+    }
+    coreFlowPreviewShowTab(coreFlowPreviewParams.get("tab") || "monitoring");
+    coreFlowPreviewSyncChrome();
+    coreFlowPreviewAdapter.notify("preview-ready");
+    if (coreFlowPreviewParams.get("modal") === "messageEditor") {
+      window.coreFlowOpenMessageDraft({ messageId: coreFlowPreviewParams.get("message") || "" });
+    }
+    if (coreFlowPreviewParams.get("modal") === "planConfirm") {
+      requestAnimationFrame(() => {
+        const planButton = document.querySelector("[data-monitoring-action='plan-select'][data-plan-id='plan-b']");
+        if (planButton) planButton.click();
+      });
+    }
+  </script>
+</body>
+</html>

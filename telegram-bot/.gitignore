@@ -1,0 +1,31 @@
+# secrets
+.env
+*.local.env
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# bot technical state
+bot_state.db
+bot_state.db-*
+*.sqlite3
+
+# logs
+logs/
+*.log
+bot.pid
+
+# os / ide
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

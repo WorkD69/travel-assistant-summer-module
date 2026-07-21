@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "travel-assistant-final-polished/trip-overview.html",
+  "entry": "travel-assistant-final-polished/trip-overview.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-07-19T23:21:25.705Z",
+  "updatedAt": "2026-07-19T23:21:25.705Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

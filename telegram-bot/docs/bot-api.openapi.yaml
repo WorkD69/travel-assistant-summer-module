@@ -1,0 +1,697 @@
+openapi: 3.1.0
+info:
+  title: Travel Assistant Telegram Bot API
+  version: 1.0.0
+  description: >-
+    Неизменяемый REST-контракт между Telegram-ботом и общим backend.
+    Бот передаёт service token и, для пользовательских операций,
+    X-Telegram-User-Id. Ролевые ограничения указаны в x-roles.
+servers:
+  - url: http://localhost:8000
+    description: Локальный backend команды
+tags:
+  - name: Linking
+  - name: Trips
+  - name: Documents
+  - name: SOS
+  - name: Notifications
+  - name: Assistant
+x-service-security: &serviceSecurity
+  - ServiceToken: []
+x-error-response: &errorResponse
+  description: Ошибка с безопасным сообщением и машинным кодом
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/ErrorEnvelope'
+      example:
+        error:
+          code: access_denied
+          message_ru: Недостаточно прав для этого действия.
+
+paths:
+  /api/integrations/telegram/link-token/consume:
+    post:
+      tags: [Linking]
+      summary: Одноразово привязать Telegram к аккаунту сайта
+      operationId: consumeTelegramLinkToken
+      security: *serviceSecurity
+      x-roles: [unlinked_user]
+      parameters:
+        - $ref: '#/components/parameters/TelegramUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LinkTokenConsumeRequest'}
+            example: {token: demo-artem}
+      responses:
+        '200':
+          description: Аккаунт привязан
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LinkResult'}
+              example: {site_user_id: u-artem, name: Артём, relinked: false}
+        default: *errorResponse
+  /api/integrations/telegram:
+    delete:
+      tags: [Linking]
+      summary: Отвязать текущий Telegram
+      operationId: unlinkTelegram
+      security: *serviceSecurity
+      x-roles: [organizer, participant, viewer]
+      parameters:
+        - $ref: '#/components/parameters/TelegramUserId'
+      responses:
+        '204': {description: Привязка удалена}
+        default: *errorResponse
+  /api/bot/me:
+    get:
+      tags: [Linking]
+      summary: Получить привязанный профиль
+      operationId: getBotMe
+      security: *serviceSecurity
+      x-roles: [organizer, participant, viewer]
+      parameters:
+        - $ref: '#/components/parameters/TelegramUserId'
+      responses:
+        '200':
+          description: Профиль
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BotUser'}
+              example: {site_user_id: u-anna, name: Анна, email: anna@example.test, active_trip_id: t-turkey}
+        default: *errorResponse
+  /api/bot/trips:
+    get:
+      tags: [Trips]
+      summary: Доступные незавершённые поездки и приглашения
+      operationId: listBotTrips
+      security: *serviceSecurity
+      x-roles: [organizer, participant, viewer]
+      parameters:
+        - $ref: '#/components/parameters/TelegramUserId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Страница поездок
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TripPage'}
+              example: {items: [], next_cursor: null}
+        default: *errorResponse
+  /api/bot/trips/history:
+    get:
+      tags: [Trips]
+      summary: Завершённые поездки
+      operationId: listBotTripHistory
+      security: *serviceSecurity
+      x-roles: [organizer, participant, viewer]
+      parameters:
+        - $ref: '#/components/parameters/TelegramUserId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Страница завершённых поездок
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TripPage'}
+              example: {items: [], next_cursor: null}
+        default: *errorResponse
+  /api/bot/trips/{trip_id}:
+    get:
+      tags: [Trips]
+      summary: Поездка с ролью текущего пользователя
+      operationId: getBotTrip
+      security: *serviceSecurity
+      x-roles: [organizer, participant, viewer]
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+        - $ref: '#/components/parameters/TelegramUserId'
+      responses:
+        '200':
+          description: Поездка
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Trip'}
+        default: *errorResponse
+  /api/bot/trips/{trip_id}/select-active:
+    post:
+      tags: [Trips]
+      summary: Выбрать активную поездку для команд бота
+      operationId: selectActiveBotTrip
+      security: *serviceSecurity
+      x-roles: [organizer, participant]
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+        - $ref: '#/components/parameters/TelegramUserId'
+      responses:
+        '204': {description: Активная поездка сохранена}
+        default: *errorResponse
+  /api/bot/trips/{trip_id}/today:
+    get:
+      tags: [Trips]
+      summary: События локального дня поездки
+      operationId: getBotTripToday
+      security: *serviceSecurity
+      x-roles: [organizer, participant, viewer]
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+        - $ref: '#/components/parameters/TelegramUserId'
+      responses:
+        '200':
+          description: События дня
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/TripEvent'}}
+              example: {items: []}
+        default: *errorResponse
+  /api/bot/trips/{trip_id}/next:
+    get:
+      tags: [Trips]
+      summary: Ближайшее будущее событие
+      operationId: getBotTripNextEvent
+      security: *serviceSecurity
+      x-roles: [organizer, participant, viewer]
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+        - $ref: '#/components/parameters/TelegramUserId'
+      responses:
+        '200':
+          description: Событие или null
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [event]
+                properties:
+                  event:
+                    oneOf:
+                      - {$ref: '#/components/schemas/TripEvent'}
+                      - {type: 'null'}
+              example: {event: null}
+        default: *errorResponse
+  /api/bot/trips/{trip_id}/documents:
+    get:
+      tags: [Documents]
+      summary: Только разрешённые текущему пользователю документы
+      operationId: listBotTripDocuments
+      security: *serviceSecurity
+      x-roles: [organizer, participant, viewer]
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+        - $ref: '#/components/parameters/TelegramUserId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Страница документов
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DocumentPage'}
+              example: {items: [], next_cursor: null}
+        default: *errorResponse
+  /api/bot/documents/{document_id}/temporary-link:
+    post:
+      tags: [Documents]
+      summary: Короткоживущая ссылка на разрешённый документ
+      operationId: createBotDocumentTemporaryLink
+      security: *serviceSecurity
+      x-roles: [organizer, participant, viewer]
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+        - $ref: '#/components/parameters/TelegramUserId'
+      responses:
+        '200':
+          description: Временная ссылка
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TemporaryDocumentLink'}
+              example: {url: 'https://files.example.test/download/opaque', filename: ticket.pdf, title: Билет}
+        default: *errorResponse
+  /api/bot/trips/{trip_id}/messages:
+    get:
+      tags: [Trips]
+      summary: Опубликованные сообщения и План Б
+      operationId: listBotTripMessages
+      security: *serviceSecurity
+      x-roles: [organizer, participant, viewer]
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+        - $ref: '#/components/parameters/TelegramUserId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Страница сообщений
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MessagePage'}
+              example: {items: [], next_cursor: null}
+        default: *errorResponse
+  /api/bot/trips/{trip_id}/sos:
+    post:
+      tags: [SOS]
+      summary: Создать SOS пользователя
+      operationId: createBotSos
+      security: *serviceSecurity
+      x-roles: [organizer, participant]
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+        - $ref: '#/components/parameters/TelegramUserId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateSosRequest'}
+            example: {segment_id: e-transfer, category: transport, description: Трансфер не приехал}
+      responses:
+        '201':
+          description: SOS создан или возвращён по idempotency key
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SosTicket'}
+        default: *errorResponse
+  /api/bot/trips/{trip_id}/sos/mine:
+    get:
+      tags: [SOS]
+      summary: Собственные SOS пользователя
+      operationId: listMyBotSos
+      security: *serviceSecurity
+      x-roles: [organizer, participant]
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+        - $ref: '#/components/parameters/TelegramUserId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Страница SOS
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SosPage'}
+              example: {items: [], next_cursor: null}
+        default: *errorResponse
+  /api/bot/sos/{sos_id}:
+    get:
+      tags: [SOS]
+      summary: Собственный SOS по идентификатору
+      operationId: getMyBotSos
+      security: *serviceSecurity
+      x-roles: [organizer, participant]
+      parameters:
+        - $ref: '#/components/parameters/SosId'
+        - $ref: '#/components/parameters/TelegramUserId'
+      responses:
+        '200':
+          description: SOS
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SosTicket'}
+        default: *errorResponse
+  /api/bot/notification-preferences:
+    get:
+      tags: [Notifications]
+      summary: Настройки уведомлений пользователя
+      operationId: getBotNotificationPreferences
+      security: *serviceSecurity
+      x-roles: [organizer, participant, viewer]
+      parameters:
+        - $ref: '#/components/parameters/TelegramUserId'
+      responses:
+        '200':
+          description: Настройки
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/NotificationPreferences'}
+        default: *errorResponse
+    patch:
+      tags: [Notifications]
+      summary: Частично обновить настройки уведомлений
+      operationId: updateBotNotificationPreferences
+      security: *serviceSecurity
+      x-roles: [organizer, participant, viewer]
+      parameters:
+        - $ref: '#/components/parameters/TelegramUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/NotificationPreferencesPatch'}
+            example: {delays_cancellations: true, timezone: Europe/Moscow}
+      responses:
+        '200':
+          description: Обновлённые настройки
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/NotificationPreferences'}
+        default: *errorResponse
+  /api/bot/notifications/pending:
+    get:
+      tags: [Notifications]
+      summary: Очередь событий для polling-диспетчера бота
+      operationId: listPendingBotNotifications
+      security: *serviceSecurity
+      x-roles: [service]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Страница уведомлений
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/NotificationPage'}
+              example: {items: [], next_cursor: null}
+        default: *errorResponse
+  /api/bot/notifications/{notification_id}/delivered:
+    post:
+      tags: [Notifications]
+      summary: Подтвердить доставку в Telegram
+      operationId: confirmBotNotificationDelivered
+      security: *serviceSecurity
+      x-roles: [service]
+      parameters:
+        - $ref: '#/components/parameters/NotificationId'
+      responses:
+        '204': {description: Доставка подтверждена идемпотентно}
+        default: *errorResponse
+  /api/bot/notifications/{notification_id}/failed:
+    post:
+      tags: [Notifications]
+      summary: Зафиксировать неуспешную доставку
+      operationId: markBotNotificationFailed
+      security: *serviceSecurity
+      x-roles: [service]
+      parameters:
+        - $ref: '#/components/parameters/NotificationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reason]
+              properties:
+                reason: {type: string, maxLength: 500}
+            example: {reason: bot_blocked}
+      responses:
+        '204': {description: Ошибка зафиксирована идемпотентно}
+        default: *errorResponse
+  /api/bot/trips/{trip_id}/assistant-context:
+    get:
+      tags: [Assistant]
+      summary: Разрешённый минимальный контекст AI для пользователя
+      operationId: getBotAssistantContext
+      security: *serviceSecurity
+      x-roles: [organizer, participant, viewer]
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+        - $ref: '#/components/parameters/TelegramUserId'
+      responses:
+        '200':
+          description: Контекст, уже отфильтрованный backend по роли
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AssistantContext'}
+        default: *errorResponse
+
+components:
+  securitySchemes:
+    ServiceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: service-token
+      description: Служебный токен Telegram-бота; не является JWT пользователя сайта.
+  parameters:
+    TelegramUserId:
+      name: X-Telegram-User-Id
+      in: header
+      required: true
+      description: Числовой Telegram user_id инициатора запроса.
+      schema: {type: integer, format: int64, minimum: 1}
+      example: 222
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema: {type: string, maxLength: 500}
+      description: Непрозрачный курсор следующей страницы.
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 16, maxLength: 100}
+      example: 12f7c681-29c7-4c30-83f2-9d2dfba241a8
+    TripId:
+      name: trip_id
+      in: path
+      required: true
+      schema: {type: string, minLength: 1}
+      example: t-turkey
+    DocumentId:
+      name: document_id
+      in: path
+      required: true
+      schema: {type: string, minLength: 1}
+      example: d-tickets
+    SosId:
+      name: sos_id
+      in: path
+      required: true
+      schema: {type: string, minLength: 1}
+      example: s-100
+    NotificationId:
+      name: notification_id
+      in: path
+      required: true
+      schema: {type: string, minLength: 1}
+      example: n-100
+  schemas:
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message_ru]
+          properties:
+            code:
+              type: string
+              enum: [not_linked, access_denied, not_found, link_token_invalid, link_token_expired, link_token_used, link_conflict, rate_limited, validation_error, internal_error]
+            message_ru: {type: string}
+            request_id: {type: [string, 'null']}
+    LinkTokenConsumeRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token: {type: string, minLength: 8, maxLength: 256}
+    LinkResult:
+      type: object
+      additionalProperties: false
+      required: [site_user_id, name, relinked]
+      properties:
+        site_user_id: {type: string}
+        name: {type: string}
+        relinked: {type: boolean}
+    BotUser:
+      type: object
+      additionalProperties: false
+      required: [site_user_id, name, email, active_trip_id]
+      properties:
+        site_user_id: {type: string}
+        name: {type: string}
+        email: {type: string, format: email}
+        active_trip_id: {type: [string, 'null']}
+    Trip:
+      type: object
+      additionalProperties: false
+      required: [id, title, route, date_start, date_end, timezone, status, role, membership_status]
+      properties:
+        id: {type: string}
+        title: {type: string}
+        route: {type: string}
+        date_start: {type: string, format: date}
+        date_end: {type: string, format: date}
+        timezone: {type: string, example: Europe/Istanbul}
+        status: {type: string, enum: [draft, planned, active, finished]}
+        role: {type: string, enum: [organizer, participant, viewer]}
+        membership_status: {type: string, enum: [member, invited, revoked]}
+    TripEvent:
+      type: object
+      additionalProperties: false
+      required: [id, trip_id, type, title, starts_at, status]
+      properties:
+        id: {type: string}
+        trip_id: {type: string}
+        type: {type: string, enum: [flight, train, bus, transfer, checkin, checkout, activity, manual]}
+        title: {type: string}
+        starts_at: {type: string, format: date-time}
+        ends_at: {type: [string, 'null'], format: date-time}
+        departure_place: {type: string, default: ''}
+        arrival_place: {type: string, default: ''}
+        status: {type: string, enum: [scheduled, changed, delayed, cancelled, completed]}
+        note: {type: string, default: ''}
+        document_id: {type: [string, 'null']}
+        document_title: {type: string, default: ''}
+    TripDocument:
+      type: object
+      additionalProperties: false
+      required: [id, trip_id, title, uploaded_at, visibility, revoked, deleted]
+      properties:
+        id: {type: string}
+        trip_id: {type: string}
+        title: {type: string}
+        doc_type: {type: string}
+        segment_title: {type: string}
+        uploaded_at: {type: string, format: date-time}
+        visibility: {type: string, enum: [all, organizer_only, personal]}
+        owner_user_id: {type: [string, 'null']}
+        revoked: {type: boolean}
+        deleted: {type: boolean}
+    TemporaryDocumentLink:
+      type: object
+      additionalProperties: false
+      required: [url]
+      properties:
+        url: {type: string, format: uri}
+        filename: {type: [string, 'null']}
+        title: {type: string, default: Документ поездки}
+    OrganizerMessage:
+      type: object
+      additionalProperties: false
+      required: [id, trip_id, title, text, author_name, created_at, is_plan_b]
+      properties:
+        id: {type: string}
+        trip_id: {type: string}
+        title: {type: string}
+        text: {type: string}
+        author_name: {type: string}
+        created_at: {type: string, format: date-time}
+        segment_title: {type: string}
+        is_plan_b: {type: boolean}
+        audience: {type: string}
+        status: {type: string}
+    CreateSosRequest:
+      type: object
+      additionalProperties: false
+      required: [category, description]
+      properties:
+        segment_id: {type: [string, 'null']}
+        category: {type: string, enum: [late, lost_document, transport, accommodation, need_help, other]}
+        description: {type: string, minLength: 1, maxLength: 2000}
+    SosTicket:
+      type: object
+      additionalProperties: false
+      required: [id, number, trip_id, author_user_id, category, description, status, created_at]
+      properties:
+        id: {type: string}
+        number: {type: string}
+        trip_id: {type: string}
+        author_user_id: {type: string}
+        category: {type: string, enum: [late, lost_document, transport, accommodation, need_help, other]}
+        description: {type: string}
+        status: {type: string, enum: [new, in_review, resolved, rejected]}
+        created_at: {type: string, format: date-time}
+        segment_id: {type: [string, 'null']}
+        segment_title: {type: [string, 'null']}
+    NotificationPreferences:
+      type: object
+      additionalProperties: false
+      properties:
+        segment_reminders: {type: boolean, default: true}
+        time_changes: {type: boolean, default: true}
+        departure_changes: {type: boolean, default: true}
+        delays_cancellations: {type: boolean, default: true}
+        transfer_changes: {type: boolean, default: true}
+        hotel_changes: {type: boolean, default: true}
+        new_documents: {type: boolean, default: true}
+        invitations: {type: boolean, default: true}
+        own_sos: {type: boolean, default: true}
+        violations: {type: boolean, default: true}
+        plan_b: {type: boolean, default: true}
+        organizer_messages: {type: boolean, default: true}
+        quiet_hours_enabled: {type: boolean, default: false}
+        quiet_hours_start: {type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$'}
+        quiet_hours_end: {type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$'}
+        timezone: {type: string, default: Europe/Moscow}
+    NotificationPreferencesPatch:
+      allOf:
+        - {$ref: '#/components/schemas/NotificationPreferences'}
+      minProperties: 1
+    NotificationEvent:
+      type: object
+      additionalProperties: false
+      required: [id, event_id, type, recipient_telegram_id, occurred_at, deep_link_target]
+      properties:
+        id: {type: string}
+        event_id: {type: string, description: Глобальный ключ дедупликации}
+        type: {type: string}
+        recipient_telegram_id: {type: integer, format: int64}
+        trip_id: {type: [string, 'null']}
+        trip_title: {type: string}
+        title: {type: [string, 'null']}
+        what_changed: {type: string}
+        old_value: {type: [string, 'null']}
+        new_value: {type: [string, 'null']}
+        occurred_at: {type: string, format: date-time}
+        source: {type: string}
+        sos_id: {type: [string, 'null']}
+        deep_link_target: {type: string, enum: [home, trip, monitoring, documents, messages, sos]}
+    AssistantContext:
+      type: object
+      additionalProperties: false
+      required: [trip, events, documents, messages, own_sos, recent_changes]
+      properties:
+        trip: {$ref: '#/components/schemas/Trip'}
+        events: {type: array, items: {$ref: '#/components/schemas/TripEvent'}}
+        documents: {type: array, items: {$ref: '#/components/schemas/TripDocument'}}
+        messages: {type: array, items: {$ref: '#/components/schemas/OrganizerMessage'}}
+        own_sos: {type: array, items: {$ref: '#/components/schemas/SosTicket'}}
+        recent_changes: {type: array, items: {type: string}}
+    TripPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/Trip'}}
+        next_cursor: {type: [string, 'null']}
+    DocumentPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/TripDocument'}}
+        next_cursor: {type: [string, 'null']}
+    MessagePage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/OrganizerMessage'}}
+        next_cursor: {type: [string, 'null']}
+    SosPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/SosTicket'}}
+        next_cursor: {type: [string, 'null']}
+    NotificationPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/NotificationEvent'}}
+        next_cursor: {type: [string, 'null']}

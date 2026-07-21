@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Проверка account-страниц · Тревел-помощник</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="account-pages.css" />
+</head>
+<body class="account-preview-surface account-page" data-app-environment="development">
+  <main id="account-preview-root" class="account-preview-shell" data-od-id="account-pages-preview"></main>
+  <script src="account-state-adapter.js"></script>
+  <script>
+    window.AccountRoutesConfig = {
+      home: "account-pages-preview.html#home",
+      trip: "account-pages-preview.html#trip-{tripId}",
+      history: "account-pages-preview.html#history"
+    };
+  </script>
+  <script src="account-routes.js"></script>
+  <script src="account-pages.js"></script>
+  <script>window.accountPreviewInit(document.getElementById("account-preview-root"));</script>
+</body>
+</html>

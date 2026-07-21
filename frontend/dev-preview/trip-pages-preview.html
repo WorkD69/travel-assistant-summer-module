@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Параллельные страницы · Тревел-помощник</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="trip-pages.css" />
+</head>
+<body data-app-environment="development">
+  <main id="preview-root" class="trip-pages-app preview-surface" data-trip-page="preview" data-od-id="preview-surface">
+    <section class="preview-shell" data-od-id="preview-launcher">
+      <div class="preview-head">
+        <div>
+          <p class="context-label">Параллельная ветка</p>
+          <h1>Страницы поездок</h1>
+          <p>Самостоятельные HTML-экраны для главной, истории, просмотра завершённой поездки и мастера создания/редактирования.</p>
+        </div>
+        <a class="tp-button tp-button-primary" href="home.html" data-od-id="preview-open-home">Открыть главную</a>
+      </div>
+      <nav class="preview-grid" aria-label="Страницы ветки">
+        <a class="preview-card" href="home.html" data-od-id="preview-card-home">
+          <span>Главная</span>
+          <strong>Список текущих поездок</strong>
+        </a>
+        <a class="preview-card" href="history.html" data-od-id="preview-card-history">
+          <span>История</span>
+          <strong>Завершённые поездки</strong>
+        </a>
+        <a class="preview-card" href="trip-wizard.html" data-od-id="preview-card-wizard">
+          <span>Wizard</span>
+          <strong>Создание поездки</strong>
+        </a>
+        <a class="preview-card" href="trip-wizard.html?mode=edit" data-od-id="preview-card-edit">
+          <span>Edit</span>
+          <strong>Редактирование поездки</strong>
+        </a>
+        <a class="preview-card" href="trip-readonly.html" data-od-id="preview-card-readonly">
+          <span>Только просмотр</span>
+          <strong>Завершённая поездка</strong>
+        </a>
+      </nav>
+    </section>
+  </main>
+</body>
+</html>
