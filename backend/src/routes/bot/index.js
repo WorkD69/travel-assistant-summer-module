@@ -103,7 +103,13 @@ function messageVisible(message, userId, role) {
   if (!audience || audience === 'all' || audience === 'participants') return true;
   if (Array.isArray(audience)) return audience.includes(userId);
   if (typeof audience === 'object') {
-    return audience.all === true || audience.user_ids?.includes(userId) || audience.roles?.includes(role);
+    return Boolean(
+      audience.all === true ||
+      audience.type === 'all-participants' ||
+      audience.user_ids?.includes(userId) ||
+      audience.participantIds?.includes(userId) ||
+      audience.roles?.includes(role),
+    );
   }
   return false;
 }

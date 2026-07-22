@@ -4,6 +4,7 @@ const { describe, test } = require('node:test');
 const request = require('supertest');
 
 const { createApp } = require('../src/app');
+const { messageVisible } = require('../src/routes/bot');
 
 const config = {
   isProduction: false,
@@ -96,5 +97,12 @@ describe('Telegram HTTP API', () => {
     assert.equal(response.body.items[0].recipient_telegram_id, 42);
     assert.equal(response.body.items[0].deep_link_target, 'messages');
     assert.equal(response.body.next_cursor, null);
+  });
+
+  test('shows legacy all-participants seed messages to participants', () => {
+    assert.equal(
+      messageVisible({ audience: { type: 'all-participants', participantIds: [] } }, 'u-anna', 'participant'),
+      true,
+    );
   });
 });

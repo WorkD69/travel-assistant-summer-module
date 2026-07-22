@@ -6,7 +6,7 @@
 
 - Prisma schema format/validate: PASS.
 - Initial PostgreSQL migration generated from the validated schema: PASS.
-- Backend Node suite: 69/69 PASS после интеграции серверного сохранения маршрутов, workspace-операций, атомарной Telegram-привязки и нормализации типов событий для immutable consumer contract.
+- Backend Node suite: 70/70 PASS после интеграции серверного сохранения маршрутов, workspace-операций, атомарной Telegram-привязки, нормализации типов событий и совместимости audience seed-сообщений.
 - Production npm audit: 0 vulnerabilities.
 - Existing Telegram bot regression suite: 146/146 PASS после integration changes.
 - Immutable OpenAPI operation coverage: 21/21 operationId.
