@@ -14,7 +14,7 @@ const { createSystemRouter } = require('./routes/system');
 const { createOriginMiddleware } = require('./security/origin');
 const { createSiteAuthMiddleware } = require('./security/site-auth');
 
-function createApp({ config, prisma, ocrExtractor }) {
+function createApp({ config, prisma, ocrExtractor, now }) {
   const app = express();
   app.disable('x-powered-by');
   if (config.isProduction) app.set('trust proxy', 1);
@@ -54,7 +54,7 @@ function createApp({ config, prisma, ocrExtractor }) {
     createSiteAuthMiddleware(config, prisma),
     createGeoRouter(),
   );
-  app.use(createBotRouter({ config, prisma }));
+  app.use(createBotRouter({ config, prisma, now }));
 
   app.use((_req, _res, next) => {
     next(new ApiError(404, 'not_found', 'Ресурс не найден.'));

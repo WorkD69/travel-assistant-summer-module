@@ -127,4 +127,61 @@ describe('Telegram HTTP API', () => {
       true,
     );
   });
+
+  test('keeps updated route events compatible with Telegram today and next', async () => {
+    const prisma = prismaFixture();
+    const event = {
+      id: 'event-updated', tripId: 't-1', type: 'flight', title: 'Москва → Анталья',
+      startsAt: new Date('2026-08-01T12:00:00.000Z'), endsAt: new Date('2026-08-01T16:00:00.000Z'),
+      departure: 'Москва', arrival: 'Анталья', status: 'scheduled', detail: 'Обновлённый маршрут',
+      source: 'manual', reference: 'SU-100', sortOrder: 3, document: null,
+    };
+    prisma.trip = { async findUnique() { return {
+      id: 't-1', title: 'Turkey', route: 'Сыктывкар → Москва → Анталья', ownerId: 'u-1',
+      startDate: new Date('2026-08-01T00:00:00.000Z'), endDate: new Date('2026-08-03T00:00:00.000Z'),
+      timezone: 'Etc/UTC', status: 'active', participants: [],
+    }; } };
+    prisma.tripEvent = {
+      async findMany() { return [event]; },
+      async findFirst() { return event; },
+    };
+    const app = createApp({ config, prisma, now: () => new Date('2026-08-01T10:00:00.000Z') });
+    const headers = { Authorization: `Bearer ${config.serviceToken}`, 'X-Telegram-User-Id': '42' };
+    const today = await request(app).get('/api/bot/trips/t-1/today').set(headers);
+    const next = await request(app).get('/api/bot/trips/t-1/next').set(headers);
+    assert.equal(today.status, 200);
+    assert.equal(today.body.items[0].id, 'event-updated');
+    assert.equal(today.body.items[0].departure_place, 'Москва');
+    assert.equal(next.status, 200);
+    assert.equal(next.body.event.arrival_place, 'Анталья');
+    assert.equal('source' in next.body.event, false);
+    assert.equal('sortOrder' in next.body.event, false);
+  });
+
+  test('includes the published selected Plan B in Telegram assistant context', async () => {
+    const prisma = prismaFixture();
+    prisma.trip = { async findUnique() { return {
+      id: 't-1', title: 'Turkey', route: 'Москва → Анталья', ownerId: 'u-1',
+      startDate: new Date('2026-08-01T00:00:00.000Z'), endDate: new Date('2026-08-03T00:00:00.000Z'),
+      timezone: 'Etc/UTC', status: 'active', participants: [],
+    }; } };
+    prisma.tripEvent = { async findMany() { return []; } };
+    prisma.document = { async findMany() { return []; } };
+    prisma.message = { async findMany() { return [{
+      id: 'message-plan', tripId: 't-1', title: 'Plan B: быстрый вариант',
+      content: 'Летим через Стамбул', planId: 'plan-speed', audience: 'participants', status: 'published',
+      publishedAt: new Date('2026-08-01T10:00:00.000Z'), createdAt: new Date('2026-08-01T10:00:00.000Z'),
+      author: { name: 'Anna' },
+    }]; } };
+    prisma.sosTicket = { async findMany() { return []; } };
+    prisma.monitoringSignal = { async findMany() { return []; } };
+    const response = await request(createApp({ config, prisma }))
+      .get('/api/bot/trips/t-1/assistant-context')
+      .set('Authorization', `Bearer ${config.serviceToken}`)
+      .set('X-Telegram-User-Id', '42');
+    assert.equal(response.status, 200);
+    assert.equal(response.body.messages.length, 1);
+    assert.equal(response.body.messages[0].is_plan_b, true);
+    assert.match(response.body.messages[0].text, /Стамбул/);
+  });
 });
