@@ -22,14 +22,15 @@
 - Prisma migration `202607220001_init` and safe seed on Neon: PASS.
 - Seed integrity: 3 users, 1 trip, exactly 3 distinct Plan B strategies, 0 Telegram links, 3 safe demo documents: PASS.
 - Backend production `https://travel-assistant-api-chi.vercel.app`: `/api/health` and `/api/ready` return HTTP 200.
+- Existing frontend project `https://travel-assistant-summer-module.vercel.app`: root and proxied `/api/health` return HTTP 200; no replacement project or domain was created.
+- Production site smoke: organizer/participant/no-access auth and RBAC, monitoring, exactly 3 Plan B, participant messages, document visibility and persistence after a fresh session: PASS.
 - Real Python `HttpTravelApiClient` production consumer smoke: PASS (link, trips, documents/download, messages, idempotent SOS, preferences, assistant context).
 - Isolated consumer smoke cleanup: PASS (temporary SOS, Telegram link and one-time token removed).
+- GitHub/GitVerse `main` exact SHA comparison: PASS.
+- Production VPS baseline: bot and x-ui active; `BOT_DATA_MODE=mock`; VPN/MantaRay and Telegram/AI secrets were not changed.
 
 ## External checks pending
 
-- GitHub/GitVerse push and exact `main` SHA comparison.
-- Existing frontend production deploy and organizer/participant/no-access browser flow.
 - Explicit production Telegram switch approval, link migration and live E2E.
-- Final VPN baseline comparison.
 
 Ни один pending пункт не считается пройденным без фактического результата.
