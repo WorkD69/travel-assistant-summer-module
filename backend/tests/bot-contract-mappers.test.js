@@ -79,6 +79,17 @@ describe('Telegram Bot API contract mappers', () => {
     assert.equal('extractedText' in document, false);
   });
 
+  test('maps internal event types into the immutable Telegram enum', () => {
+    const base = {
+      id: 'e-hotel', tripId: 't-1', title: 'Hotel check-in',
+      startsAt: at('2026-08-01T10:00:00Z'), endsAt: null,
+      departure: null, arrival: null, status: 'scheduled', detail: null,
+      documentId: null, document: null,
+    };
+    assert.equal(mapEvent({ ...base, type: 'hotel' }).type, 'checkin');
+    assert.equal(mapEvent({ ...base, type: 'custom-provider-event' }).type, 'manual');
+  });
+
   test('maps organizer messages and SOS statuses', () => {
     assert.deepEqual(
       mapMessage({

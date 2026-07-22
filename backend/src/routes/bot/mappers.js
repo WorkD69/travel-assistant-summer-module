@@ -35,10 +35,12 @@ function mapTrip(trip) {
 }
 
 function mapEvent(event) {
+  const contractTypes = new Set(['flight', 'train', 'bus', 'transfer', 'checkin', 'checkout', 'activity', 'manual']);
+  const type = event.type === 'hotel' ? 'checkin' : (contractTypes.has(event.type) ? event.type : 'manual');
   return {
     id: event.id,
     trip_id: event.tripId,
-    type: event.type,
+    type,
     title: event.title,
     starts_at: iso(event.startsAt),
     ends_at: event.endsAt ? iso(event.endsAt) : null,

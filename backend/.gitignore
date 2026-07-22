@@ -7,7 +7,3 @@ coverage/
 *.db
 *.db-*
 .vercel/
-
-.vercel
-.env*
-!.env.example

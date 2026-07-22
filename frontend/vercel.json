@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://travel-assistant-api.vercel.app/api/:path*"
+      "destination": "https://travel-assistant-api-chi.vercel.app/api/:path*"
     }
   ]
 }

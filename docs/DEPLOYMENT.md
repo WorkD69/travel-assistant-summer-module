@@ -2,7 +2,8 @@
 
 ## 1. Vercel и Neon
 
-1. Backend project: `travel-assistant-api`, root `backend`.
+1. Backend project: `travel-assistant-api`, root `backend`, stable production URL
+   `https://travel-assistant-api-chi.vercel.app`.
 2. Neon Marketplace resource: `travel-assistant-db`, plan `free_v3`, region
    `fra1`, Neon Auth disabled.
 3. Подключить production, preview и development environments.
