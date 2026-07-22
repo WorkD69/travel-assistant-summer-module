@@ -145,4 +145,33 @@ describe('frontend production API integration', () => {
     assert.match(sync, /reference:/);
     assert.match(sync, /detail\.routePoints/);
   });
+
+  test('renders hydrated routes with Leaflet, live weather, and backend timeline data', () => {
+    const overview = read('trip-overview.html');
+    const route = read('assets/js/route-experience.js');
+    assert.match(overview, /leaflet@1\.9\.4\/dist\/leaflet\.css/);
+    assert.match(overview, /sha256-p4NxAoJBhIIN\+hmNHrzRCf9tD\/miZyoHS5obTRR9BMY=/);
+    assert.match(overview, /leaflet@1\.9\.4\/dist\/leaflet\.js/);
+    assert.match(overview, /sha256-20nQCchB9co0qIjJZRGuk2\/Z9VM\+kNiyxNV1lvTlZBo=/);
+    assert.match(overview, /assets\/js\/route-experience\.js/);
+    for (const id of ['route-map-viewport', 'overview-route-map', 'route-weather', 'overview-route-timeline', 'route-full-timeline']) {
+      assert.match(overview, new RegExp(`id=["']${id}["']`));
+    }
+    assert.match(route, /TravelSite\.ready/);
+    assert.match(route, /routePoints/);
+    assert.match(route, /L\.map\(/);
+    assert.match(route, /L\.tileLayer\(/);
+    assert.match(route, /openstreetmap\.org|basemaps\.cartocdn\.com/);
+    assert.match(route, /L\.marker\(/);
+    assert.match(route, /L\.polyline\(/);
+    assert.match(route, /fitBounds\(/);
+    assert.match(route, /invalidateSize\(/);
+    assert.match(route, /partial_geocoding/);
+    assert.match(route, /offline_fallback/);
+    assert.match(route, /provider_unavailable/);
+    assert.match(route, /api\.geo\.weather/);
+    assert.match(route, /Open-Meteo/);
+    assert.match(route, /sortOrder/);
+    assert.match(route, /reference/);
+  });
 });

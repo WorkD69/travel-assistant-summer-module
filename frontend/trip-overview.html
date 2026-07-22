@@ -11,6 +11,12 @@
   <link rel="stylesheet" href="assets/css/core-flow-shared.css" />
   <link rel="stylesheet" href="assets/css/trip-monitoring.css" />
   <link rel="stylesheet" href="assets/css/trip-messages.css" />
+  <link rel="stylesheet" href="assets/css/route-experience.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
+  <script src="assets/js/route-experience.js" defer></script>
   <style>
     /* Переключатель окружения: в production демо-панели скрыты. */
     body[data-app-environment="production"] [data-development-only="true"] {
@@ -2051,7 +2057,7 @@
                 <button type="button" class="btn btn-ghost btn-sm" onclick="switchTab('route')">Весь маршрут</button>
               </div>
               <div class="card-body" style="padding-top: var(--space-4);">
-                <ol class="timeline">
+                <ol class="timeline" id="overview-route-timeline">
                   <li class="timeline-item">
                     <span class="timeline-time mono">06:30</span>
                     <div class="timeline-rail">
@@ -2120,7 +2126,7 @@
                 <button type="button" class="btn btn-ghost btn-sm" onclick="switchTab('monitor')">Подробнее</button>
               </div>
               <div class="card-body">
-                <div class="weather-grid">
+                <div class="weather-grid" id="route-weather">
                   <div class="weather-card" data-od-id="weather-syktyvkar">
                     <p class="weather-city">Сыктывкар</p>
                     <p class="weather-temp mono">+14°</p>
@@ -2137,7 +2143,8 @@
                     <p class="weather-desc">Ясно, жарко</p>
                   </div>
                 </div>
-                <p class="weather-updated">Обновлено: сегодня, 07:12 · демонстрационные данные</p>
+                <p class="weather-updated" id="route-weather-updated">Загрузка данных Open-Meteo…</p>
+                <button type="button" class="btn btn-ghost btn-sm" id="route-weather-refresh">Обновить погоду</button>
               </div>
             </article>
           </div>
@@ -2157,7 +2164,7 @@
                 </button>
               </div>
               <div class="card-body" style="padding-top: var(--space-3);">
-                <div class="mini-map" data-od-id="mini-map" role="img" aria-label="Мини-карта маршрута: Сыктывкар, Москва, Анталья">
+                <div class="mini-map" id="overview-route-map" data-od-id="mini-map" role="img" aria-label="Мини-карта маршрута: Сыктывкар, Москва, Анталья">
                   <img class="route-preview-img" src="assets/route-preview.png" alt="PNG-превью маршрута: Сыктывкар, Москва, Анталья" />
                 </div>
                 <div class="route-summary">
@@ -2282,14 +2289,14 @@
             </div>
           </article>
 
-          <section data-od-id="route-full-timeline">
+          <section id="route-full-timeline" data-od-id="route-full-timeline">
             <div class="card-header" style="padding-left:0; padding-right:0; border-bottom:0;">
               <div>
                 <h2 class="card-title">Полный таймлайн</h2>
                 <p class="card-subtitle">19 июля · все сегменты поездки</p>
               </div>
             </div>
-            <div class="route-timeline">
+            <div class="route-timeline" id="route-full-timeline-items">
               <article class="route-event-card" data-od-id="route-event-airport-departure">
                 <time class="route-event-time">06:30</time>
                 <div>
