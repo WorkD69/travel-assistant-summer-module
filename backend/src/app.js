@@ -8,6 +8,7 @@ const { createBotRouter } = require('./routes/bot');
 const { createSiteTripsRouter } = require('./routes/site/trips');
 const { createSiteOperationsRouter } = require('./routes/site/operations');
 const { createGeoRouter } = require('./routes/site/geo');
+const { createSiteTelegramRouter } = require('./routes/site/telegram');
 const { createSystemRouter } = require('./routes/system');
 const { createOriginMiddleware } = require('./security/origin');
 const { createSiteAuthMiddleware } = require('./security/site-auth');
@@ -33,6 +34,12 @@ function createApp({ config, prisma }) {
     createOriginMiddleware(config),
     createSiteAuthMiddleware(config, prisma),
     createSiteOperationsRouter({ config, prisma }),
+  );
+  app.use(
+    '/api/site/integrations/telegram',
+    createOriginMiddleware(config),
+    createSiteAuthMiddleware(config, prisma),
+    createSiteTelegramRouter({ config, prisma }),
   );
   app.use(
     '/api/site/geo',

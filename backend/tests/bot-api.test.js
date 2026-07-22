@@ -68,6 +68,28 @@ describe('Telegram HTTP API', () => {
     assert.equal(calls[0][1].where.consumedAt, null);
   });
 
+  test('returns distinct safe errors for invalid, expired, and reused link tokens', async () => {
+    const cases = [
+      [null, 422, 'link_token_invalid'],
+      [{ id: 'token-expired', siteUserId: 'u-1', siteUser: { name: 'Anna' }, consumedAt: null, expiresAt: new Date('2020-01-01T00:00:00Z') }, 422, 'link_token_expired'],
+      [{ id: 'token-used', siteUserId: 'u-1', siteUser: { name: 'Anna' }, consumedAt: new Date(), expiresAt: new Date('2030-01-01T00:00:00Z') }, 409, 'link_token_used'],
+    ];
+    for (const [token, status, code] of cases) {
+      const prisma = prismaFixture();
+      prisma.$transaction = async (callback) => callback({
+        telegramLinkToken: { async findUnique() { return token; } },
+      });
+      const response = await request(createApp({ config, prisma }))
+        .post('/api/integrations/telegram/link-token/consume')
+        .set('Authorization', `Bearer ${config.serviceToken}`)
+        .set('X-Telegram-User-Id', '42')
+        .send({ token: 'a-valid-link-token-value' });
+      assert.equal(response.status, status);
+      assert.equal(response.body.error.code, code);
+      assert.equal(JSON.stringify(response.body).includes('a-valid-link-token-value'), false);
+    }
+  });
+
   test('returns the linked profile with exact contract fields', async () => {
     const response = await request(createApp({ config, prisma: prismaFixture() }))
       .get('/api/bot/me')

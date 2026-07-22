@@ -37,6 +37,11 @@
       me() { return request("/api/auth/me"); },
       logout() { return request("/api/auth/logout", { method: "POST", keepalive: true }); }
     },
+    telegram: {
+      status() { return request("/api/site/integrations/telegram"); },
+      createLink() { return request("/api/site/integrations/telegram/link-token", { method: "POST" }); },
+      disconnect() { return request("/api/site/integrations/telegram", { method: "DELETE" }); }
+    },
     trips: {
       list() { return request("/api/site/trips"); },
       get(id) { return request("/api/site/trips/" + encodeURIComponent(id)); },

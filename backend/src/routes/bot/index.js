@@ -132,9 +132,9 @@ function createBotRouter({ config, prisma, now = () => new Date() }) {
         where: { tokenHash: hashToken(rawToken) },
         include: { siteUser: true },
       });
-      if (!token) throw new ApiError(422, 'link_token_invalid', 'Код привязки недействителен.');
-      if (token.consumedAt) throw new ApiError(409, 'link_token_used', 'Код привязки уже использован.');
-      if (token.expiresAt <= now()) throw new ApiError(422, 'link_token_expired', 'Срок действия кода истёк.');
+      if (!token) throw new ApiError(422, 'link_token_invalid', 'Ссылка недействительна. Вернитесь на сайт и создайте новую ссылку подключения.');
+      if (token.consumedAt) throw new ApiError(409, 'link_token_used', 'Эта ссылка уже была использована. Проверьте статус подключения на сайте или создайте новую ссылку.');
+      if (token.expiresAt <= now()) throw new ApiError(422, 'link_token_expired', 'Ссылка устарела. Вернитесь на сайт и создайте новую ссылку подключения.');
       const [byTelegram, bySite] = await Promise.all([
         tx.telegramAccountLink.findUnique({ where: { telegramUserId: req.telegramUserId } }),
         tx.telegramAccountLink.findUnique({ where: { siteUserId: token.siteUserId } }),

@@ -7,7 +7,7 @@ describe('loadConfig', () => {
   test('rejects production startup when required secrets are missing', () => {
     assert.throws(
       () => loadConfig({ NODE_ENV: 'production' }),
-      /DATABASE_URL, JWT_SECRET, TRAVEL_API_SERVICE_TOKEN/,
+      /DATABASE_URL, JWT_SECRET, TRAVEL_API_SERVICE_TOKEN, TELEGRAM_BOT_USERNAME/,
     );
   });
 
@@ -39,6 +39,7 @@ describe('loadConfig', () => {
       DIRECT_URL: 'postgresql://database.example/app',
       JWT_SECRET: 'j'.repeat(64),
       TRAVEL_API_SERVICE_TOKEN: 's'.repeat(64),
+      TELEGRAM_BOT_USERNAME: 'travel_assistent10_bot',
       ALLOWED_ORIGINS: 'https://travel-assistant-summer-module.vercel.app',
       SESSION_TTL_SECONDS: '3600',
     });
@@ -49,5 +50,6 @@ describe('loadConfig', () => {
       'https://travel-assistant-summer-module.vercel.app',
     ]);
     assert.equal(config.sessionTtlSeconds, 3600);
+    assert.equal(config.telegramBotUsername, 'travel_assistent10_bot');
   });
 });

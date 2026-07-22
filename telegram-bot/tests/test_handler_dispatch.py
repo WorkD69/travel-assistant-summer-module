@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import pytest
 from aiogram.client.session.base import BaseSession
 from aiogram.methods import SendDocument, SendMessage
 from aiogram.types import Chat, Message, MessageEntity, Update, User
@@ -141,6 +142,80 @@ async def test_start_deep_link_consumes_one_time_token_through_dispatcher() -> N
             if isinstance(method, SendMessage) and method.text
         ]
         assert profile.name == "Артём"
-        assert any("Telegram подключён" in text for text in sent_texts)
+        assert any(
+            "Telegram успешно подключён к аккаунту “Тревел-помощника”" in text
+            for text in sent_texts
+        )
+    finally:
+        await application.close()
+
+
+async def test_start_deep_link_rejects_malformed_payload_before_api_call() -> None:
+    settings = Settings(
+        _env_file=None,
+        bot_env="development",
+        bot_data_mode="mock",
+        bot_update_mode="polling",
+        telegram_bot_token="123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi",
+        ai_provider="mock",
+        gemini_enabled=False,
+        database_url="sqlite+aiosqlite:///:memory:",
+    )
+    application = await build_application(settings)
+    await application.bot.session.close()
+    session = MockedBotSession()
+    application.bot.session = session
+
+    async def must_not_consume(*_args, **_kwargs):
+        raise AssertionError("malformed payload reached the backend")
+
+    application.api.consume_link_token = must_not_consume
+    try:
+        await application.dispatcher.feed_update(
+            application.bot,
+            command_update(1, 333, "/start link_bad!payload"),
+        )
+        sent_texts = [
+            method.text for method in session.methods
+            if isinstance(method, SendMessage) and method.text
+        ]
+        assert any("Ссылка недействительна" in text for text in sent_texts)
+        assert not any("Что-то пошло не так" in text for text in sent_texts)
+    finally:
+        await application.close()
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        ("link_demo-expired", "Ссылка устарела. Вернитесь на сайт и создайте новую ссылку подключения."),
+        ("link_demo-used", "Эта ссылка уже была использована. Проверьте статус подключения на сайте или создайте новую ссылку."),
+    ],
+)
+async def test_start_deep_link_explains_expired_and_reused_links(payload: str, expected: str) -> None:
+    settings = Settings(
+        _env_file=None,
+        bot_env="development",
+        bot_data_mode="mock",
+        bot_update_mode="polling",
+        telegram_bot_token="123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi",
+        ai_provider="mock",
+        gemini_enabled=False,
+        database_url="sqlite+aiosqlite:///:memory:",
+    )
+    application = await build_application(settings)
+    await application.bot.session.close()
+    session = MockedBotSession()
+    application.bot.session = session
+    try:
+        await application.dispatcher.feed_update(
+            application.bot,
+            command_update(1, 444, f"/start {payload}"),
+        )
+        sent_texts = [
+            method.text for method in session.methods
+            if isinstance(method, SendMessage) and method.text
+        ]
+        assert expected in sent_texts
     finally:
         await application.close()

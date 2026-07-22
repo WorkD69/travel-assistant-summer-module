@@ -2,6 +2,7 @@ const REQUIRED_PRODUCTION_KEYS = [
   'DATABASE_URL',
   'JWT_SECRET',
   'TRAVEL_API_SERVICE_TOKEN',
+  'TELEGRAM_BOT_USERNAME',
 ];
 
 function parseInteger(name, value, fallback, minimum, maximum) {
@@ -31,6 +32,14 @@ function parseOrigins(value) {
       }
       return url.origin;
     });
+}
+
+function parseTelegramBotUsername(value) {
+  const username = String(value || '').trim().replace(/^@/, '');
+  if (username && !/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username)) {
+    throw new Error('TELEGRAM_BOT_USERNAME must be a valid Telegram username');
+  }
+  return username;
 }
 
 function loadConfig(env = process.env) {
@@ -88,6 +97,7 @@ function loadConfig(env = process.env) {
       60,
       3_600,
     ),
+    telegramBotUsername: parseTelegramBotUsername(env.TELEGRAM_BOT_USERNAME),
     publicBaseUrl: env.BACKEND_PUBLIC_URL
       || (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : '')
       || (env.VERCEL_URL ? `https://${env.VERCEL_URL}` : ''),
@@ -102,4 +112,5 @@ function loadConfig(env = process.env) {
 module.exports = {
   REQUIRED_PRODUCTION_KEYS,
   loadConfig,
+  parseTelegramBotUsername,
 };

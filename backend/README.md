@@ -33,6 +33,8 @@ npm audit --omit=dev
 `telegram-bot/docs/bot-api.openapi.yaml` — неизменяемый consumer contract.
 Service endpoints требуют `Authorization: Bearer …`; пользовательские bot routes
 дополнительно требуют `X-Telegram-User-Id`. Browser не получает service token.
+Account-level Telegram deep link создаётся через авторизованный site endpoint;
+имя production-бота задаётся единожды переменной `TELEGRAM_BOT_USERNAME`.
 
 ## Production
 

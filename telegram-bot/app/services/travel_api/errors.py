@@ -34,12 +34,12 @@ class LinkTokenInvalidError(TravelApiError):
 
 class LinkTokenExpiredError(TravelApiError):
     code = "link_token_expired"
-    default_message = "Ссылка устарела. Создайте новую в профиле на сайте."
+    default_message = "Ссылка устарела. Вернитесь на сайт и создайте новую ссылку подключения."
 
 
 class LinkTokenUsedError(TravelApiError):
     code = "link_token_used"
-    default_message = "Эта ссылка уже была использована. Создайте новую на сайте."
+    default_message = "Эта ссылка уже была использована. Проверьте статус подключения на сайте или создайте новую ссылку."
 
 
 class LinkConflictError(TravelApiError):

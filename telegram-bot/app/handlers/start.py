@@ -1,6 +1,8 @@
 """/start: приветствие, привязка по link_<token>, /unlink."""
 from __future__ import annotations
 
+import re
+
 from aiogram import F, Router
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
@@ -11,10 +13,12 @@ from app.keyboards.inline import unlink_confirm_kb, unlinked_start_kb
 from app.keyboards.reply import main_menu
 from app.services.deep_links.service import DeepLinkService
 from app.services.travel_api.base import TravelApiClient
-from app.services.travel_api.errors import NotLinkedError, TravelApiError
+from app.services.travel_api.errors import LinkTokenInvalidError, NotLinkedError, TravelApiError
 from app.utils.formatting import event_line
 
 router = Router(name="start")
+
+_LINK_PAYLOAD_RE = re.compile(r"^link_([A-Za-z0-9_-]{8,59})$")
 
 NOT_LINKED_TEXT = (
     "Подключите Telegram к аккаунту Тревел-помощника.\n\n"
@@ -49,12 +53,23 @@ async def cmd_start_deep_link(message: Message, command: CommandObject,
     if not payload.startswith("link_"):
         await cmd_start(message, api, deep_links, state)
         return
-    token = payload[len("link_"):]
+    match = _LINK_PAYLOAD_RE.fullmatch(payload)
+    if not match:
+        raise LinkTokenInvalidError(
+            "Ссылка недействительна. Вернитесь на сайт и создайте новую ссылку подключения."
+        )
+    token = match.group(1)
     result = await api.consume_link_token(message.from_user.id, token)
     if result.relinked:
-        text = f"Готово! Привязка обновлена. Вы снова на связи, {result.name}!"
+        text = (
+            "Telegram успешно подключён к аккаунту “Тревел-помощника”. "
+            f"Привязка обновлена, {result.name}."
+        )
     else:
-        text = f"Готово! Telegram подключён к аккаунту {result.name}."
+        text = (
+            "Telegram успешно подключён к аккаунту “Тревел-помощника”. "
+            "Теперь Вам доступны поездки, документы, уведомления, SOS и AI-помощник."
+        )
     await message.answer(text, reply_markup=main_menu())
     await _show_linked_home(message, api, message.from_user.id)
 

@@ -78,6 +78,20 @@ describe('frontend production API integration', () => {
     assert.match(workspace, /connectServerOperations/);
   });
 
+  test('connects the profile Telegram UX through a deep link instead of a demo code', () => {
+    const client = read('assets/js/api-client.js');
+    const pages = read('assets/js/account-pages.js');
+    assert.match(client, /telegram:\s*\{/);
+    for (const method of ['status', 'createLink', 'disconnect']) {
+      assert.match(client, new RegExp(method + '\\s*\\('));
+    }
+    assert.match(pages, /deepLink/);
+    assert.match(pages, /Открыть Telegram/);
+    assert.match(pages, /Ссылка действует 10 минут/);
+    assert.match(pages, /startTelegramPolling/);
+    assert.doesNotMatch(pages, /TG-482-916|Демонстрационный код подключения/);
+  });
+
   test('hydrates monitoring, plans, and messages into the shared workspace state', () => {
     const sync = read('assets/js/site-sync.js');
     assert.match(sync, /function coreFlowState/);
