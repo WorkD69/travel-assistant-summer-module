@@ -51,4 +51,20 @@ describe('frontend production API integration', () => {
     assert.match(rewrite.destination, /^https:\/\//);
     assert.doesNotMatch(rewrite.destination, /localhost|127\.0\.0\.1/);
   });
+
+  test('persists wizard create and update actions through the site API', () => {
+    const sync = read('assets/js/site-sync.js');
+    const pages = read('assets/js/trip-pages.js');
+    assert.match(sync, /api\.trips\.create/);
+    assert.match(sync, /api\.trips\.update/);
+    assert.match(pages, /async function wizardCreate/);
+    assert.match(pages, /await adapter\.createTrip/);
+  });
+
+  test('keeps hydrated trip detail in the collection used by setActiveTrip', () => {
+    const sync = read('assets/js/site-sync.js');
+    assert.match(sync, /replaceTripInCollections/);
+    assert.match(sync, /trips:\s*collections\.active/);
+    assert.match(sync, /completedTrips:\s*collections\.completed/);
+  });
 });

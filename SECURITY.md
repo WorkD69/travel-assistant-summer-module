@@ -13,6 +13,15 @@
 `bot.pid`, `logs/`, кэши Python и тестов, локальные SQLite/DB-файлы и резервные
 копии.
 
+Browser-сессия хранится только в cookie `travel_session` с флагами HttpOnly,
+Secure в production и SameSite=Lax. Browser mutations проверяют точный Origin.
+Bot API требует отдельный Bearer service token; роль всегда определяется по
+PostgreSQL membership. Link/download tokens сохраняются только как SHA-256 hash.
+
+Загруженные документы ограничены 5 МБ и allowlist MIME. Backend не выполняет
+тяжёлый OCR синхронно: PDF и изображения переводятся в manual review. Текстовые
+файлы извлекаются с ограничением размера.
+
 ## Если секрет раскрыт
 
 1. Немедленно отзовите или перевыпустите ключ у соответствующего провайдера.

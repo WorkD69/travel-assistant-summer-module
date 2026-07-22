@@ -595,11 +595,16 @@
     location.href = "home.html#drafts";
   }
 
-  function wizardCreate(root) {
+  async function wizardCreate(root) {
     const wz = pageState.wizard;
     const issues = allWizardIssues(wz).errors;
     if (issues.length) return toast(issues[0].message);
-    const trip = adapter.createTrip({ data: wz.data, segments: wz.segments, draftId: wz.draftId, errors: [], warnings: allWizardIssues(wz).warnings });
+    let trip;
+    try {
+      trip = await adapter.createTrip({ data: wz.data, segments: wz.segments, draftId: wz.draftId, errors: [], warnings: allWizardIssues(wz).warnings });
+    } catch (error) {
+      return toast(error && error.message ? error.message : "Не удалось создать поездку");
+    }
     if (!trip) return toast("Поездка не создана: действие недоступно офлайн");
     wz.dirty = false;
     try { sessionStorage.setItem("travelAssistant.shellToast", "Поездка создана"); } catch (error) { /* best effort */ }
@@ -611,7 +616,16 @@
     const issues = allWizardIssues(wz).errors;
     if (issues.length) return toast(issues[0].message);
     confirmModal("Сохранить изменения?", "Будут обновлены основные данные, будущие сегменты, участники и уведомления. Прошедшие события не переписываются.", [
-      ["Сохранить", "primary", () => { adapter.updateTrip(wz.tripId, { data: wz.data, segments: wz.segments }); wz.dirty = false; closeModal(); toast("Изменения сохранены"); }],
+      ["Сохранить", "primary", async () => {
+        try {
+          await adapter.updateTrip(wz.tripId, { data: wz.data, segments: wz.segments });
+          wz.dirty = false;
+          closeModal();
+          toast("Изменения сохранены");
+        } catch (error) {
+          toast(error && error.message ? error.message : "Не удалось сохранить изменения");
+        }
+      }],
       ["Отмена", "secondary", closeModal]
     ]);
   }

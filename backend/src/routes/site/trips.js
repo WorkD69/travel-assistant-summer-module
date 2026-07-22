@@ -34,6 +34,37 @@ function validDate(value, field) {
   return date;
 }
 
+function validDateTime(value, field) {
+  const date = new Date(String(value || ''));
+  if (Number.isNaN(date.getTime())) throw new ApiError(422, 'validation_error', `Некорректное поле ${field}.`);
+  return date;
+}
+
+function tripEvents(input, tripId) {
+  if (input === undefined) return null;
+  if (!Array.isArray(input) || input.length > 100) {
+    throw new ApiError(422, 'validation_error', 'Некорректный список сегментов поездки.');
+  }
+  return input.map((event, index) => {
+    const startsAt = validDateTime(event?.startsAt, `events[${index}].startsAt`);
+    const endsAt = event?.endsAt ? validDateTime(event.endsAt, `events[${index}].endsAt`) : null;
+    if (endsAt && endsAt < startsAt) throw new ApiError(422, 'validation_error', 'Окончание сегмента раньше его начала.');
+    const title = String(event?.title || '').trim();
+    if (!title || title.length > 180) throw new ApiError(422, 'validation_error', 'Некорректное название сегмента.');
+    return {
+      tripId,
+      type: String(event?.type || 'other').slice(0, 80),
+      title,
+      startsAt,
+      endsAt,
+      status: String(event?.status || 'scheduled').slice(0, 80),
+      departure: event?.departure ? String(event.departure).slice(0, 180) : null,
+      arrival: event?.arrival ? String(event.arrival).slice(0, 180) : null,
+      detail: event?.detail ? String(event.detail).slice(0, 2000) : null,
+    };
+  });
+}
+
 function createSiteTripsRouter({ config, prisma, now = () => new Date() }) {
   const router = express.Router();
 
@@ -56,19 +87,25 @@ function createSiteTripsRouter({ config, prisma, now = () => new Date() }) {
     const startDate = validDate(req.body?.startDate, 'startDate');
     const endDate = validDate(req.body?.endDate, 'endDate');
     if (endDate < startDate) throw new ApiError(422, 'validation_error', 'Дата окончания раньше даты начала.');
-    const trip = await prisma.trip.create({
-      data: {
-        id: `trip-${crypto.randomUUID()}`,
-        title,
-        route,
-        startDate,
-        endDate,
-        timezone: String(req.body?.timezone || 'Europe/Moscow').slice(0, 100),
-        type: req.body?.type === 'personal' ? 'personal' : 'group',
-        status: req.body?.status === 'draft' ? 'draft' : 'active',
-        ownerId: req.siteUser.id,
-      },
-      include: { participants: true },
+    const tripId = `trip-${crypto.randomUUID()}`;
+    const events = tripEvents(req.body?.events, tripId) || [];
+    const trip = await prisma.$transaction(async (tx) => {
+      const created = await tx.trip.create({
+        data: {
+          id: tripId,
+          title,
+          route,
+          startDate,
+          endDate,
+          timezone: String(req.body?.timezone || 'Europe/Moscow').slice(0, 100),
+          type: req.body?.type === 'personal' ? 'personal' : 'group',
+          status: req.body?.status === 'draft' ? 'draft' : 'active',
+          ownerId: req.siteUser.id,
+        },
+        include: { participants: true },
+      });
+      if (events.length) await tx.tripEvent.createMany({ data: events });
+      return created;
     });
     res.status(201).json({ trip: siteTrip(trip, req.siteUser.id) });
   });
@@ -131,7 +168,16 @@ function createSiteTripsRouter({ config, prisma, now = () => new Date() }) {
     if (req.body?.startDate !== undefined) data.startDate = validDate(req.body.startDate, 'startDate');
     if (req.body?.endDate !== undefined) data.endDate = validDate(req.body.endDate, 'endDate');
     if (req.body?.status !== undefined && ['draft', 'active', 'completed'].includes(req.body.status)) data.status = req.body.status;
-    const trip = await prisma.trip.update({ where: { id: access.trip.id }, data, include: { participants: true } });
+    const events = tripEvents(req.body?.events, access.trip.id);
+    const trip = events === null
+      ? await prisma.trip.update({ where: { id: access.trip.id }, data, include: { participants: true } })
+      : await prisma.$transaction(async (tx) => {
+        const updated = await tx.trip.update({ where: { id: access.trip.id }, data, include: { participants: true } });
+        await tx.tripEvent.deleteMany({ where: { tripId: access.trip.id, startsAt: { gte: now() } } });
+        const futureEvents = events.filter((event) => event.startsAt >= now());
+        if (futureEvents.length) await tx.tripEvent.createMany({ data: futureEvents });
+        return updated;
+      });
     res.json({ trip: siteTrip(trip, req.siteUser.id) });
   });
 
@@ -159,4 +205,4 @@ function createSiteTripsRouter({ config, prisma, now = () => new Date() }) {
   return router;
 }
 
-module.exports = { createSiteTripsRouter, siteTrip, validDate };
+module.exports = { createSiteTripsRouter, siteTrip, tripEvents, validDate, validDateTime };

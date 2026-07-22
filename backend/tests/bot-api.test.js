@@ -42,6 +42,31 @@ function prismaFixture() {
 }
 
 describe('Telegram HTTP API', () => {
+  test('claims a link token with a conditional write before creating the link', async () => {
+    const calls = [];
+    const prisma = prismaFixture();
+    prisma.$transaction = async (callback) => callback({
+      telegramLinkToken: {
+        async findUnique() {
+          return { id: 'token-1', siteUserId: 'u-1', siteUser: { name: 'Anna' }, consumedAt: null, expiresAt: new Date('2026-08-01T00:00:00Z') };
+        },
+        async updateMany(input) { calls.push(['claim', input]); return { count: 1 }; },
+      },
+      telegramAccountLink: {
+        async findUnique() { return null; },
+        async create(input) { calls.push(['link', input]); return input.data; },
+      },
+    });
+    const response = await request(createApp({ config, prisma }))
+      .post('/api/integrations/telegram/link-token/consume')
+      .set('Authorization', `Bearer ${config.serviceToken}`)
+      .set('X-Telegram-User-Id', '42')
+      .send({ token: 'a-valid-link-token-value' });
+    assert.equal(response.status, 200);
+    assert.deepEqual(calls.map((item) => item[0]), ['claim', 'link']);
+    assert.equal(calls[0][1].where.consumedAt, null);
+  });
+
   test('returns the linked profile with exact contract fields', async () => {
     const response = await request(createApp({ config, prisma: prismaFixture() }))
       .get('/api/bot/me')

@@ -930,7 +930,7 @@
     const segments = (payload && payload.segments) || [];
     const userName = displayNameOf(state.currentUser || {});
     const trip = {
-      id: data.id && String(data.id).startsWith("trip-") ? data.id + "-" + Date.now().toString(36) : "trip-" + Date.now().toString(36),
+      id: data.id || "trip-" + Date.now().toString(36),
       title: data.title || "Новая поездка",
       status: "active",
       kind: data.type === "solo" ? "Соло" : "Групповая",

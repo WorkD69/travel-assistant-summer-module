@@ -1,15 +1,14 @@
 # Тревел-помощник
 
-Монорепозиторий объединяет финальный статический frontend и безопасную копию
-исходников Telegram-бота. Общий backend разрабатывается отдельно и будет
-добавлен после стабилизации API-контракта.
+Монорепозиторий объединяет статический frontend, PostgreSQL-backed Express API
+и Telegram-бот. Frontend и бот используют один backend и одну базу данных.
 
 ## Структура
 
 - `frontend/` — статическое HTML/CSS/JavaScript-приложение;
 - `telegram-bot/` — Telegram-бот на Aiogram 3;
-- `docs/` — документация монорепозитория;
-- `backend/` — зарезервированное будущее направление, сейчас каталога нет.
+- `backend/` — Express/Prisma API для сайта и Telegram-бота;
+- `docs/` — архитектура, развёртывание, rollback и результаты проверок.
 
 ## Архитектура
 
@@ -19,11 +18,9 @@ Frontend ───────┐
 Telegram Bot ───┘
 ```
 
-Сейчас frontend использует демонстрационное состояние в браузере, Telegram-бот
-получает данные через `MockTravelApiClient` при `BOT_DATA_MODE=mock`, а его
-AI-функции работают через Groq с безопасным локальным fallback. После готовности
-backend frontend и бот должны перейти на единый API; для бота предусмотрен
-`BOT_DATA_MODE=api`.
+Frontend обращается к относительному `/api`, который Vercel проксирует в отдельный
+backend-проект. До явного production-переключения Telegram-бот остаётся в
+`BOT_DATA_MODE=mock`; после smoke-тестов он использует тот же HTTPS API.
 
 Frontend не должен обращаться к Groq напрямую. Браузер также не должен получать
 Telegram token или backend service token.
@@ -48,8 +45,14 @@ python -m http.server 8080 --bind 127.0.0.1
 предназначена для разработки и тестирования без реальных запросов к Telegram или
 Groq.
 
+## Локальный запуск backend
+
+См. [`backend/README.md`](backend/README.md). Для локальной работы нужны Node.js
+20+ и PostgreSQL. Секреты задаются только через локальный `.env`.
+
 ## Развёртывание
 
-Vercel публикует только каталог `frontend` как статический проект с Framework
-Preset `Other`. Telegram-бот на Vercel не запускается. Backend на Vercel в рамках
-этой версии не создаётся.
+Vercel публикует `frontend` и `backend` как два отдельных проекта. Managed
+PostgreSQL подключается через Neon Marketplace. Telegram-бот остаётся на VPS;
+backend на VPS не размещается. Порядок действий описан в
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).

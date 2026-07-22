@@ -139,6 +139,14 @@ function createBotRouter({ config, prisma, now = () => new Date() }) {
       if (bySite && !bySite.revokedAt && bySite.telegramUserId !== req.telegramUserId) {
         throw new ApiError(409, 'link_conflict', 'Аккаунт уже привязан к другому Telegram.');
       }
+      const claimedAt = now();
+      const claimed = await tx.telegramLinkToken.updateMany({
+        where: { id: token.id, consumedAt: null, expiresAt: { gt: claimedAt } },
+        data: { consumedAt: claimedAt },
+      });
+      if (claimed.count !== 1) {
+        throw new ApiError(409, 'link_token_used', 'Код привязки уже использован.');
+      }
       const relinked = Boolean(byTelegram?.revokedAt || bySite?.revokedAt);
       if (byTelegram && byTelegram.siteUserId === token.siteUserId) {
         await tx.telegramAccountLink.update({ where: { id: byTelegram.id }, data: { revokedAt: null, linkedAt: now() } });
@@ -147,7 +155,6 @@ function createBotRouter({ config, prisma, now = () => new Date() }) {
       } else {
         await tx.telegramAccountLink.create({ data: { telegramUserId: req.telegramUserId, siteUserId: token.siteUserId } });
       }
-      await tx.telegramLinkToken.update({ where: { id: token.id }, data: { consumedAt: now() } });
       return { site_user_id: token.siteUserId, name: token.siteUser.name, relinked };
     });
     res.json(result);

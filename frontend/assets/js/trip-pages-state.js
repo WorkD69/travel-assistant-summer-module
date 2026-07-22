@@ -345,6 +345,12 @@
       createTrip(payload) {
         if (external && typeof external.createTrip === "function") {
           const result = external.createTrip(payload);
+          if (result && typeof result.then === "function") {
+            return result.then((trip) => {
+              publish("trip-pages:trip-created", { tripId: trip?.id || trip?.tripId, draftId: payload.draftId, changedFields: Object.keys(payload.data || {}) });
+              return trip;
+            });
+          }
           publish("trip-pages:trip-created", { tripId: result?.id || result?.tripId, draftId: payload.draftId, changedFields: Object.keys(payload.data || {}) });
           return result;
         }
