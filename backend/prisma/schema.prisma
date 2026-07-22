@@ -133,6 +133,7 @@ model Trip {
   selectedPlan       TripPlan?           @relation("SelectedTripPlan", fields: [selectedPlanId], references: [id], onDelete: SetNull)
   participants       Participant[]
   invitations        Invitation[]
+  routePoints        RoutePoint[]
   events             TripEvent[]
   documents          Document[]
   monitoringSignals  MonitoringSignal[]
@@ -146,6 +147,23 @@ model Trip {
 
   @@index([ownerId, status])
   @@index([startDate, endDate])
+}
+
+model RoutePoint {
+  id            String   @id @default(cuid())
+  tripId        String
+  name          String
+  canonicalName String
+  latitude      Float
+  longitude     Float
+  sortOrder     Int
+  source        String   @default("nominatim")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, sortOrder])
+  @@index([tripId])
 }
 
 model Participant {
@@ -193,6 +211,9 @@ model TripEvent {
   departure  String?
   arrival    String?
   detail     String?
+  source     String?
+  reference  String?
+  sortOrder  Int?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   trip       Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
@@ -225,29 +246,34 @@ model MonitoringSignal {
 }
 
 model TripPlan {
-  id              String           @id @default(cuid())
-  tripId          String
-  incidentId      String
-  createdByUserId String?
-  rank            Int
-  strategy        String
-  title           String
-  summary         String?
-  steps           Json
-  pros            String?
-  cons            String?
-  whenToUse       String?
-  status          PlanStatus       @default(candidate)
-  visibility      PlanVisibility   @default(internal)
-  selectedAt      DateTime?
-  publishedAt     DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  trip            Trip             @relation("TripPlans", fields: [tripId], references: [id], onDelete: Cascade)
-  incident        MonitoringSignal @relation(fields: [incidentId], references: [id], onDelete: Cascade)
-  createdBy       User?            @relation("PlanCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  selectedForTrip Trip?            @relation("SelectedTripPlan")
-  messages        Message[]
+  id               String           @id @default(cuid())
+  tripId           String
+  incidentId       String
+  createdByUserId  String?
+  rank             Int
+  strategy         String
+  title            String
+  summary          String?
+  steps            Json
+  pros             String?
+  cons             String?
+  whenToUse        String?
+  timeImpact       String?
+  priceImpact      String?
+  affectedElements Json?
+  emailDraft       Json?
+  generationSource String?
+  status           PlanStatus       @default(candidate)
+  visibility       PlanVisibility   @default(internal)
+  selectedAt       DateTime?
+  publishedAt      DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  trip             Trip             @relation("TripPlans", fields: [tripId], references: [id], onDelete: Cascade)
+  incident         MonitoringSignal @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  createdBy        User?            @relation("PlanCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  selectedForTrip  Trip?            @relation("SelectedTripPlan")
+  messages         Message[]
 
   @@unique([incidentId, rank])
   @@index([tripId, status, visibility])
@@ -267,6 +293,10 @@ model Document {
   segment        String?
   ocrStatus      OcrStatus               @default(not_requested)
   extractedText  String?                 @db.Text
+  extractedData  Json?
+  ocrErrorCode   String?
+  processedAt    DateTime?
+  reviewedAt     DateTime?
   revokedAt      DateTime?
   deletedAt      DateTime?
   createdAt      DateTime                @default(now())

@@ -25,6 +25,7 @@ describe('Prisma production schema', () => {
       'Trip',
       'Participant',
       'Invitation',
+      'RoutePoint',
       'TripEvent',
       'MonitoringSignal',
       'TripPlan',
@@ -84,6 +85,30 @@ describe('Prisma production schema', () => {
 
     for (const field of fields) {
       assert.match(preferenceModel, new RegExp(`\\b${field}\\b`), field);
+    }
+  });
+
+  test('persists feature parity route, timeline, Plan B, and OCR fields', () => {
+    const text = schema();
+    const routePoint = text.match(/model\s+RoutePoint\s+\{([\s\S]*?)\n\}/)?.[1] ?? '';
+    const tripEvent = text.match(/model\s+TripEvent\s+\{([\s\S]*?)\n\}/)?.[1] ?? '';
+    const tripPlan = text.match(/model\s+TripPlan\s+\{([\s\S]*?)\n\}/)?.[1] ?? '';
+    const document = text.match(/model\s+Document\s+\{([\s\S]*?)\n\}/)?.[1] ?? '';
+
+    for (const field of ['tripId', 'name', 'canonicalName', 'latitude', 'longitude', 'sortOrder', 'source']) {
+      assert.match(routePoint, new RegExp(`\\b${field}\\b`), `RoutePoint.${field}`);
+    }
+    assert.match(routePoint, /@@unique\(\[tripId, sortOrder\]\)/);
+    assert.match(text, /model\s+Trip[\s\S]*routePoints\s+RoutePoint\[\]/);
+
+    for (const field of ['source', 'reference', 'sortOrder']) {
+      assert.match(tripEvent, new RegExp(`\\b${field}\\b`), `TripEvent.${field}`);
+    }
+    for (const field of ['timeImpact', 'priceImpact', 'affectedElements', 'emailDraft', 'generationSource']) {
+      assert.match(tripPlan, new RegExp(`\\b${field}\\b`), `TripPlan.${field}`);
+    }
+    for (const field of ['extractedData', 'ocrErrorCode', 'processedAt', 'reviewedAt']) {
+      assert.match(document, new RegExp(`\\b${field}\\b`), `Document.${field}`);
     }
   });
 });
