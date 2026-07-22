@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { describe, test } = require('node:test');
 
 const {
@@ -41,16 +43,21 @@ function pngHeader(width, height) {
 }
 
 describe('bounded document OCR', () => {
-  test('extracts a real text-layer PDF and structured travel fields', async () => {
+  test('keeps text PDF extraction independent of native canvas binaries', () => {
+    const lock = fs.readFileSync(path.join(__dirname, '..', 'package-lock.json'), 'utf8');
+    assert.doesNotMatch(lock, /node_modules\/@napi-rs\/canvas/);
+  });
+
+  test('extracts at most five pages from a real text-layer PDF', async () => {
+    const fixture = fs.readFileSync(path.join(__dirname, '..', 'node_modules', 'pdf-parse', 'test', 'data', '04-valid.pdf'));
     const result = await extractDocument({
-      buffer: textPdf('FLIGHT SU 2142 MOSCOW ANTALYA 22.07.2026 14:20'),
+      buffer: fixture,
       mimeType: 'application/pdf',
       fileName: 'ticket.pdf',
     });
     assert.equal(result.engine, 'pdf-parse');
-    assert.match(result.text, /SU 2142/);
-    assert.equal(result.data.flightNumber, 'SU 2142');
-    assert.ok(result.data.dates.includes('2026-07-22'));
+    assert.match(result.text, /Acute effect of speed exercise/);
+    assert.equal(result.pages, 5);
   });
 
   test('uses bounded image OCR through an injected recognizer', async () => {

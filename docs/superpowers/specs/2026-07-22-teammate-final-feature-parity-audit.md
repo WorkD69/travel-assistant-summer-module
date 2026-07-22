@@ -123,14 +123,15 @@ The matrix above records the baseline gap at the start of the audit. The current
 
 ## Local quality gates
 
-- Backend: **115/115** tests passed.
+- Backend: **116/116** tests passed.
 - Telegram bot: **149/149** tests passed in the project virtual environment.
-- `npm audit --omit=dev`: **0** known production vulnerabilities.
+- `npm audit --omit=dev` reported **0** known production vulnerabilities before the PDF runtime correction. The post-correction audit is queued in the remote Preview build because the local npm advisory endpoint currently resets TLS connections.
 - Prisma generation and validation passed; validation used process-only non-secret dummy URLs.
 - Every `frontend/assets/js/*.js` file and the relevant inline overview scripts passed syntax checks.
 - Redacted secret scan found no GitHub token, AI key, database credential, private key, or frontend secret identifier. Token-shaped strings were limited to Telegram test fixtures.
-- Vercel build passed. The main API function bundle is **25,693,586 bytes (24.5 MiB)**; the secondary function is **4,154,378 bytes (3.96 MiB)**. Both are below the applicable uncompressed function limit.
+- Vercel build passed after replacing `pdf-parse` 2.x and its optional native canvas dependency with the pinned pure-JavaScript `pdf-parse@1.1.1` path. The main API function bundle is **33,658,219 bytes (32.1 MiB)**; the secondary function is **12,119,011 bytes (11.56 MiB)**. Both are below the applicable uncompressed function limit.
 - Security review fixed bounded-image validation and stored-XSS risks before this checkpoint.
+- The first backend Preview runtime exposed a Vercel-only startup failure: PDF.js 5 attempted to load missing optional `@napi-rs/canvas` and threw `DOMMatrix is not defined`. A regression test now rejects native canvas entries in the lockfile, a real bundled PDF fixture verifies the five-page text path, and the complete backend suite passes with the pure-JavaScript parser.
 
 ## Preview isolation checkpoint
 
@@ -138,6 +139,6 @@ The matrix above records the baseline gap at the start of the audit. The current
 - Preview `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, demo credentials, allowed Origin, and backend public URL are separate preview-scoped sensitive variables. A post-change pull confirmed the production values were unchanged.
 - The isolated database host differs from production and resolves successfully.
 - The current Windows/VPN route times out on outbound PostgreSQL TCP 5432 for both pooled and direct Neon endpoints (`P1001`). DNS is healthy and both URLs validate structurally. VPN, MantaRay, DNS, adapters, firewall, and routes were not changed.
-- Migrations and safe seed therefore run in the remote Vercel Preview build, not from the local workstation. The build must verify zero Telegram links before preview smoke testing.
+- Both additive migrations and the safe seed completed in the isolated remote Vercel Preview build. A follow-up build must finish the post-correction audit and verify exactly three preview users, one preview trip, and zero Telegram links before smoke testing.
 - One unused empty duplicate preview resource may remain because the CLI could list but not safely address its exact resource ID for deletion. It is not connected to any project and is not used by the deployment.
 - Production stays on `8a6508a0250fa94b9dfaedeb19c388d784d25de6`; no production deployment, database migration, domain, VPS, Telegram link, VPN, or x-ui change has been made in this feature-parity phase.

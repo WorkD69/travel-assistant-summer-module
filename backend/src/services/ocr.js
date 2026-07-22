@@ -1,7 +1,6 @@
 const os = require('node:os');
 const path = require('node:path');
 
-const { PDFParse } = require('pdf-parse');
 const { OEM, createWorker } = require('tesseract.js');
 
 const { ApiError } = require('../errors');
@@ -71,13 +70,9 @@ function validateDocumentFile({ buffer, mimeType, fileName }) {
 }
 
 async function parsePdfDefault(buffer) {
-  const parser = new PDFParse({ data: buffer });
-  try {
-    const result = await parser.getText({ first: 5, pageJoiner: '\n' });
-    return { text: result.text || '', pages: result.total };
-  } finally {
-    await parser.destroy();
-  }
+  const pdfParse = require('pdf-parse');
+  const result = await pdfParse(buffer, { max: 5 });
+  return { text: result.text || '', pages: result.numrender || Math.min(result.numpages || 0, 5) };
 }
 
 async function recognizeImageDefault(buffer) {
