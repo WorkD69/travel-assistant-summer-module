@@ -58,3 +58,26 @@ test('build info exposes only safe deployment metadata', async () => {
     }
   }
 });
+
+test('build info supports an explicit commit marker for local Preview deploys', async () => {
+  const previous = {
+    VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA,
+    BUILD_COMMIT_SHA: process.env.BUILD_COMMIT_SHA,
+  };
+  delete process.env.VERCEL_GIT_COMMIT_SHA;
+  process.env.BUILD_COMMIT_SHA = 'b'.repeat(40);
+
+  try {
+    const app = createApp({
+      config: { ...config, publicBaseUrl: 'https://api-preview.example.test' },
+      prisma: { async $queryRaw() { return [{ ok: 1 }]; } },
+    });
+    const response = await request(app).get('/api/build-info');
+    assert.equal(response.body.commitSha, 'b'.repeat(40));
+  } finally {
+    for (const [name, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+});

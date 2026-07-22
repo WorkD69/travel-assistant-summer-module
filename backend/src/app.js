@@ -41,7 +41,7 @@ function createApp({ config, prisma, now }) {
   });
   app.get('/api/build-info', (_req, res) => {
     res.json({
-      commitSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
+      commitSha: process.env.VERCEL_GIT_COMMIT_SHA || process.env.BUILD_COMMIT_SHA || null,
       buildDate: process.env.BUILD_DATE || null,
       environment: process.env.VERCEL_ENV || config.nodeEnv,
       apiBaseUrl: config.publicBaseUrl || null,
