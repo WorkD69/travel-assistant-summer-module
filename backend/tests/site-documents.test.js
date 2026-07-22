@@ -21,7 +21,7 @@ function fixture(role = 'organizer') {
   const writes = [];
   const document = {
     id: 'd-1', tripId: 't-1', ownerUserId: 'u-1', name: 'ticket.png', mimeType: 'image/png',
-    status: 'pending', ocrStatus: 'not_requested', extractedData: null,
+    status: 'pending', visibility: 'shared', ocrStatus: 'not_requested', extractedData: null,
     blob: { bytes: Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]) },
   };
   const prisma = {
@@ -117,5 +117,36 @@ describe('site document OCR routes', () => {
       .attach('file', Buffer.from('not a png'), { filename: 'fake.png', contentType: 'image/png' });
     assert.equal(response.status, 422);
     assert.equal(response.body.error.code, 'validation_error');
+  });
+
+  test('downloads an authorized trip-scoped document with safe attachment headers', async () => {
+    const { prisma, document } = fixture();
+    document.name = 'ticket 2026.png';
+    const cookie = `${COOKIE_NAME}=${issueSession(user, config)}`;
+    const response = await request(createApp({ config, prisma }))
+      .get('/api/site/trips/t-1/documents/d-1/file')
+      .set('Cookie', cookie);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers['content-type'], 'image/png');
+    assert.match(response.headers['content-disposition'], /attachment; filename="ticket_2026\.png"/);
+    assert.equal(response.headers['cache-control'], 'private, no-store');
+    assert.deepEqual(response.body, document.blob.bytes);
+  });
+
+  test('hides organizer-only and cross-trip document downloads from participants', async () => {
+    const participant = fixture('participant');
+    participant.document.visibility = 'organizer_only';
+    const cookie = `${COOKIE_NAME}=${issueSession(user, config)}`;
+    const hidden = await request(createApp({ config, prisma: participant.prisma }))
+      .get('/api/site/trips/t-1/documents/d-1/file')
+      .set('Cookie', cookie);
+    assert.equal(hidden.status, 404);
+
+    const foreign = fixture();
+    foreign.document.tripId = 't-2';
+    const wrongTrip = await request(createApp({ config, prisma: foreign.prisma }))
+      .get('/api/site/trips/t-1/documents/d-1/file')
+      .set('Cookie', cookie);
+    assert.equal(wrongTrip.status, 404);
   });
 });

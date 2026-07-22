@@ -29,6 +29,29 @@
     return payload;
   }
 
+  async function download(path) {
+    let response;
+    try {
+      response = await fetch(path, { credentials: "include", headers: { Accept: "application/octet-stream" } });
+    } catch (cause) {
+      const error = new Error("Нет соединения с сервером");
+      error.code = "network_error";
+      error.cause = cause;
+      throw error;
+    }
+    if (!response.ok) {
+      const contentType = response.headers.get("content-type") || "";
+      const payload = contentType.includes("application/json") ? await response.json() : null;
+      const error = new Error(payload && payload.error && payload.error.message_ru || "Не удалось скачать документ");
+      error.code = payload && payload.error && payload.error.code || "request_failed";
+      error.status = response.status;
+      throw error;
+    }
+    const disposition = response.headers.get("content-disposition") || "";
+    const match = disposition.match(/filename="([^"]+)"/i);
+    return { blob: await response.blob(), filename: match ? match[1] : "document" };
+  }
+
   window.TravelAPI = {
     request,
     auth: {
@@ -95,6 +118,9 @@
         return request("/api/site/trips/" + encodeURIComponent(id) + "/documents/" + encodeURIComponent(documentId) + "/ocr", {
           method: "PATCH", body: { extractedData }
         });
+      },
+      downloadDocument(id, documentId) {
+        return download("/api/site/trips/" + encodeURIComponent(id) + "/documents/" + encodeURIComponent(documentId) + "/file");
       },
       removeDocument(id, documentId) {
         return request("/api/site/trips/" + encodeURIComponent(id) + "/documents/" + encodeURIComponent(documentId), { method: "DELETE" });

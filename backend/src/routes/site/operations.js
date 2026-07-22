@@ -5,6 +5,7 @@ const multer = require('multer');
 
 const { ApiError } = require('../../errors');
 const { ACTIONS, assertCan, loadTripAccess, scopeChildToTrip } = require('../../access/trip-access');
+const { documentVisible } = require('../../services/document-tokens');
 const { generatePlanCandidates, loadSafeContext } = require('../../services/assistant');
 const { MAX_OCR_FILE_BYTES, extractDocument, validateDocumentFile } = require('../../services/ocr');
 const { generatePlans, publicTripPlan } = require('../../services/plan-b');
@@ -200,6 +201,27 @@ function createSiteOperationsRouter({ config = {}, prisma, now = () => new Date(
       },
     });
     res.json({ document: publicDocumentOcr(updated) });
+  });
+
+  router.get('/:trip_id/documents/:document_id/file', async (req, res) => {
+    const access = await loadTripAccess(prisma, req.siteUser.id, req.params.trip_id);
+    assertCan(access, ACTIONS.READ_ALLOWED_DOCUMENTS);
+    const document = scopeChildToTrip(
+      await prisma.document.findUnique({ where: { id: req.params.document_id }, include: { blob: true } }),
+      access.trip.id,
+      'not_found',
+    );
+    if (!documentVisible(document, req.siteUser.id, access.role) || !document.blob?.bytes) {
+      throw new ApiError(404, 'not_found', 'Документ не найден.');
+    }
+    const safeName = document.name.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120) || 'document';
+    const mimeType = UPLOAD_MIME_TYPES.has(document.mimeType) ? document.mimeType : 'application/octet-stream';
+    const bytes = Buffer.from(document.blob.bytes);
+    res.set('Content-Type', mimeType);
+    res.set('Content-Disposition', `attachment; filename="${safeName}"`);
+    res.set('Cache-Control', 'private, no-store');
+    res.set('Content-Length', String(bytes.length));
+    res.end(bytes);
   });
 
   router.patch('/:trip_id/documents/:document_id/ocr', async (req, res) => {

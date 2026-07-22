@@ -214,4 +214,16 @@ describe('frontend production API integration', () => {
     assert.doesNotMatch(overview, /id=["']upload-demo-scenario["']/);
     assert.doesNotMatch(overview, /selectDemoUploadFile\(\)/);
   });
+
+  test('downloads persisted documents through the same-origin cookie API', () => {
+    const client = read('assets/js/api-client.js');
+    const overview = read('trip-overview.html');
+    assert.match(client, /downloadDocument\s*\(/);
+    assert.match(client, /credentials\s*:\s*["']include["']/);
+    assert.match(client, /\/documents\/.*\/file/);
+    assert.match(client, /response\.blob\(\)/);
+    assert.match(overview, /TravelAPI\.trips\.downloadDocument/);
+    assert.match(overview, /URL\.createObjectURL/);
+    assert.doesNotMatch(overview, /downloadMockDocument/);
+  });
 });

@@ -3789,7 +3789,7 @@
       closeDocActionsMenu();
       hideModalImmediately('modal-doc-actions');
       if (action === 'open') openDocumentView(doc.id);
-      if (action === 'download') downloadMockDocument();
+      if (action === 'download') downloadDocument();
       if (action === 'ocr') openOcrReview(doc.id);
       if (action === 'access') openAccessModal(doc.id);
       if (action === 'delete') openDeleteModal(doc.id);
@@ -3922,7 +3922,7 @@
       const canEdit = organizer && docsDemoState !== 'offline' && docsTripActive();
       const reviewLabel = doc.status === 'review' ? 'Проверить данные' : 'Просмотреть извлечённые данные';
       document.getElementById('doc-view-actions').innerHTML = `
-        <button type="button" class="btn btn-secondary" onclick="downloadMockDocument()">Скачать</button>
+        <button type="button" class="btn btn-secondary" onclick="downloadDocument()">Скачать</button>
         ${canEdit ? `<button type="button" class="btn btn-secondary doc-view-secondary-action" onclick="openOcrReview('${doc.id}')">${reviewLabel}</button>` : ''}
         ${canEdit ? `<button type="button" class="btn btn-secondary doc-view-secondary-action" onclick="openAccessModal('${doc.id}')">Изменить доступ</button>` : ''}
         ${canEdit ? `<button type="button" class="btn btn-danger doc-view-secondary-action" onclick="openDeleteModal('${doc.id}')">Удалить</button>` : ''}
@@ -3931,8 +3931,27 @@
       openModal('modal-doc-view');
     }
 
-    function downloadMockDocument() {
-      toastInfo('Скачивание документа имитировано');
+    async function downloadDocument() {
+      const doc = findDoc(selectedDocumentId);
+      const state = window.TravelAppState && window.TravelAppState.getState();
+      const tripId = state && state.trip && state.trip.id;
+      if (!doc || !tripId || !doc.serverBacked || !window.TravelAPI) {
+        toastWarning('Документ пока недоступен для скачивания');
+        return;
+      }
+      try {
+        const result = await window.TravelAPI.trips.downloadDocument(tripId, doc.id);
+        const url = URL.createObjectURL(result.blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = result.filename || doc.name || 'document';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+      } catch (error) {
+        toastWarning(error && error.message ? error.message : 'Не удалось скачать документ');
+      }
     }
 
     function openUploadModal() {
