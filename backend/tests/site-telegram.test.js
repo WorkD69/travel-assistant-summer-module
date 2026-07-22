@@ -2,9 +2,9 @@ const assert = require('node:assert/strict');
 const { describe, test } = require('node:test');
 
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
 
 const { createApp } = require('../src/app');
-const { COOKIE_NAME, issueSession } = require('../src/security/site-auth');
 const { hashToken } = require('../src/security/tokens');
 
 const user = { id: 'u-new', name: 'New User', email: 'new@example.test' };
@@ -93,7 +93,7 @@ function fixture() {
 }
 
 function cookie() {
-  return `${COOKIE_NAME}=${issueSession(user, config)}`;
+  return `token=${jwt.sign({ sub: user.id, email: user.email }, config.jwtSecret)}`;
 }
 
 function tokenFromDeepLink(deepLink) {

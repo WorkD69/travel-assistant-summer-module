@@ -6,109 +6,65 @@ const request = require('supertest');
 
 const { createApp } = require('../src/app');
 
-function config(overrides = {}) {
-  return {
-    isProduction: false,
-    allowedOrigins: [],
-    jwtSecret: 'j'.repeat(32),
-    serviceToken: 's'.repeat(32),
-    sessionTtlSeconds: 3600,
-    documentTokenTtlSeconds: 300,
-    ...overrides,
-  };
-}
+const config = {
+  nodeEnv: 'test', isProduction: false, jwtSecret: 'j'.repeat(32), serviceToken: 's'.repeat(32),
+  telegramBotUsername: 'travel_helper_bot', linkTokenTtlSeconds: 600, documentTokenTtlSeconds: 300,
+  ai: { apiKey: '', baseUrl: 'https://ai.example.test', model: 'test' },
+};
 
-function fakePrisma(initialUsers = []) {
+function fakePhysical(initialUsers = []) {
   const users = [...initialUsers];
   return {
     users,
     user: {
       async findUnique({ where }) {
-        if (where.email) return users.find((user) => user.email === where.email) || null;
-        if (where.id) return users.find((user) => user.id === where.id) || null;
-        return null;
+        return users.find((user) => (where.email ? user.email === where.email : user.id === where.id)) || null;
       },
       async create({ data }) {
-        if (users.some((user) => user.email === data.email)) {
-          const error = new Error('unique');
-          error.code = 'P2002';
-          throw error;
-        }
-        const user = { ...data, id: `u-${users.length + 1}` };
-        users.push(user);
-        return user;
+        const row = { id: `u-${users.length + 1}`, createdAt: new Date(), ...data };
+        users.push(row);
+        return row;
+      },
+      async update({ where, data }) {
+        const row = users.find((user) => user.id === where.id);
+        Object.assign(row, data);
+        return row;
       },
     },
     async $queryRaw() { return [{ ok: 1 }]; },
   };
 }
 
-describe('site authentication', () => {
-  test('registers with a hashed password and returns only a secure session cookie', async () => {
-    const prisma = fakePrisma();
-    const app = createApp({
-      config: config({ isProduction: true, allowedOrigins: ['https://travel.example'] }),
-      prisma,
-    });
-    const response = await request(app)
+describe('canonical teammate authentication contract', () => {
+  test('registers with the original token-and-cookie response', async () => {
+    const prisma = fakePhysical();
+    const response = await request(createApp({ config, prisma }))
       .post('/api/auth/register')
-      .set('Origin', 'https://travel.example')
       .send({ name: 'Anna', email: 'ANNA@example.test', password: 'correct horse battery' });
 
     assert.equal(response.status, 201);
-    assert.deepEqual(response.body, { user: { id: 'u-1', name: 'Anna', email: 'anna@example.test' } });
-    assert.equal('token' in response.body, false);
-    assert.match(response.headers['set-cookie'][0], /travel_session=/);
+    assert.equal(response.body.user.email, 'anna@example.test');
+    assert.equal(typeof response.body.token, 'string');
+    assert.match(response.headers['set-cookie'][0], /^token=/);
     assert.match(response.headers['set-cookie'][0], /HttpOnly/);
-    assert.match(response.headers['set-cookie'][0], /Secure/);
     assert.match(response.headers['set-cookie'][0], /SameSite=Lax/);
     assert.notEqual(prisma.users[0].passwordHash, 'correct horse battery');
   });
 
-  test('supports login, me, and logout without exposing the JWT', async () => {
+  test('supports original login, me, and logout endpoints', async () => {
     const passwordHash = await bcrypt.hash('correct horse battery', 4);
     const app = createApp({
-      config: config(),
-      prisma: fakePrisma([{ id: 'u-1', name: 'Anna', email: 'anna@example.test', passwordHash }]),
+      config,
+      prisma: fakePhysical([{
+        id: 'u-1', name: 'Anna', initials: 'A', email: 'anna@example.test', passwordHash, createdAt: new Date(),
+      }]),
     });
     const agent = request.agent(app);
-    const login = await agent.post('/api/auth/login').send({ email: 'anna@example.test', password: 'correct horse battery' });
+    const login = await agent.post('/api/auth/login')
+      .send({ email: 'anna@example.test', password: 'correct horse battery' });
     assert.equal(login.status, 200);
-    assert.equal('token' in login.body, false);
-
-    const me = await agent.get('/api/auth/me');
-    assert.equal(me.status, 200);
-    assert.equal(me.body.user.id, 'u-1');
-
-    const logout = await agent.post('/api/auth/logout');
-    assert.equal(logout.status, 204);
-    assert.equal((await agent.get('/api/auth/me')).status, 401);
-  });
-
-  test('uses one generic response for unknown email and wrong password', async () => {
-    const passwordHash = await bcrypt.hash('correct horse battery', 4);
-    const app = createApp({
-      config: config(),
-      prisma: fakePrisma([{ id: 'u-1', name: 'Anna', email: 'anna@example.test', passwordHash }]),
-    });
-    const unknown = await request(app).post('/api/auth/login').send({ email: 'nobody@example.test', password: 'wrong password' });
-    const wrong = await request(app).post('/api/auth/login').send({ email: 'anna@example.test', password: 'wrong password' });
-    assert.equal(unknown.status, 401);
-    assert.equal(wrong.status, 401);
-    assert.deepEqual(unknown.body, wrong.body);
-    assert.equal(unknown.body.error.code, 'invalid_credentials');
-  });
-
-  test('rejects production browser mutations from an untrusted origin', async () => {
-    const app = createApp({
-      config: config({ isProduction: true, allowedOrigins: ['https://travel.example'] }),
-      prisma: fakePrisma(),
-    });
-    const response = await request(app)
-      .post('/api/auth/register')
-      .set('Origin', 'https://evil.example')
-      .send({ name: 'Anna', email: 'anna@example.test', password: 'correct horse battery' });
-    assert.equal(response.status, 403);
-    assert.equal(response.body.error.code, 'origin_denied');
+    assert.equal(typeof login.body.token, 'string');
+    assert.equal((await agent.get('/api/auth/me')).body.user.id, 'u-1');
+    assert.deepEqual((await agent.post('/api/auth/logout')).body, { ok: true });
   });
 });

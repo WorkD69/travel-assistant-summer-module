@@ -10,14 +10,8 @@
   <link rel="stylesheet" href="features/trip-settings.css" />
   <link rel="stylesheet" href="assets/css/core-flow-shared.css" />
   <link rel="stylesheet" href="assets/css/trip-monitoring.css" />
-  <link rel="stylesheet" href="assets/css/site-assistant.css" />
   <link rel="stylesheet" href="assets/css/trip-messages.css" />
-  <link rel="stylesheet" href="assets/css/route-experience.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
-  <script src="assets/js/route-experience.js" defer></script>
+  <link rel="stylesheet" href="assets/css/ai-assistant.css" />
   <style>
     /* Переключатель окружения: в production демо-панели скрыты. */
     body[data-app-environment="production"] [data-development-only="true"] {
@@ -2020,7 +2014,7 @@
                   <div>
                     <p class="eyebrow">Ближайшее событие</p>
                     <h2 class="next-event-title">Вылет из Сыктывкара</h2>
-                    <p class="next-event-detail">19 июля 2026 · 08:40 · Сыктывкар (SCW) → Москва (SVO)</p>
+                    <p class="next-event-detail">19 июля 2026 · 08:40 · Сыктывкар (SCW) → Мо��ква (SVO)</p>
                   </div>
                   <div class="countdown">
                     <span class="countdown-value mono" id="countdown-value">—</span>
@@ -2058,7 +2052,7 @@
                 <button type="button" class="btn btn-ghost btn-sm" onclick="switchTab('route')">Весь маршрут</button>
               </div>
               <div class="card-body" style="padding-top: var(--space-4);">
-                <ol class="timeline" id="overview-route-timeline">
+                <ol class="timeline">
                   <li class="timeline-item">
                     <span class="timeline-time mono">06:30</span>
                     <div class="timeline-rail">
@@ -2127,7 +2121,7 @@
                 <button type="button" class="btn btn-ghost btn-sm" onclick="switchTab('monitor')">Подробнее</button>
               </div>
               <div class="card-body">
-                <div class="weather-grid" id="route-weather">
+                <div class="weather-grid">
                   <div class="weather-card" data-od-id="weather-syktyvkar">
                     <p class="weather-city">Сыктывкар</p>
                     <p class="weather-temp mono">+14°</p>
@@ -2144,8 +2138,7 @@
                     <p class="weather-desc">Ясно, жарко</p>
                   </div>
                 </div>
-                <p class="weather-updated" id="route-weather-updated">Загрузка данных Open-Meteo…</p>
-                <button type="button" class="btn btn-ghost btn-sm" id="route-weather-refresh">Обновить погоду</button>
+                <p class="weather-updated">Обновлено: сегодня, 07:12 · демонстрационные данные</p>
               </div>
             </article>
           </div>
@@ -2165,7 +2158,7 @@
                 </button>
               </div>
               <div class="card-body" style="padding-top: var(--space-3);">
-                <div class="mini-map" id="overview-route-map" data-od-id="mini-map" role="img" aria-label="Мини-карта маршрута: Сыктывкар, Москва, Анталья">
+                <div class="mini-map" data-od-id="mini-map" role="img" aria-label="Мини-карта маршрута: Сыктывкар, Москва, Анталья">
                   <img class="route-preview-img" src="assets/route-preview.png" alt="PNG-превью маршрута: Сыктывкар, Москва, Анталья" />
                 </div>
                 <div class="route-summary">
@@ -2290,14 +2283,14 @@
             </div>
           </article>
 
-          <section id="route-full-timeline" data-od-id="route-full-timeline">
+          <section data-od-id="route-full-timeline">
             <div class="card-header" style="padding-left:0; padding-right:0; border-bottom:0;">
               <div>
                 <h2 class="card-title">Полный таймлайн</h2>
                 <p class="card-subtitle">19 июля · все сегменты поездки</p>
               </div>
             </div>
-            <div class="route-timeline" id="route-full-timeline-items">
+            <div class="route-timeline">
               <article class="route-event-card" data-od-id="route-event-airport-departure">
                 <time class="route-event-time">06:30</time>
                 <div>
@@ -2757,7 +2750,7 @@
                   <button class="settings-demo__option" type="button" data-settings-view="stale">Устаревшая копия</button>
                   <button class="settings-demo__option" type="button" data-settings-view="missing">Копия отсутствует</button>
                   <button class="settings-demo__option" type="button" data-settings-view="copyDeleted">Копия удалена</button>
-                  <button class="settings-demo__option" type="button" data-settings-view="revoked">Доступ отозван</button>
+                  <button class="settings-demo__option" type="button" data-settings-view="revoked">��оступ отозван</button>
                   <button class="settings-demo__option" type="button" data-settings-view="error">Ошибка</button>
                   <button class="settings-demo__option" type="button" data-settings-view="loading">Загрузка</button>
                 </div>
@@ -2780,7 +2773,7 @@
               <div>
                 <p class="settings-kicker">Отпуск в Турции</p>
                 <h1 id="settings-page-title">Настройки поездки</h1>
-                <p class="settings-subtitle">Офлайн-копия, завершение и управление поездкой</p>
+                <p class="settings-subtitle">Офлайн-копия, зав��ршение и управление поездкой</p>
               </div>
               <div class="settings-hero__badges" aria-label="Статус и роль">
                 <span class="settings-badge settings-badge--status" id="settings-trip-status-badge">Активная</span>
@@ -3200,7 +3193,7 @@
       <div class="modal-header">
         <div>
           <h2 class="modal-title" id="doc-upload-title">Добавить документ</h2>
-          <p class="modal-desc">PDF, JPG, JPEG, PNG или TXT · до 4 МБ. Можно загрузить один файл за раз.</p>
+          <p class="modal-desc">PDF, JPG, JPEG или PNG · до 4 МБ. Можно загрузить один файл за раз.</p>
         </div>
         <button type="button" class="btn btn-icon" aria-label="Закрыть" onclick="closeModal('modal-doc-upload')">
           <svg class="icon" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -3211,12 +3204,23 @@
           <div>
             <svg class="icon" viewBox="0 0 24 24" style="width:32px;height:32px;margin-bottom:var(--space-3);"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 19h14"/></svg>
             <p style="margin:0 0 var(--space-2);color:var(--fg);font-weight:var(--fw-semibold);">Перетащите файл сюда</p>
-            <p class="field-hint" style="margin:0 0 var(--space-3);">Поддерживаются PDF, JPG, JPEG, PNG и TXT · максимум 4 МБ · один файл за раз</p>
-            <input id="doc-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png,.txt" hidden onchange="handleDocFileInput(this.files)" />
+            <p class="field-hint" style="margin:0 0 var(--space-3);">Поддерживаются PDF, JPG, JPEG и PNG · максимум 4 МБ · один файл за раз</p>
+            <input id="doc-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png" hidden onchange="handleDocFileInput(this.files)" />
             <button type="button" class="btn btn-secondary" onclick="document.getElementById('doc-file-input').click()">Выбрать файл</button>
+            <button type="button" class="btn btn-ghost" onclick="selectDemoUploadFile()">Выбрать демонстрационный файл</button>
           </div>
         </div>
         <div class="upload-file-list" id="upload-file-list"></div>
+        <div class="field" style="margin-top:var(--space-4);">
+          <label class="field-label" for="upload-demo-scenario">Демонстрационный сценарий</label>
+          <select class="select" id="upload-demo-scenario">
+            <option value="success">Успешная загрузка</option>
+            <option value="format">Неподдерживаемый формат</option>
+            <option value="size">Файл слишком большой</option>
+            <option value="duplicate">Найден дубликат</option>
+            <option value="processing-error">Ошибка обработки</option>
+          </select>
+        </div>
         <div class="field" style="margin-top:var(--space-4);">
           <label class="field-label" for="upload-visibility">Видимость</label>
           <select class="select" id="upload-visibility">
@@ -3228,7 +3232,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="closeModal('modal-doc-upload')">Отмена</button>
-        <button type="button" class="btn btn-primary" id="upload-submit-btn" onclick="startDocumentUpload()">Загрузить</button>
+        <button type="button" class="btn btn-primary" id="upload-submit-btn" onclick="startMockUpload()">Загрузить</button>
       </div>
     </div>
   </div>
@@ -3435,8 +3439,6 @@
 
   <script src="features/app-state.js"></script>
   <script src="assets/js/app-state-bridge.js"></script>
-  <script src="assets/js/api-client.js"></script>
-  <script src="assets/js/site-sync.js"></script>
   <script>
     const TAB_LABELS = {
       overview: 'Обзор',
@@ -3493,12 +3495,6 @@
       window.TravelAppState.setState({ documents: docsData.map((doc) => ({ ...doc, ocrConfirmed: doc.status === 'confirmed' })) }, { source: 'docs' });
     }
 
-    function escapeDocValue(value) {
-      return String(value == null ? '' : value)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    }
-
     if (window.TravelAppState) {
       window.TravelAppState.subscribe((appSharedState, appChangedKeys, appMeta) => {
         if (appMeta && appMeta.source === 'docs') return;
@@ -3513,13 +3509,7 @@
       });
     }
 
-    function docsRoleFromState(sharedState) {
-      const state = sharedState || (window.TravelAppState && window.TravelAppState.getState()) || {};
-      const role = state.coreFlow?.role || state.trip?.role || state.currentUser?.currentTripRole || state.currentUser?.role;
-      return role === 'participant' || role === 'viewer' ? 'participant' : 'organizer';
-    }
-
-    let docsRole = docsRoleFromState();
+    let docsRole = 'organizer';
     let docsDemoState = 'list';
     let selectedDocumentId = null;
     let activeDocMenuId = null;
@@ -3689,21 +3679,21 @@
         const reviewAction = doc.status === 'review' && organizer
           ? `<button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); openOcrReview('${doc.id}')">Проверить данные</button>`
           : '';
-        const menu = `<button type="button" class="btn btn-icon doc-menu-trigger" aria-haspopup="menu" aria-expanded="false" aria-label="Действия с документом ${escapeDocValue(doc.name)}" onclick="event.stopPropagation(); openDocActionsMenu('${doc.id}', this)"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg></button>`;
+        const menu = `<button type="button" class="btn btn-icon doc-menu-trigger" aria-haspopup="menu" aria-expanded="false" aria-label="Действия с документом ${doc.name}" onclick="event.stopPropagation(); openDocActionsMenu('${doc.id}', this)"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg></button>`;
         return `
-          <article class="doc-card ${doc.status === 'review' ? 'needs-review' : ''}" data-od-id="doc-card-${doc.id}" tabindex="0" role="button" aria-label="Открыть документ ${escapeDocValue(doc.name)}" onclick="openDocumentView('${doc.id}')" onkeydown="handleDocCardKeydown(event, '${doc.id}')">
+          <article class="doc-card ${doc.status === 'review' ? 'needs-review' : ''}" data-od-id="doc-card-${doc.id}" tabindex="0" role="button" aria-label="Открыть документ ${doc.name}" onclick="openDocumentView('${doc.id}')" onkeydown="handleDocCardKeydown(event, '${doc.id}')">
             <div class="doc-icon ${doc.status === 'review' ? 'warning' : ''}" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24">${docIconSvg(doc)}</svg></div>
             <div class="doc-main">
-              <h3 class="doc-name">${escapeDocValue(doc.name)}</h3>
-              <p class="doc-meta">${escapeDocValue(doc.type)} · ${escapeDocValue(doc.format)} · ${escapeDocValue(doc.size)} · загружен ${escapeDocValue(doc.uploadedAt)}</p>
+              <h3 class="doc-name">${doc.name}</h3>
+              <p class="doc-meta">${doc.type} · ${doc.format} · ${doc.size} · загружен ${doc.uploadedAt}</p>
             </div>
             <div class="doc-chip-row">
               <span class="badge ${status.badge} badge-dot">${status.label}</span>
               <span class="badge ${visibility.badge}">${visibility.label}</span>
             </div>
             <div class="doc-segment-block">
-              <p class="doc-segment">${escapeDocValue(doc.segment)}</p>
-              <p class="doc-source-note">${escapeDocValue(doc.source)}</p>
+              <p class="doc-segment">${doc.segment}</p>
+              <p class="doc-source-note">${doc.source}</p>
             </div>
             <div class="doc-actions">${reviewAction}${menu}</div>
           </article>`;
@@ -3795,7 +3785,7 @@
       closeDocActionsMenu();
       hideModalImmediately('modal-doc-actions');
       if (action === 'open') openDocumentView(doc.id);
-      if (action === 'download') downloadDocument();
+      if (action === 'download') downloadMockDocument();
       if (action === 'ocr') openOcrReview(doc.id);
       if (action === 'access') openAccessModal(doc.id);
       if (action === 'delete') openDeleteModal(doc.id);
@@ -3863,7 +3853,7 @@
 
     /* Роль вкладки «Документы» следует за ролью currentUserId + tripId из общего состояния (без тоста) */
     window.appSyncDocsRole = function (appSharedState) {
-      const appNextRole = docsRoleFromState(appSharedState);
+      const appNextRole = appSharedState && appSharedState.currentUser && appSharedState.currentUser.currentTripRole === 'participant' ? 'participant' : 'organizer';
       if (appNextRole === docsRole) return;
       docsRole = appNextRole;
       if (typeof closeDocActionsMenu === 'function') closeDocActionsMenu();
@@ -3889,8 +3879,8 @@
     function renderPreview(doc) {
       return `
         <div class="doc-preview-page">
-          <h3>${escapeDocValue(doc.type)}</h3>
-          <div style="font-family:var(--font-mono);font-size:13px;margin-bottom:18px;">${escapeDocValue(doc.name)}</div>
+          <h3>${doc.type}</h3>
+          <div style="font-family:var(--font-mono);font-size:13px;margin-bottom:18px;">${doc.name}</div>
           <div class="doc-preview-line" style="width:88%"></div>
           <div class="doc-preview-line" style="width:64%"></div>
           <div class="doc-preview-line" style="width:78%;margin-top:28px;"></div>
@@ -3901,7 +3891,7 @@
     }
 
     function detailCell(label, value) {
-      return `<div class="doc-detail-cell"><span>${escapeDocValue(label)}</span><strong>${escapeDocValue(value)}</strong></div>`;
+      return `<div class="doc-detail-cell"><span>${label}</span><strong>${value}</strong></div>`;
     }
 
     function openDocumentView(id) {
@@ -3928,7 +3918,7 @@
       const canEdit = organizer && docsDemoState !== 'offline' && docsTripActive();
       const reviewLabel = doc.status === 'review' ? 'Проверить данные' : 'Просмотреть извлечённые данные';
       document.getElementById('doc-view-actions').innerHTML = `
-        <button type="button" class="btn btn-secondary" onclick="downloadDocument()">Скачать</button>
+        <button type="button" class="btn btn-secondary" onclick="downloadMockDocument()">Скачать</button>
         ${canEdit ? `<button type="button" class="btn btn-secondary doc-view-secondary-action" onclick="openOcrReview('${doc.id}')">${reviewLabel}</button>` : ''}
         ${canEdit ? `<button type="button" class="btn btn-secondary doc-view-secondary-action" onclick="openAccessModal('${doc.id}')">Изменить доступ</button>` : ''}
         ${canEdit ? `<button type="button" class="btn btn-danger doc-view-secondary-action" onclick="openDeleteModal('${doc.id}')">Удалить</button>` : ''}
@@ -3937,36 +3927,26 @@
       openModal('modal-doc-view');
     }
 
-    async function downloadDocument() {
-      const doc = findDoc(selectedDocumentId);
-      const state = window.TravelAppState && window.TravelAppState.getState();
-      const tripId = state && state.trip && state.trip.id;
-      if (!doc || !tripId || !doc.serverBacked || !window.TravelAPI) {
-        toastWarning('Документ пока недоступен для скачивания');
-        return;
-      }
-      try {
-        const result = await window.TravelAPI.trips.downloadDocument(tripId, doc.id);
-        const url = URL.createObjectURL(result.blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = result.filename || doc.name || 'document';
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 0);
-      } catch (error) {
-        toastWarning(error && error.message ? error.message : 'Не удалось скачать документ');
-      }
+    function downloadMockDocument() {
+      toastInfo('Скачивание документа имитировано');
     }
 
     function openUploadModal() {
       if (docsRole !== 'organizer' || docsDemoState === 'offline') return;
       pendingUploadFiles = [];
       uploadStatus = 'idle';
+      document.getElementById('upload-demo-scenario').value = 'success';
       renderUploadFiles();
-      renderUploadState('Файл не выбран', 'badge-neutral', 'Выберите файл, чтобы начать загрузку.');
+      renderUploadState('Файл не выбран', 'badge-neutral', 'Выберите файл или демонстрационный файл, чтобы начать загрузку.');
       openModal('modal-doc-upload');
+    }
+
+    function selectDemoUploadFile() {
+      const stamp = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replaceAll(':', '-');
+      pendingUploadFiles = [{ name: `Новый документ поездки ${stamp}.pdf`, size: 760 * 1024, type: 'application/pdf' }];
+      uploadStatus = 'selected';
+      renderUploadFiles();
+      renderUploadState('Файл выбран', 'badge-neutral', 'Файл готов к демонстрационной загрузке.');
     }
 
     function handleDocFileInput(files) {
@@ -3980,7 +3960,7 @@
       pendingUploadFiles.splice(index, 1);
       uploadStatus = pendingUploadFiles.length ? 'selected' : 'idle';
       renderUploadFiles();
-      renderUploadState('Файл не выбран', 'badge-neutral', 'Выберите файл, чтобы начать загрузку.');
+      renderUploadState('Файл не выбран', 'badge-neutral', 'Выберите файл или демонстрационный файл, чтобы начать загрузку.');
     }
 
     function renderUploadFiles() {
@@ -3995,98 +3975,80 @@
       if (submit) submit.disabled = false;
       const file = pendingUploadFiles[0];
       const size = file.size ? `${Math.max(file.size / 1024 / 1024, 0.01).toFixed(1).replace('.', ',')} МБ` : '760 КБ';
-      list.innerHTML = `<div class="upload-file-row"><span>${escapeDocValue(file.name)} · ${escapeDocValue(size)}</span><button type="button" class="btn btn-ghost btn-sm" onclick="removePendingUpload(0)">Удалить</button></div>`;
+      list.innerHTML = `<div class="upload-file-row"><span>${file.name} · ${size}</span><button type="button" class="btn btn-ghost btn-sm" onclick="removePendingUpload(0)">Удалить</button></div>`;
     }
 
     function renderUploadState(label, badge = 'badge-neutral', detail = '') {
       const list = document.getElementById('upload-state-list');
       if (!list) return;
-      list.innerHTML = `<div class="upload-state-row"><span><strong>${escapeDocValue(label)}</strong>${detail ? `<br><span class="field-hint">${escapeDocValue(detail)}</span>` : ''}</span><span class="badge ${badge}">${escapeDocValue(label)}</span></div>`;
+      list.innerHTML = `<div class="upload-state-row"><span><strong>${label}</strong>${detail ? `<br><span class="field-hint">${detail}</span>` : ''}</span><span class="badge ${badge}">${label}</span></div>`;
     }
 
-    async function startDocumentUpload() {
+    function startMockUpload() {
       if (!docsTripActive()) return;
       if (!pendingUploadFiles.length) {
         renderUploadState('Сначала выберите файл', 'badge-danger', 'Загрузка не началась.');
         return;
       }
       const file = pendingUploadFiles[0];
+      const scenario = document.getElementById('upload-demo-scenario')?.value || 'success';
       const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
-      const valid = ['pdf', 'jpg', 'jpeg', 'png', 'txt'].includes(ext);
-      if (!valid) {
-        renderUploadState('Неподдерживаемый формат', 'badge-danger', 'Выберите PDF, JPG, JPEG, PNG или TXT.');
+      const valid = ['pdf', 'jpg', 'jpeg', 'png'].includes(ext);
+      if (!valid || scenario === 'format') {
+        renderUploadState('Неподдерживаемый формат', 'badge-danger', 'Выберите PDF, JPG, JPEG или PNG.');
         return;
       }
-      if (file.size && file.size > 4 * 1024 * 1024) {
+      if ((file.size && file.size > 4 * 1024 * 1024) || scenario === 'size') {
         renderUploadState('Файл слишком большой', 'badge-danger', 'Максимальный размер одного файла — 4 МБ.');
         return;
       }
-      if (docsData.some((doc) => doc.name.toLowerCase() === file.name.toLowerCase())) {
-        renderUploadState('Найден дубликат', 'badge-warning', 'Такой документ уже есть в поездке.');
+      if (docsData.some((doc) => doc.name.toLowerCase() === file.name.toLowerCase()) || scenario === 'duplicate') {
+        renderUploadState('Найден ду��ликат', 'badge-warning', 'Такой документ уже есть в поездке.');
+        return;
+      }
+      if (scenario === 'processing-error') {
+        renderUploadState('Произошла ошибка обработки', 'badge-danger', 'Повторите попытку позже.');
         return;
       }
       const visibility = document.getElementById('upload-visibility').value;
-      let persistedDocument = null;
-      if (typeof File !== 'undefined' && file instanceof File && window.TravelAPI) {
-        const form = new FormData();
-        form.append('file', file);
-        form.append('title', file.name);
-        form.append('type', 'document');
-        form.append('visibility', visibility === 'private' ? 'organizer_only' : 'shared');
-        try {
-          const tripId = window.TravelAppState.getState().trip.id;
-          const response = await window.TravelAPI.trips.uploadDocument(tripId, form);
-          persistedDocument = response.document;
-          if (persistedDocument.ocrStatus !== 'extracted') {
-            renderUploadState('Распознаётся', 'badge-info', 'Извлекаем данные документа.');
-            const processed = await window.TravelAPI.trips.processDocument(tripId, persistedDocument.id);
-            persistedDocument = Object.assign({}, persistedDocument, processed.document);
-          }
-        } catch (error) {
-          renderUploadState('Ошибка загрузки', 'badge-danger', error && error.message ? error.message : 'Повторите попытку позже.');
-          return;
-        }
-      } else {
-        renderUploadState('Файл не выбран', 'badge-danger', 'Выберите настоящий файл для загрузки.');
-        return;
-      }
       const newDoc = {
-        id: persistedDocument ? persistedDocument.id : 'uploaded-' + Date.now(),
+        id: 'uploaded-' + Date.now(),
         name: file.name,
         type: 'Другое',
         format: ext === 'jpeg' ? 'JPG' : ext.toUpperCase(),
         size: file.size ? `${Math.max(file.size / 1024, 1).toFixed(0)} КБ` : '760 КБ',
         uploadedAt: 'сейчас',
-        status: persistedDocument && persistedDocument.status === 'confirmed' ? 'confirmed' : persistedDocument && persistedDocument.ocrStatus === 'failed' ? 'error' : 'review',
-        ocrStatus: persistedDocument ? persistedDocument.ocrStatus : 'not_requested',
-        extractedData: persistedDocument ? persistedDocument.extractedData || {} : {},
-        serverBacked: Boolean(persistedDocument),
+        status: 'review',
         visibility,
         segment: 'Вся поездка',
         source: 'Загружено организатором',
         processedAt: 'сейчас'
       };
-      renderUploadState(
-        persistedDocument.ocrStatus === 'failed' ? 'Нужна ручная проверка' : 'Документ сохранён',
-        persistedDocument.ocrStatus === 'failed' ? 'badge-warning' : 'badge-success',
-        persistedDocument.ocrStatus === 'failed'
-          ? 'Файл сохранён, но автоматическое распознавание недоступно.'
-          : 'Данные загружены из backend.'
-      );
-      if (window.TravelSite && typeof window.TravelSite.hydrate === 'function') {
-        await window.TravelSite.hydrate();
-      } else {
-        docsData.unshift(newDoc);
-        docsCommitShared();
-      }
-      docsDemoState = 'list';
-      closeModal('modal-doc-upload');
-      renderDocuments();
-      if (persistedDocument.ocrStatus === 'failed') {
-        toastWarning('Документ сохранён, распознанные поля нужно заполнить вручную');
-      } else {
-        toastSuccess('Документ загружен и ожидает проверки');
-      }
+      const steps = [
+        ['Загружается', 'badge-info', 'Файл добавляется в поездку.'],
+        ['Проверяется', 'badge-info', 'Проверяем формат и дубликаты.'],
+        ['Распознаётся', 'badge-info', 'Извлекаем данные документа.'],
+        ['Требует проверки', 'badge-warning', 'Документ добавлен и ожидает проверки данных.']
+      ];
+      let index = 0;
+      const advance = () => {
+        const [label, badge, detail] = steps[index];
+        renderUploadState(label, badge, detail);
+        index += 1;
+        if (index < steps.length) {
+          setTimeout(advance, 420);
+          return;
+        }
+        setTimeout(() => {
+          docsData.unshift(newDoc);
+          docsDemoState = 'list';
+          docsCommitShared();
+          closeModal('modal-doc-upload');
+          renderDocuments();
+          toastSuccess('Документ загружен и ожидает проверки');
+        }, 520);
+      };
+      advance();
     }
 
     function openOcrReview(id) {
@@ -4107,34 +4069,8 @@
     }
 
     function ensureDocOcrFields(doc) {
-      if (!doc.ocrFields) {
-        const labels = {
-          documentType: 'Тип документа',
-          flightNumber: 'Номер рейса',
-          route: 'Маршрут',
-          dates: 'Даты',
-          times: 'Время'
-        };
-        const data = doc.extractedData && typeof doc.extractedData === 'object' ? doc.extractedData : {};
-        const keys = Object.keys(data);
-        if (doc.serverBacked) {
-          const visibleKeys = keys.length ? keys : ['documentType', 'flightNumber', 'route', 'dates', 'times'];
-          doc.ocrFields = visibleKeys.map((key) => ({
-            key,
-            label: labels[key] || key,
-            value: Array.isArray(data[key]) ? data[key].join(', ') : String(data[key] == null ? '' : data[key]),
-            isArray: Array.isArray(data[key]),
-            level: data[key] ? 'high' : 'low',
-            confidence: data[key] ? 'Распознано — проверьте' : 'Значение не найдено',
-            explain: 'Перед подтверждением сверьте поле с исходным документом.'
-          }));
-        } else doc.ocrFields = defaultOcrFields();
-      }
+      if (!doc.ocrFields) doc.ocrFields = defaultOcrFields();
       return doc.ocrFields;
-    }
-
-    function escapeOcrValue(value) {
-      return escapeDocValue(value);
     }
 
     function renderOcrFields() {
@@ -4148,10 +4084,10 @@
       const fields = ensureDocOcrFields(doc || {});
       form.innerHTML = fields.map(({ key, label, value, level, confidence, explain }) => `
         <div class="ocr-field ${level === 'low' ? 'low' : ''} ${readonly ? 'readonly' : ''}" data-ocr-field="${key}" onclick="highlightOcrField('${key}')">
-          <label for="ocr-${escapeOcrValue(key)}">${escapeOcrValue(label)}</label>
-          <input class="input" id="ocr-${escapeOcrValue(key)}" type="text" value="${escapeOcrValue(value)}" ${readonly || key === 'bookingRef' ? 'readonly' : ''} />
-          <span class="ocr-confidence">${escapeOcrValue(confidence)}</span>
-          <p class="ocr-explain">${escapeOcrValue(explain)}</p>
+          <label for="ocr-${key}">${label}</label>
+          <input class="input" id="ocr-${key}" type="text" value="${value}" ${readonly || key === 'bookingRef' ? 'readonly' : ''} />
+          <span class="ocr-confidence">${confidence}</span>
+          <p class="ocr-explain">${explain}</p>
         </div>`).join('');
       if (footer) {
         const canEdit = docsRole === 'organizer' && docsDemoState !== 'offline' && docsTripActive();
@@ -4163,7 +4099,7 @@
           footer.innerHTML = `
             <button type="button" class="btn btn-ghost" onclick="closeModal('modal-ocr-review')">Отмена</button>
             <button type="button" class="btn btn-secondary" onclick="saveOcrChanges()">Сохранить изменения</button>
-            ${doc && doc.status === 'review' ? '<button type="button" class="btn btn-primary" onclick="confirmOcrAndAddToTrip()">Подтвердить данные</button>' : ''}`;
+            ${doc && doc.status === 'review' ? '<button type="button" class="btn btn-primary" onclick="confirmOcrAndAddToTrip()">Подтвердить и добавить в поездку</button>' : ''}`;
         }
       }
     }
@@ -4181,12 +4117,6 @@
         const input = document.getElementById('ocr-' + field.key);
         if (input && field.key !== 'bookingRef') field.value = input.value;
       });
-      doc.extractedData = fields.reduce((data, field) => {
-        data[field.key] = field.isArray
-          ? field.value.split(',').map((item) => item.trim()).filter(Boolean)
-          : field.value;
-        return data;
-      }, {});
       doc.processedAt = 'сейчас';
       return doc;
     }
@@ -4217,34 +4147,24 @@
       if (page) page.style.transform = `scale(${ocrPreviewScale})`;
     }
 
-    async function saveOcrChanges() {
+    function saveOcrChanges() {
       if (!docsTripActive()) return;
-      const doc = collectOcrChanges();
-      if (!doc) return;
-      if (doc.serverBacked && window.TravelAPI) {
-        try {
-          const tripId = window.TravelAppState.getState().trip.id;
-          const response = await window.TravelAPI.trips.reviewDocument(tripId, doc.id, doc.extractedData);
-          Object.assign(doc, response.document, { status: 'confirmed' });
-          if (window.TravelSite && typeof window.TravelSite.hydrate === 'function') await window.TravelSite.hydrate();
-        } catch (error) {
-          toastWarning(error && error.message ? error.message : 'Не удалось сохранить проверенные данные');
-          return;
-        }
-      } else docsCommitShared();
-      activeOcrMode = 'read';
-      renderOcrFields();
-      toastSuccess('Проверенные данные сохранены');
+      collectOcrChanges();
+      docsCommitShared();
+      toastSuccess('Изменения сохранены в демонстрационной версии');
     }
 
-    async function confirmOcrAndAddToTrip() {
+    function confirmOcrAndAddToTrip() {
       if (!docsTripActive()) return;
-      await saveOcrChanges();
-      const doc = findDoc(selectedDocumentId);
-      if (!doc || doc.status !== 'confirmed') return;
+      const doc = collectOcrChanges();
+      if (doc) {
+        doc.status = 'confirmed';
+        doc.processedAt = 'сейчас';
+      }
       closeModal('modal-ocr-review');
+      docsCommitShared();
       renderDocuments();
-      toastSuccess('Данные документа подтверждены');
+      toastSuccess('Данные подтверждены и добавлены в маршрут');
     }
 
     function openAccessModal(id) {
@@ -4277,18 +4197,8 @@
       openModal('modal-doc-delete');
     }
 
-    async function confirmDeleteDocument() {
+    function confirmDeleteDocument() {
       if (!docsTripActive()) return;
-      const documentToDelete = findDoc(selectedDocumentId);
-      if (documentToDelete && documentToDelete.serverBacked && window.TravelAPI) {
-        try {
-          const tripId = window.TravelAppState.getState().trip.id;
-          await window.TravelAPI.trips.removeDocument(tripId, selectedDocumentId);
-        } catch (error) {
-          toastWarning(error && error.message ? error.message : 'Не удалось удалить документ');
-          return;
-        }
-      }
       docsData = docsData.filter((doc) => doc.id !== selectedDocumentId);
       docsCommitShared();
       closeModal('modal-doc-delete');
@@ -4560,14 +4470,23 @@
   <script src="features/trip-members.js" defer></script>
   <script src="features/trip-settings.js" defer></script>
   <script src="features/integration-controller.js" defer></script>
+  <script src="assets/js/backend-sync.js" defer></script>
+  <script src="assets/js/docs-sync.js" defer></script>
+  <script src="assets/js/members-sync.js" defer></script>
     <div id="coreflow-shared-modal-root"></div>
     <div id="coreflow-shared-toast-root"></div>
     <script src="assets/js/app-routes.js"></script>
     <script src="assets/js/core-flow-state-adapter.js"></script>
+    <script src="assets/js/coreflow-sync.js"></script>
     <script src="assets/js/trip-monitoring.js"></script>
     <script src="assets/js/trip-messages.js"></script>
     <script src="assets/js/workspace-integration.js"></script>
-    <script src="assets/js/site-assistant.js"></script>
+    <script src="assets/js/api-runtime.js"></script>
+    <script src="assets/js/api-client.js"></script>
+    <script src="assets/js/ai-assistant.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="assets/js/weather-map.js"></script>
+    <script src="assets/js/route-timeline.js"></script>
   
   <script>
   // FIX OFF-2: disable SOS in offline

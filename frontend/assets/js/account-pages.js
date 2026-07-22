@@ -147,11 +147,6 @@
       menuOpen: false,
       deleted: false,
       activeSection: params.get("section") || "account",
-      telegramBusy: false,
-      telegramDeepLink: "",
-      telegramExpiresAt: "",
-      telegramPolling: false,
-      telegramPollingUntil: 0,
       loginScenario: "auto",
       registerScenario: "auto",
       recoveryScenario: "auto",
@@ -712,33 +707,16 @@
     const settings = Object.assign({}, telegram.settings || {});
     let body = "";
     if (telegram.state === "connecting") {
-      const expiresAt = ctx.telegramExpiresAt || telegram.expiresAt || "";
-      const expired = expiresAt && new Date(expiresAt).getTime() <= Date.now();
-      const openButton = ctx.telegramDeepLink && !expired
-        ? `<a class="account-button account-button-primary" href="${esc(ctx.telegramDeepLink)}" target="_blank" rel="noopener noreferrer" data-telegram-open>Открыть Telegram</a>`
-        : "";
-      const createLabel = expired || !ctx.telegramDeepLink ? "Создать новую ссылку" : "Обновить ссылку";
-      body = `
-        <div class="account-card">
-          <span class="account-status account-status-warning">Подключение</span>
-          <h3>${ctx.telegramBusy ? "Создаём безопасную ссылку…" : "Завершите подключение в Telegram"}</h3>
-          <p>Откройте Telegram и нажмите Start. После этого вернитесь на сайт.</p>
-          <p class="account-meta">Ссылка действует 10 минут.</p>
-          <div class="account-actions">
-            ${openButton}
-            <button class="account-button account-button-secondary" type="button" data-telegram-connect ${ctx.telegramBusy ? "disabled" : ""}>${esc(createLabel)}</button>
-            <button class="account-button account-button-ghost" type="button" data-telegram-check ${ctx.telegramBusy ? "disabled" : ""}>Проверить статус</button>
-          </div>
-        </div>`;
+      body = `<div class="account-card"><span class="account-status account-status-warning">Подключение</span><h3>Демонстрационный код подключения</h3><p class="account-code">TG-482-916</p><p>Откройте бота и введите этот код. Он не подключает настоящий Telegram API.</p><button class="account-button account-button-secondary" type="button" data-telegram-state="notConnected">Отменить</button></div>`;
     } else if (telegram.state === "connected") {
       body = `
-        <div class="account-card"><span class="account-status account-status-success">Telegram подключён</span><h3>${esc(telegram.displayName || "Аккаунт связан с ботом")}</h3><p>Дата подключения: ${formatDate(telegram.connectedAt)}</p></div>
+        <div class="account-card"><span class="account-status account-status-success">Подключён</span><h3>${esc(telegram.username || "@travel_user")}</h3><p>Дата подключения: ${formatDate(telegram.connectedAt)}</p></div>
         <div class="account-field">
           <label for="profile-telegram-trip">Выбранная поездка</label>
-          <select class="account-select" id="profile-telegram-trip" data-telegram-trip ${trips.length ? "" : "disabled"}>
+          <select class="account-select" id="profile-telegram-trip" data-telegram-trip>
             ${trips.map((trip) => `<option value="${esc(trip.id)}" ${trip.id === telegram.selectedTripId ? "selected" : ""}>${esc(trip.title)}</option>`).join("")}
           </select>
-          ${selectedTrip ? `<span class="account-meta">${esc(selectedTrip.route || "")}</span>` : `<span class="account-meta">Активную поездку можно выбрать после её создания или принятия приглашения.</span>`}
+          ${selectedTrip ? `<span class="account-meta">${esc(selectedTrip.route || "")}</span>` : `<span class="account-error">Выберите доступную активную поездку.</span>`}
         </div>
         <div class="account-card-grid">${Object.entries({
           routeChanges: "Изменения маршрута",
@@ -750,14 +728,14 @@
           dailySummary: "Ежедневная сводка",
           sos: "SOS"
         }).map(([key, label]) => toggleRow(label, `telegram-setting-${key}`, settings[key], `data-telegram-setting="${key}"`)).join("")}</div>
-        <div class="account-actions"><button class="account-button account-button-secondary" type="button" data-telegram-check>Проверить связь</button><button class="account-button account-button-danger" type="button" data-telegram-disconnect>Отключить Telegram</button></div>
+        <div class="account-actions"><button class="account-button account-button-secondary" type="button" data-telegram-check>Проверить связь</button><button class="account-button account-button-danger" type="button" data-telegram-state="notConnected">Отключить</button></div>
       `;
     } else if (telegram.state === "error") {
-      body = `<div class="account-banner account-banner-danger">Не удалось завершить подключение. Создайте новую ссылку и повторите.</div><div class="account-actions"><button class="account-button account-button-primary" type="button" data-telegram-connect>Создать новую ссылку</button><button class="account-button account-button-secondary" type="button" data-telegram-check>Проверить статус</button></div>`;
+      body = `<div class="account-banner account-banner-danger">Не удалось завершить подключение. Проверьте код и повторите.</div><div class="account-actions"><button class="account-button account-button-primary" type="button" data-telegram-state="connecting">Повторить</button><button class="account-button account-button-secondary" type="button" data-telegram-state="notConnected">Отключить</button></div>`;
     } else if (telegram.state === "lost") {
-      body = `<div class="account-banner account-banner-warning">Связь с ботом потеряна. Настройки сохранены, но уведомления в Telegram временно недоступны.</div><button class="account-button account-button-primary" type="button" data-telegram-connect>Переподключить</button>`;
+      body = `<div class="account-banner account-banner-warning">Связь с ботом потеряна. Настройки сохранены, но уведомления в Telegram временно недоступны.</div><button class="account-button account-button-primary" type="button" data-telegram-state="connecting">Переподключить</button>`;
     } else {
-      body = `<div class="account-card"><span class="account-status">Не подключён</span><h3>Telegram-уведомления</h3><p>Получайте важные изменения маршрута, SOS и сообщения организатора в боте.</p><button class="account-button account-button-primary" type="button" data-telegram-connect>Подключить Telegram</button></div>`;
+      body = `<div class="account-card"><span class="account-status">Не подключён</span><h3>Telegram-уведомления</h3><p>Получайте важные изменения маршрута, SOS и сообщения организатора в боте.</p><button class="account-button account-button-primary" type="button" data-telegram-state="connecting">Подключить Telegram</button></div>`;
     }
     return `
       <div class="account-panel">${body}</div>
@@ -1163,7 +1141,6 @@
       ctx.activeSection = section.dataset.section;
       updateUrlSection(ctx.activeSection);
       renderFn();
-      if (ctx.activeSection === "telegram") void refreshTelegramStatus(ctx, true);
       return;
     }
     const openMembers = event.target.closest("[data-open-trip-members]");
@@ -1176,17 +1153,14 @@
       return;
     }
     if (event.target.closest("[data-telegram-check]")) {
-      void refreshTelegramStatus(ctx, false);
+      toast(ctx, "Связь с Telegram доступна", "success");
       return;
     }
-    if (event.target.closest("[data-telegram-connect]")) {
+    const telegramState = event.target.closest("[data-telegram-state]");
+    if (telegramState) {
       if (!guardOnline(ctx, "Telegram недоступен офлайн")) return;
-      void createTelegramLink(ctx);
-      return;
-    }
-    if (event.target.closest("[data-telegram-disconnect]")) {
-      if (!guardOnline(ctx, "Telegram недоступен офлайн")) return;
-      void disconnectTelegram(ctx);
+      const user = ctx.adapter.getCurrentUser();
+      if (user) setTelegramState(ctx, user, telegramState.dataset.telegramState);
       return;
     }
     const mailState = event.target.closest("[data-mail-state]");
@@ -1236,7 +1210,7 @@
     if (form.id === "profile-delete-form") handleDeleteSubmit(event, ctx);
   }
 
-  async function handleLoginSubmit(event, ctx) {
+  function handleLoginSubmit(event, ctx) {
     event.preventDefault();
     clearErrors(ctx.root);
     const emailInput = qs(ctx.root, "#login-email");
@@ -1268,7 +1242,7 @@
       focusFirst([setFieldError(ctx.root, "login-password", "Ошибка системы. Попробуйте позже.")]);
       return;
     }
-    const result = await Promise.resolve(ctx.adapter.authenticate({ email, password, remember: qs(ctx.root, "#login-remember").checked }));
+    const result = ctx.adapter.authenticate({ email, password, remember: qs(ctx.root, "#login-remember").checked });
     if (!result.ok) {
       const message = result.code === "not_found" || ctx.loginScenario === "notfound" ? "Аккаунт не найден." : "Неверный email или пароль.";
       focusFirst([setFieldError(ctx.root, result.code === "not_found" ? "login-email" : "login-password", message)]);
@@ -1277,7 +1251,7 @@
     ctx.routes.routeAfterAuth(ctx.adapter);
   }
 
-  async function handleRegisterSubmit(event, ctx) {
+  function handleRegisterSubmit(event, ctx) {
     event.preventDefault();
     clearErrors(ctx.root);
     if (!guardOnline(ctx, "Регистрация недоступна офлайн")) return;
@@ -1304,9 +1278,9 @@
       focusFirst([setFieldError(ctx.root, "register-email", "Офлайн. Регистрация временно недоступна.")]);
       return;
     }
-    const result = await Promise.resolve(ctx.registerScenario === "emailTaken"
+    const result = ctx.registerScenario === "emailTaken"
       ? { ok: false, code: "email_taken" }
-      : ctx.adapter.register({ firstName, lastName, email, password }));
+      : ctx.adapter.register({ firstName, lastName, email, password });
     if (!result.ok) {
       focusFirst([setFieldError(ctx.root, result.code === "email_taken" ? "register-email" : "register-password", result.code === "email_taken" ? "Email уже занят." : "Не удалось создать аккаунт.")]);
       return;
@@ -1480,7 +1454,6 @@
       ctx.activeSection = event.target.value;
       updateUrlSection(ctx.activeSection);
       render(ctx, profileTemplate);
-      if (ctx.activeSection === "telegram") void refreshTelegramStatus(ctx, true);
       return;
     }
     if (event.target.matches("[data-telegram-trip]")) {
@@ -1614,107 +1587,6 @@
     ctx.adapter.updateConnection(user.id, "telegram", patch);
   }
 
-  function telegramApi() {
-    return window.TravelAPI && window.TravelAPI.telegram;
-  }
-
-  function applyTelegramStatus(ctx, status) {
-    const user = ctx.adapter.getCurrentUser();
-    if (!user || !status) return;
-    if (status.status === "connected") {
-      ctx.telegramDeepLink = "";
-      ctx.telegramExpiresAt = "";
-      ctx.telegramPolling = false;
-      const trips = ctx.adapter.getAccessibleTrips(user.id);
-      ctx.adapter.updateConnection(user.id, "telegram", {
-        state: "connected",
-        connectedAt: status.connectedAt,
-        displayName: status.displayName || "",
-        selectedTripId: user.telegram && user.telegram.selectedTripId || (trips[0] && trips[0].id) || ""
-      });
-      return;
-    }
-    if (status.status === "pending") {
-      ctx.telegramExpiresAt = ctx.telegramExpiresAt || status.expiresAt || "";
-      ctx.adapter.updateConnection(user.id, "telegram", { state: "connecting", expiresAt: status.expiresAt || "" });
-      return;
-    }
-    ctx.telegramDeepLink = "";
-    ctx.telegramExpiresAt = "";
-    ctx.telegramPolling = false;
-    ctx.adapter.updateConnection(user.id, "telegram", { state: "notConnected", connectedAt: "", displayName: "", expiresAt: "" });
-  }
-
-  async function refreshTelegramStatus(ctx, silent) {
-    const api = telegramApi();
-    if (!api || ctx.destroyed) return null;
-    try {
-      const status = await api.status();
-      applyTelegramStatus(ctx, status);
-      if (!silent) toast(ctx, status.status === "connected" ? "Telegram подключён" : "Статус подключения обновлён", "success");
-      return status;
-    } catch (error) {
-      if (!silent) toast(ctx, error.message || "Не удалось проверить подключение", "error");
-      return null;
-    }
-  }
-
-  async function createTelegramLink(ctx) {
-    const api = telegramApi();
-    const user = ctx.adapter.getCurrentUser();
-    if (!api || !user || ctx.telegramBusy) return;
-    ctx.telegramBusy = true;
-    ctx.adapter.updateConnection(user.id, "telegram", { state: "connecting" });
-    try {
-      const result = await api.createLink();
-      ctx.telegramDeepLink = result.deepLink;
-      ctx.telegramExpiresAt = result.expiresAt;
-      applyTelegramStatus(ctx, result);
-      startTelegramPolling(ctx);
-    } catch (error) {
-      ctx.adapter.updateConnection(user.id, "telegram", { state: "error" });
-      toast(ctx, error.message || "Не удалось создать ссылку подключения", "error");
-    } finally {
-      ctx.telegramBusy = false;
-      render(ctx, profileTemplate);
-    }
-  }
-
-  async function disconnectTelegram(ctx) {
-    const api = telegramApi();
-    if (!api || ctx.telegramBusy) return;
-    ctx.telegramBusy = true;
-    try {
-      await api.disconnect();
-      applyTelegramStatus(ctx, { status: "not_connected" });
-      toast(ctx, "Telegram отключён", "success");
-    } catch (error) {
-      toast(ctx, error.message || "Не удалось отключить Telegram", "error");
-    } finally {
-      ctx.telegramBusy = false;
-    }
-  }
-
-  function startTelegramPolling(ctx) {
-    ctx.telegramPollingUntil = Date.now() + 60_000;
-    if (ctx.telegramPolling) return;
-    ctx.telegramPolling = true;
-    const tick = async () => {
-      if (ctx.destroyed || ctx.activeSection !== "telegram" || Date.now() >= ctx.telegramPollingUntil) {
-        ctx.telegramPolling = false;
-        return;
-      }
-      const status = await refreshTelegramStatus(ctx, true);
-      if (status && status.status === "connected") {
-        toast(ctx, "Telegram успешно подключён", "success");
-        ctx.telegramPolling = false;
-        return;
-      }
-      setTimer(ctx, tick, 2500);
-    };
-    setTimer(ctx, tick, 2500);
-  }
-
   function setMailState(ctx, user, state) {
     const patch = { state };
     if (state === "connected") {
@@ -1816,7 +1688,6 @@
     }[pageType] || accountPreviewTemplate;
     setupShared(ctx, template);
     render(ctx, template);
-    if (pageType === "profile" && ctx.activeSection === "telegram") void refreshTelegramStatus(ctx, true);
     return ctx;
   }
 

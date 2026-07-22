@@ -61,91 +61,7 @@
     return false;
   };
 
-  function connectServerOperations(adapter) {
-    const api = window.TravelAPI;
-    if (!adapter || !api || !api.trips || adapter.serverOperationsConnected) return adapter;
-    adapter.serverOperationsConnected = true;
-
-    function tripId() {
-      return (state().trip || {}).id;
-    }
-
-    function refreshAfter(promise, fallbackMessage) {
-      Promise.resolve(promise)
-        .then(function () {
-          if (window.TravelSite && typeof window.TravelSite.hydrate === "function") return window.TravelSite.hydrate();
-          return true;
-        })
-        .catch(function (error) {
-          adapter.toast(error && error.message ? error.message : fallbackMessage);
-        });
-    }
-
-    const addSignal = adapter.addSignal.bind(adapter);
-    adapter.addSignal = function (signal) {
-      const accepted = addSignal(signal);
-      if (accepted && tripId()) {
-        const key = window.crypto && typeof window.crypto.randomUUID === "function"
-          ? window.crypto.randomUUID()
-          : "sos-" + Date.now() + "-" + Math.random().toString(36).slice(2);
-        refreshAfter(api.trips.createSos(tripId(), {
-          category: "other",
-          description: signal.description || signal.type || "Требуется помощь",
-          segmentId: signal.segmentId || null
-        }, key), "Не удалось передать SOS на сервер");
-      }
-      return accepted;
-    };
-
-    const setVerdict = adapter.setVerdict.bind(adapter);
-    adapter.setVerdict = function (verdict) {
-      const before = adapter.getState();
-      const signal = (before.signals || []).find(function (item) { return item.id === before.selectedSignalId; });
-      const accepted = setVerdict(verdict);
-      if (accepted && verdict === "confirm" && signal && signal.serverBacked && tripId()) {
-        refreshAfter(
-          api.trips.confirmSignal(tripId(), signal.id).then(function () { return api.trips.generatePlans(tripId(), signal.id); }),
-          "Не удалось подтвердить событие"
-        );
-      }
-      return accepted;
-    };
-
-    const choosePlan = adapter.choosePlan.bind(adapter);
-    adapter.choosePlan = function (planId) {
-      const plan = adapter.getPlanBOptions().find(function (item) { return item.id === planId; });
-      const accepted = choosePlan(planId);
-      if (accepted && plan && plan.serverBacked && tripId()) {
-        refreshAfter(api.trips.selectPlan(tripId(), planId), "Не удалось выбрать Plan B");
-      }
-      return accepted;
-    };
-
-    const sendMessage = adapter.sendMessage.bind(adapter);
-    adapter.sendMessage = function (messageId) {
-      const before = adapter.getState();
-      const message = (before.messages || []).find(function (item) { return item.id === messageId; });
-      const plan = adapter.getPlanBOptions().find(function (item) { return item.id === before.selectedPlanBId; });
-      const accepted = sendMessage(messageId);
-      if (accepted && message && tripId()) {
-        const operation = message.planB && plan && plan.serverBacked
-          ? api.trips.publishPlan(tripId(), plan.id)
-          : api.trips.createMessage(tripId(), {
-            title: message.topic || "Сообщение организатора",
-            text: message.text || "Обновление по поездке",
-            audience: "participants",
-            status: "published"
-          });
-        refreshAfter(operation, "Не удалось отправить сообщение");
-      }
-      return accepted;
-    };
-
-    return adapter;
-  }
-
-  async function boot() {
-    if (window.TravelSite && window.TravelSite.ready) await window.TravelSite.ready;
+  function boot() {
     // dev override
     try {
       if (new URLSearchParams(window.location.search).get("env") === "development") {
@@ -166,16 +82,70 @@
     const tripId = params.get("tripId") || params.get("trip");
     if (tripId) {
       const found = app().setActiveTrip ? app().setActiveTrip(tripId) : null;
-      if (!found) { renderNoAccess(); return; }
+      // Поездки ещё нет в локальном состоянии (например, только что создана на
+      // бэкенде или открыта напрямую по ссылке). Бэкенд — источник правды и сам
+      // проверяет доступ, поэтому сначала подтягиваем поездку с бэкенда, а уже
+      // потом решаем, есть ли доступ.
+      if (!found) { hydrateActiveTripFromBackend(tripId); return; }
     }
 
+    continueBoot();
+  }
+
+  function uidOf(st) {
+    return (st.accountPages && st.accountPages.session && st.accountPages.session.userId) ||
+      (st.currentUser && st.currentUser.id) || "artem";
+  }
+
+  // Подтянуть поездку с бэкенда и добавить её в локальное состояние, чтобы
+  // рабочее пространство могло её открыть. Фолбэк на случай, когда поездки ещё
+  // нет в состоянии. «Нет доступа» показываем только если бэкенд отказал/недоступен.
+  function hydrateActiveTripFromBackend(tripId) {
+    const conn = window.TravelApi;
+    if (!conn || typeof conn.getTrip !== "function") { renderNoAccess(); return; }
+    let me = null;
+    Promise.resolve(conn.ensureAuth ? conn.ensureAuth(conn.demo) : null)
+      .then((meRes) => { me = (meRes && meRes.user) ? meRes.user : meRes; return conn.getTrip(tripId); })
+      .then((res) => {
+        const bt = (res && res.trip) ? res.trip : res;
+        if (!bt || !bt.id) { renderNoAccess(); return; }
+        const st = state();
+        const uid = uidOf(st);
+        const isOwner = !!(me && bt.ownerId && me.id === bt.ownerId);
+        const roles = {}; roles[uid] = isOwner ? "organizer" : "participant";
+        const clientTrip = {
+          id: bt.id,
+          title: bt.title || "Поездка",
+          route: bt.route || "",
+          status: bt.status === "completed" ? "completed" : "active",
+          type: bt.type || "group",
+          start: bt.startDate || "",
+          end: bt.endDate || "",
+          startDate: bt.startDate || "",
+          endDate: bt.endDate || "",
+          kind: bt.type === "solo" ? "Соло" : "Групповая",
+          role: isOwner ? "Организатор" : "Участник",
+          participants: (bt.participants || []).map((p) => p.name),
+          participantIds: [uid],
+          roles: roles,
+          segments: Array.isArray(bt.segments) ? bt.segments : []
+        };
+        const rest = Array.isArray(st.trips) ? st.trips.filter((t) => t.id !== clientTrip.id) : [];
+        app().setState({ trips: [clientTrip].concat(rest) }, { source: "workspace-integration", action: "hydrateActiveTrip" });
+        const ok = app().setActiveTrip ? app().setActiveTrip(tripId) : null;
+        if (!ok) { renderNoAccess(); return; }
+        continueBoot();
+      })
+      .catch(() => { renderNoAccess(); });
+  }
+
+  function continueBoot() {
     // единый core-flow adapter для Мониторинга и Сообщений
     if (typeof window.coreFlowCreateStateAdapter === "function") {
       const adapter = window.coreFlowCreateStateAdapter({
         modalRoot: document.getElementById("coreflow-shared-modal-root") || undefined,
         toastRoot: document.getElementById("coreflow-shared-toast-root") || undefined
       });
-      connectServerOperations(adapter);
       window.coreFlowActiveAdapter = adapter;
       const monitoringRoot = document.querySelector("#panel-monitor .monitoring-surface");
       const messagesRoot = document.querySelector("#panel-messages .messages-surface");

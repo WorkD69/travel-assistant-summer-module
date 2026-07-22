@@ -177,37 +177,33 @@
       id: "trip-" + Math.random().toString(36).slice(2, 8),
       type: "group",
       title,
-      description: "Маршрут с перелётом, трансфером и проживанием.",
-      start: "2026-07-19",
-      end: "2026-07-25",
-      timezone: "Europe/Istanbul",
-      cover: "Море и маршрут",
-      hotel: "Akra Antalya",
-      address: "Lara Yolu, Antalya",
-      checkin: "2026-07-19T21:00",
-      checkout: "2026-07-25T11:00",
-      transfer: "Трансфер аэропорт → отель",
-      contacts: "+90 242 000 00 00",
-      notes: "Проверить позднее заселение.",
+      description: "",
+      start: "",
+      end: "",
+      timezone: "",
+      cover: "",
+      hotel: "",
+      address: "",
+      checkin: "",
+      checkout: "",
+      transfer: "",
+      contacts: "",
+      notes: "",
       organizer: "Артём",
       inviteEmail: "",
       inviteExpires: "7 дней",
       readonlyAccess: true,
       invitationDrafts: [],
-      documentsMode: "demo",
+      documentsMode: "later",
       documentVisibility: "mixed",
-      documentSetup: [
-        { id: "doc-flight", title: "Авиабилеты", type: "Авиабилет", visibility: "Участникам" },
-        { id: "doc-hotel", title: "Бронь отеля", type: "Бронь отеля", visibility: "Участникам" },
-        { id: "doc-insurance", title: "Страховка", type: "Страховка", visibility: "Только организатору" }
-      ],
-      notifyFlights: true,
-      notifyTransfer: true,
-      notifyHotel: true,
-      notifyTelegram: true,
-      notifyEmail: true,
-      notifyDaily: true,
-      sos: true
+      documentSetup: [],
+      notifyFlights: false,
+      notifyTransfer: false,
+      notifyHotel: false,
+      notifyTelegram: false,
+      notifyEmail: false,
+      notifyDaily: false,
+      sos: false
     };
   }
 
@@ -345,12 +341,6 @@
       createTrip(payload) {
         if (external && typeof external.createTrip === "function") {
           const result = external.createTrip(payload);
-          if (result && typeof result.then === "function") {
-            return result.then((trip) => {
-              publish("trip-pages:trip-created", { tripId: trip?.id || trip?.tripId, draftId: payload.draftId, changedFields: Object.keys(payload.data || {}) });
-              return trip;
-            });
-          }
           publish("trip-pages:trip-created", { tripId: result?.id || result?.tripId, draftId: payload.draftId, changedFields: Object.keys(payload.data || {}) });
           return result;
         }

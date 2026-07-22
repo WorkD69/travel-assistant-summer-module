@@ -64,4 +64,14 @@ describe('loadConfig', () => {
     assert.equal(config.ai.apiKey, 'legacy-key');
     assert.equal(config.ai.model, 'legacy-model');
   });
+
+  test('keeps temporary document links inside the isolated Preview deployment', () => {
+    const config = loadConfig({
+      VERCEL_ENV: 'preview',
+      VERCEL_URL: 'travel-assistant-api-preview-abc.vercel.app',
+      VERCEL_PROJECT_PRODUCTION_URL: 'travel-assistant-api-chi.vercel.app',
+      BACKEND_PUBLIC_URL: 'https://travel-assistant-api-chi.vercel.app',
+    });
+    assert.equal(config.publicBaseUrl, 'https://travel-assistant-api-preview-abc.vercel.app');
+  });
 });

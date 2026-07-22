@@ -98,7 +98,10 @@ function loadConfig(env = process.env) {
       3_600,
     ),
     telegramBotUsername: parseTelegramBotUsername(env.TELEGRAM_BOT_USERNAME),
-    publicBaseUrl: env.BACKEND_PUBLIC_URL
+    publicBaseUrl: (env.VERCEL_ENV === 'preview' && env.VERCEL_URL
+      ? `https://${env.VERCEL_URL}`
+      : '')
+      || env.BACKEND_PUBLIC_URL
       || (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : '')
       || (env.VERCEL_URL ? `https://${env.VERCEL_URL}` : ''),
     ai: Object.freeze({
@@ -111,8 +114,31 @@ function loadConfig(env = process.env) {
   });
 }
 
-module.exports = {
+const exported = {
   REQUIRED_PRODUCTION_KEYS,
   loadConfig,
   parseTelegramBotUsername,
 };
+
+let runtimeConfig;
+function current() {
+  if (!runtimeConfig) runtimeConfig = loadConfig(process.env);
+  return runtimeConfig;
+}
+
+function setRuntimeConfig(value) {
+  runtimeConfig = value;
+}
+
+exported.setRuntimeConfig = setRuntimeConfig;
+
+Object.defineProperties(exported, {
+  port: { enumerable: true, get: () => current().port },
+  jwtSecret: { enumerable: true, get: () => current().jwtSecret },
+  nodeEnv: { enumerable: true, get: () => current().nodeEnv },
+  isProd: { enumerable: true, get: () => current().isProduction },
+  ai: { enumerable: true, get: () => current().ai },
+  frontendDir: { enumerable: true, get: () => process.env.FRONTEND_DIR || '' },
+});
+
+module.exports = exported;

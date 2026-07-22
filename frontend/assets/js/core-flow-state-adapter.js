@@ -496,11 +496,11 @@
       if (!coreFlowCanMutate("message")) return false;
       const coreFlowMessage = coreFlowState.messages.find(function coreFlowFindMessage(coreFlowCandidate) { return coreFlowCandidate.id === coreFlowMessageId; });
       if (!coreFlowMessage) return false;
-      coreFlowMessage.status = "Отправлено";
+      coreFlowMessage.status = "Демонстрационно отправлено";
       coreFlowMessage.time = coreFlowNowLabel();
       coreFlowState.uiScenario = "messageSent";
       coreFlowState.scenario = "messageSent";
-      coreFlowAddHistory("Сообщение «" + coreFlowMessage.topic + "» отправлено", coreFlowNormalizeRecipients(coreFlowMessage.recipients));
+      coreFlowAddHistory("Сообщение «" + coreFlowMessage.topic + "» отправлено в демонстрационном режиме", coreFlowNormalizeRecipients(coreFlowMessage.recipients));
       coreFlowNotify("message-sent");
       return true;
     }

@@ -1,145 +1,87 @@
-(function () {
+(function cityAutocompleteModule() {
   "use strict";
+  // checked: lowercased name -> hit object, or null when confirmed "not found".
+  var checked = {};
+  var pending = {};
+  var timers = {};
 
-  const api = window.TravelAPI;
-  const states = new WeakMap();
-  const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-  })[char]);
+  function api() { return window.TravelApi || null; }
+  function isCityFieldId(id) { return id === "seg-from" || id === "seg-to" || id === "from" || id === "to"; }
 
-  function announce(state, message, code) {
-    state.status.textContent = message;
-    state.status.dataset.state = code || "";
+  function ensureDatalist() {
+    var dl = document.getElementById("city-suggestions");
+    if (!dl) { dl = document.createElement("datalist"); dl.id = "city-suggestions"; document.body.appendChild(dl); }
+    return dl;
   }
-
-  function close(state) {
-    state.list.hidden = true;
-    state.activeIndex = -1;
-    state.input.removeAttribute("aria-activedescendant");
+  function fillDatalist(results) {
+    var dl = ensureDatalist();
+    dl.innerHTML = results.map(function (r) {
+      var v = String(r.name).replace(/"/g, "&quot;");
+      var lab = String(r.label || r.name).replace(/</g, "&lt;");
+      return '<option value="' + v + '">' + lab + "</option>";
+    }).join("");
   }
-
-  function emitSelection(state, selection) {
-    state.input.dispatchEvent(new CustomEvent("travel:city-selected", {
-      bubbles: true,
-      detail: { field: state.input.dataset.cityField || state.input.dataset.field || state.input.id, selection }
-    }));
-  }
-
-  function selectItem(state, index) {
-    const item = state.items[index];
-    if (!item) return;
-    const selection = {
-      name: item.name,
-      canonicalName: item.name,
-      latitude: Number(item.latitude),
-      longitude: Number(item.longitude),
-      source: "nominatim"
-    };
-    state.input.value = item.name;
-    state.input.dataset.citySelection = JSON.stringify(selection);
-    close(state);
-    announce(state, "Город подтверждён", "confirmed");
-    emitSelection(state, selection);
-  }
-
-  function setActive(state, index) {
-    if (!state.items.length) return;
-    state.activeIndex = (index + state.items.length) % state.items.length;
-    state.list.querySelectorAll('[role="option"]').forEach((option, optionIndex) => {
-      option.setAttribute("aria-selected", String(optionIndex === state.activeIndex));
-    });
-    const active = state.list.querySelector(`[data-city-index="${state.activeIndex}"]`);
-    if (active) {
-      state.input.setAttribute("aria-activedescendant", active.id);
-      active.scrollIntoView({ block: "nearest" });
+  function attach(el) {
+    ensureDatalist();
+    if (el.getAttribute("list") !== "city-suggestions") {
+      el.setAttribute("list", "city-suggestions");
+      el.setAttribute("autocomplete", "off");
     }
   }
+  function markField(el) {
+    var key = (el.value || "").trim().toLowerCase();
+    if (!key) { el.style.borderColor = ""; el.title = ""; return; }
+    if (checked[key] === null) { el.style.borderColor = "#d92d20"; el.title = "Город не найден"; }
+    else if (checked[key]) { el.style.borderColor = ""; el.title = ""; }
+  }
+  function query(name, el) {
+    var key = String(name || "").trim().toLowerCase();
+    if (!key || key.length < 2) return;
+    if (Object.prototype.hasOwnProperty.call(checked, key) || pending[key]) { if (el) markField(el); return; }
+    var a = api();
+    if (!a) return;
+    pending[key] = true;
+    a.ensureAuth(a.demo)
+      .then(function () { return a.geoSearch(name); })
+      .then(function (res) {
+        var results = (res && res.results) || [];
+        checked[key] = results[0] || null;
+        results.forEach(function (r) { var k = String(r.name).toLowerCase(); if (!Object.prototype.hasOwnProperty.call(checked, k)) checked[k] = r; });
+        fillDatalist(results);
+        pending[key] = false;
+        if (el) markField(el);
+      })
+      .catch(function () { pending[key] = false; });
+  }
 
-  function render(state, items) {
-    state.items = items;
-    state.activeIndex = -1;
-    if (!items.length) {
-      close(state);
-      announce(state, "Город не найден", "city_not_found");
-      return;
+  document.addEventListener("input", function (e) {
+    var el = e.target;
+    if (!el || !el.id || !isCityFieldId(el.id)) return;
+    attach(el);
+    var val = el.value;
+    var id = el.id;
+    clearTimeout(timers[id]);
+    timers[id] = setTimeout(function () { query(val, el); }, 350);
+  }, true);
+  document.addEventListener("focusin", function (e) {
+    if (e.target && e.target.id && isCityFieldId(e.target.id)) attach(e.target);
+  }, true);
+
+  window.CityValidator = {
+    // Only blocks cities we actually queried and that returned zero results.
+    isConfirmedInvalid: function (name) { var k = String(name || "").trim().toLowerCase(); return checked[k] === null; },
+    canonical: function (name) { var k = String(name || "").trim().toLowerCase(); return (checked[k] && checked[k].name) ? checked[k].name : name; },
+    hit: function (name) { var k = String(name || "").trim().toLowerCase(); return checked[k] || null; },
+    ensure: function (name) {
+      var k = String(name || "").trim().toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(checked, k)) return Promise.resolve(checked[k]);
+      var a = api();
+      if (!a) return Promise.resolve(null);
+      return a.ensureAuth(a.demo).then(function () { return a.geoSearch(name); }).then(function (res) {
+        var results = (res && res.results) || [];
+        checked[k] = results[0] || null;
+        return checked[k];
+      }).catch(function () { return null; });
     }
-    state.list.innerHTML = items.map((item, index) => (
-      `<button type="button" role="option" id="${state.list.id}-option-${index}" ` +
-      `data-city-index="${index}" aria-selected="false">${esc(item.name)}</button>`
-    )).join("");
-    state.list.hidden = false;
-    announce(state, `Найдено вариантов: ${items.length}`, "ready");
-  }
-
-  async function search(state, query) {
-    state.controller?.abort();
-    state.controller = new AbortController();
-    announce(state, "Ищем город…", "loading");
-    try {
-      const result = await api.geo.search(query, state.controller.signal);
-      if (state.input.value.trim() !== query) return;
-      render(state, Array.isArray(result.items) ? result.items : []);
-    } catch (error) {
-      if (error?.name === "AbortError") return;
-      close(state);
-      announce(state, "Сервис городов временно недоступен", "provider_unavailable");
-    }
-  }
-
-  function onInput(state) {
-    const query = state.input.value.trim();
-    delete state.input.dataset.citySelection;
-    emitSelection(state, null);
-    clearTimeout(state.timer);
-    state.controller?.abort();
-    if (query.length < 2) {
-      close(state);
-      announce(state, "Введите минимум 2 символа", "idle");
-      return;
-    }
-    state.timer = setTimeout(() => search(state, query), 300);
-  }
-
-  function onKeydown(state, event) {
-    if (event.key === "ArrowDown") { event.preventDefault(); setActive(state, state.activeIndex + 1); }
-    else if (event.key === "ArrowUp") { event.preventDefault(); setActive(state, state.activeIndex - 1); }
-    else if (event.key === "Enter" && state.activeIndex >= 0) { event.preventDefault(); selectItem(state, state.activeIndex); }
-    else if (event.key === "Escape") close(state);
-  }
-
-  function bind(input) {
-    if (!api?.geo || states.has(input)) return;
-    const list = document.createElement("div");
-    const status = document.createElement("span");
-    list.id = `city-options-${Math.random().toString(36).slice(2, 9)}`;
-    list.className = "city-autocomplete-list";
-    list.setAttribute("role", "listbox");
-    list.hidden = true;
-    status.className = "city-autocomplete-status";
-    status.setAttribute("role", "status");
-    input.setAttribute("autocomplete", "off");
-    input.setAttribute("aria-autocomplete", "list");
-    input.setAttribute("aria-controls", list.id);
-    input.insertAdjacentElement("afterend", list);
-    list.insertAdjacentElement("afterend", status);
-    const state = { input, list, status, items: [], activeIndex: -1, timer: null, controller: null };
-    states.set(input, state);
-    input.addEventListener("input", () => onInput(state));
-    input.addEventListener("keydown", (event) => onKeydown(state, event));
-    list.addEventListener("click", (event) => {
-      const option = event.target.closest("[data-city-index]");
-      if (option) selectItem(state, Number(option.dataset.cityIndex));
-    });
-    announce(state, input.dataset.citySelection ? "Город подтверждён" : "Начните вводить город", input.dataset.citySelection ? "confirmed" : "idle");
-  }
-
-  function scan(root) {
-    if (root.matches?.("[data-city-autocomplete]")) bind(root);
-    root.querySelectorAll?.("[data-city-autocomplete]").forEach(bind);
-  }
-
-  scan(document);
-  new MutationObserver((records) => records.forEach((record) => record.addedNodes.forEach((node) => {
-    if (node.nodeType === 1) scan(node);
-  }))).observe(document.documentElement, { childList: true, subtree: true });
+  };
 })();

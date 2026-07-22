@@ -1,251 +1,109 @@
-const { z } = require('zod');
+const prisma = require('../db');
+const ai = require('./ai');
 
-const { documentVisible } = require('./document-tokens');
+const NL = String.fromCharCode(10);
 
-const MAX_PROVIDER_BYTES = 256 * 1024;
+const SYSTEM_BASE = [
+  'Ты — кризисный тревел-ассистент внутри приложения «Тревел-помощник».',
+  'Отвечай ТОЛЬКО на русском языке.',
+  'Пользователь находится в поездке и столкнулся с проблемой (поломка авто, задержка/отмена рейса, потеря документов, форс-мажор).',
+  'Твоя задача:',
+  '1) Если данных недостаточно — задай 1-3 коротких уточняющих вопроса (где именно находишься, тип транспорта, что случилось, есть ли крайний срок).',
+  '2) Когда данных достаточно или пользователь просит план — предложи конкретные реалистичные шаги.',
+  'Правила:',
+  '- Пиши кратко, по делу, с эмпатией и спокойствием.',
+  '- НЕ выдумывай точные факты (конкретные названия/адреса СТО, номера рейсов, цены, телефоны). Объясни, как и где их быстро проверить (2ГИС/Яндекс.Карты, сайт авиакомпании, номер на броне).',
+  '- Учитывай контекст поездки: маршрут, даты, брони, участников — он дан ниже.',
+  '- Помни про эффект домино: если сдвигается один сегмент (рейс), подскажи, что скорректировать дальше (трансфер, отель, следующий рейс) и как не потерять деньги.',
+  '- Предлагай, при уместности, черновик письма (авиакомпании/отелю/страховой).',
+].join(NL);
 
-const emailDraftSchema = z.object({
-  subject: z.string().min(1).max(180),
-  body: z.string().min(1).max(4000),
-});
+const PLANS_INSTRUCTIONS = [
+  '',
+  'Пользователю нужны ТРИ ПЛАНА Б. Это ВЗАИМОИСКЛЮЧАЮЩИЕ АЛЬТЕРНАТИВЫ решения ОДНОЙ и той же проблемы, а НЕ шаги одного плана и НЕ дополняющие друг друга действия.',
+  'Пользователь выберет и применит РОВНО ОДИН из них, поэтому каждый план должен ПОЛНОСТЬЮ решать ситуацию сам по себе, без опоры на другие планы.',
+  'Сделай планы действительно РАЗНЫМИ по стратегии — каждый по своей оси компромисса:',
+  '  План 1 — «Быстро и дёшево»: минимум времени и денег, ты действуешь сам; допускается меньше комфорта/гарантий.',
+  '  План 2 — «Надёжно и комфортно»: максимум гарантий и комфорта, обычно дороже или дольше; меньше риска.',
+  '  План 3 — «Минимум усилий»: делегируешь решение (страховая, поддержка авиакомпании/отеля, тревел-агент, банк) — сам почти ничего не делаешь.',
+  'В каждом плане title должен явно отражать его стратегию. В cons честно укажи, чем именно этот вариант хуже двух других, а в whenToUse — кому/когда он подходит больше всего. Планы не должны пересекаться по сути.',
+  '',
+  'СФОРМИРУЙ ИТОГОВЫЙ ОТВЕТ СТРОГО В ФОРМАТЕ JSON (без текста вокруг), по схеме:',
+  '{',
+  '  "summary": "1-2 предложения: как ты понял ситуацию",',
+  '  "clarifyingQuestions": [],',
+  '  "plans": [',
+  '    { "title": "...", "strategy": "fast|reliable|delegate", "steps": ["..."], "pros": "...", "cons": "...", "whenToUse": "..." }',
+  '  ],',
+  '  "emailDraft": { "to": "...", "subject": "...", "body": "..." }',
+  '}',
+  'Ровно 3 элемента в plans, в порядке: быстро/дёшево, надёжно/комфортно, минимум усилий. Если данных не хватает — заполни clarifyingQuestions, иначе пустой массив. Если письмо неуместно — emailDraft: null.',
+  'Весь текст внутри JSON — на русском. Верни ТОЛЬКО валидный JSON.',
+].join(NL);
 
-const planSchema = z.object({
-  strategy: z.enum(['speed', 'comfort', 'budget']),
-  title: z.string().min(3).max(120),
-  summary: z.string().min(3).max(1000),
-  steps: z.array(z.string().min(1).max(500)).min(1).max(8),
-  pros: z.array(z.string().min(1).max(300)).min(1).max(8),
-  cons: z.array(z.string().min(1).max(300)).min(1).max(8),
-  whenToUse: z.string().min(1).max(700),
-  timeImpact: z.string().min(1).max(200),
-  priceImpact: z.string().min(1).max(200),
-  affectedElements: z.array(z.string().min(1).max(200)).max(12),
-  emailDraft: emailDraftSchema,
-});
-
-const planResponseSchema = z.object({ plans: z.array(planSchema).length(3) }).superRefine((value, context) => {
-  if (new Set(value.plans.map((plan) => plan.strategy)).size !== 3) {
-    context.addIssue({ code: 'custom', message: 'Plan strategies must be distinct' });
-  }
-});
-
-function stripCodeFence(value) {
-  return String(value || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+function fmtDate(d) {
+  if (!d) return '-';
+  try { return new Date(d).toISOString().slice(0, 10); } catch (e) { return String(d); }
 }
 
-function parsePlanResponse(value) {
-  const parsed = planResponseSchema.parse(JSON.parse(stripCodeFence(value)));
-  return parsed.plans.map((plan, index) => ({ ...plan, rank: index + 1, generationSource: 'groq' }));
-}
-
-function fallbackPlanCandidates(incident) {
-  const reason = String(incident?.detail || incident?.label || 'изменение маршрута').slice(0, 500);
-  return [
-    {
-      rank: 1,
-      strategy: 'speed',
-      title: 'Быстро восстановить маршрут',
-      summary: `Минимизировать задержку после события: ${reason}`,
-      steps: ['Связаться с перевозчиком или принимающей стороной', 'Забронировать ближайший подтверждённый вариант', 'Сообщить участникам новое время'],
-      pros: ['Минимальная потеря времени'],
-      cons: ['Стоимость может быть выше'],
-      whenToUse: 'Когда критично продолжить поездку как можно быстрее',
-      timeImpact: 'Минимально возможная задержка',
-      priceImpact: 'Возможна доплата за срочную замену',
-      affectedElements: ['транспорт', 'уведомления участникам'],
-      emailDraft: { subject: 'Срочная замена маршрута', body: `Просим предложить ближайшую подтверждённую замену в связи с событием: ${reason}.` },
-      generationSource: 'deterministic-fallback',
-    },
-    {
-      rank: 2,
-      strategy: 'comfort',
-      title: 'Сохранить комфорт поездки',
-      summary: `Выбрать надёжное решение с удобными пересадками после события: ${reason}`,
-      steps: ['Проверить официальные альтернативы', 'Подтвердить места, багаж и правила возврата', 'Согласовать отель и трансфер'],
-      pros: ['Ниже риск повторного сбоя', 'Удобнее для группы'],
-      cons: ['Ожидание может быть дольше'],
-      whenToUse: 'Когда важнее предсказуемость и комфорт участников',
-      timeImpact: 'Умеренная задержка',
-      priceImpact: 'Средняя доплата зависит от условий поставщика',
-      affectedElements: ['транспорт', 'отель', 'трансфер'],
-      emailDraft: { subject: 'Подтверждение комфортной альтернативы', body: `Просим подтвердить доступность мест и связанные услуги после события: ${reason}.` },
-      generationSource: 'deterministic-fallback',
-    },
-    {
-      rank: 3,
-      strategy: 'budget',
-      title: 'Снизить дополнительные расходы',
-      summary: `Использовать возврат и бюджетные альтернативы после события: ${reason}`,
-      steps: ['Зафиксировать право на возврат или обмен', 'Сравнить подтверждённые бюджетные варианты', 'Обновить маршрут после получения подтверждения'],
-      pros: ['Минимальная дополнительная стоимость'],
-      cons: ['Больше ожидания и ручной проверки'],
-      whenToUse: 'Когда бюджет важнее скорости',
-      timeImpact: 'Возможна значительная задержка',
-      priceImpact: 'Минимальная доплата или возврат',
-      affectedElements: ['билет', 'бюджет', 'расписание'],
-      emailDraft: { subject: 'Запрос обмена или возврата', body: `Просим подтвердить варианты обмена или возврата в связи с событием: ${reason}.` },
-      generationSource: 'deterministic-fallback',
-    },
-  ];
-}
-
-function buildSafeContext(input) {
-  const trip = input.trip || {};
-  return {
-    trip: {
-      id: trip.id,
-      title: trip.title,
-      route: trip.route,
-      startDate: trip.startDate,
-      endDate: trip.endDate,
-      timezone: trip.timezone,
-      status: trip.status,
-    },
-    routePoints: (input.routePoints || []).slice(0, 12).map((point) => ({ name: point.name, sortOrder: point.sortOrder })),
-    events: (input.events || []).slice(0, 100).map((event) => ({
-      title: event.title, type: event.type, startsAt: event.startsAt, endsAt: event.endsAt,
-      status: event.status, departure: event.departure, arrival: event.arrival,
-      detail: event.detail, source: event.source, reference: event.reference,
-    })),
-    documents: (input.documents || []).slice(0, 100).map((document) => ({
-      id: document.id, name: document.name, type: document.type, status: document.status,
-      visibility: document.visibility, segment: document.segment,
-    })),
-    messages: (input.messages || []).slice(0, 100).map((message) => ({
-      title: message.title, content: message.content, status: message.status, publishedAt: message.publishedAt,
-    })),
-    sos: (input.sos || []).slice(0, 50).map((ticket) => ({
-      status: ticket.status, category: ticket.category, description: ticket.description, createdAt: ticket.createdAt,
-    })),
-    monitoring: (input.monitoring || []).slice(0, 20).map((signal) => ({
-      label: signal.label, detail: signal.detail, severity: signal.severity, status: signal.status,
-    })),
-    plans: (input.plans || []).slice(0, 10).map((plan) => ({
-      title: plan.title, summary: plan.summary, steps: plan.steps, status: plan.status, visibility: plan.visibility,
-    })),
-    history: (input.history || []).slice(0, 20).map((message) => ({ role: message.role, content: message.content })),
-  };
-}
-
-function assistantMessageVisible(message, userId, role) {
-  if (role === 'organizer') return true;
-  const audience = message.audience;
-  if (!audience || audience === 'all' || audience === 'participants') return true;
-  if (Array.isArray(audience)) return audience.includes(userId);
-  if (typeof audience === 'object') {
-    return Boolean(
-      audience.all === true || audience.type === 'all-participants' ||
-      audience.user_ids?.includes(userId) || audience.participantIds?.includes(userId) ||
-      audience.roles?.includes(role)
-    );
-  }
-  return false;
-}
-
-async function loadSafeContext(prisma, { access, userId }) {
-  const tripId = access.trip.id;
-  const [routePoints, events, documents, messages, sos, monitoring, plans, history] = await Promise.all([
-    prisma.routePoint.findMany({ where: { tripId }, orderBy: { sortOrder: 'asc' }, take: 12 }),
-    prisma.tripEvent.findMany({ where: { tripId }, orderBy: [{ sortOrder: 'asc' }, { startsAt: 'asc' }], take: 100 }),
-    prisma.document.findMany({ where: { tripId, status: { notIn: ['deleted', 'revoked'] } }, orderBy: { createdAt: 'desc' }, take: 100 }),
-    prisma.message.findMany({ where: { tripId, status: 'published' }, orderBy: { publishedAt: 'desc' }, take: 100 }),
-    prisma.sosTicket.findMany({ where: { tripId, ...(access.role === 'organizer' ? {} : { authorUserId: userId }) }, orderBy: { createdAt: 'desc' }, take: 50 }),
-    prisma.monitoringSignal.findMany({ where: { tripId, status: 'confirmed' }, orderBy: { occurredAt: 'desc' }, take: 20 }),
-    prisma.tripPlan.findMany({ where: { tripId, status: { in: ['selected', 'published'] }, ...(access.role === 'organizer' ? {} : { visibility: 'published' }) }, orderBy: { updatedAt: 'desc' }, take: 10 }),
-    prisma.assistantMessage.findMany({ where: { tripId, userId }, orderBy: { createdAt: 'desc' }, take: 20 }),
-  ]);
-  return buildSafeContext({
-    trip: access.trip,
-    routePoints,
-    events,
-    documents: documents.filter((document) => documentVisible(document, userId, access.role)),
-    messages: messages.filter((message) => assistantMessageVisible(message, userId, access.role)),
-    sos,
-    monitoring,
-    plans,
-    history: history.reverse(),
+async function buildTripContext(tripId) {
+  const trip = await prisma.trip.findUnique({
+    where: { id: tripId },
+    include: { documents: true, participants: true, monitoringSignals: { orderBy: { createdAt: 'desc' }, take: 5 } },
   });
-}
-
-function completionUrl(baseUrl) {
-  const normalized = String(baseUrl || 'https://api.groq.com/openai/v1').replace(/\/+$/, '') + '/';
-  return new URL('chat/completions', normalized);
-}
-
-async function chatCompletion(messages, { ai, fetchImpl = fetch, model, json = false }) {
-  let response;
-  try {
-    response = await fetchImpl(completionUrl(ai.baseUrl), {
-      method: 'POST',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${ai.apiKey}` },
-      body: JSON.stringify({ model, messages, temperature: json ? 0.2 : 0.3, max_tokens: json ? 3500 : 1200, ...(json ? { response_format: { type: 'json_object' } } : {}) }),
-      signal: AbortSignal.timeout(ai.timeoutMs || 15_000),
+  if (!trip) return 'Контекст поездки недоступен.';
+  const lines = [];
+  lines.push('Поездка: ' + trip.title);
+  lines.push('Маршрут: ' + (trip.route || '-'));
+  lines.push('Даты: ' + fmtDate(trip.startDate) + ' - ' + fmtDate(trip.endDate));
+  lines.push('Статус: ' + trip.status + '; тип: ' + trip.type);
+  if (trip.documents && trip.documents.length) {
+    lines.push('Брони и документы (сегменты):');
+    trip.documents.forEach(function (d) {
+      lines.push('  - ' + (d.type || 'Документ') + ': ' + (d.segment || d.name) + ' [' + d.status + ']');
     });
-  } catch {
-    throw new Error('ai_unavailable');
   }
-  if (!response.ok) throw new Error('ai_unavailable');
-  const text = await response.text();
-  if (Buffer.byteLength(text, 'utf8') > MAX_PROVIDER_BYTES) throw new Error('ai_unavailable');
-  let payload;
-  try { payload = JSON.parse(text); } catch { throw new Error('ai_unavailable'); }
-  const content = payload?.choices?.[0]?.message?.content;
-  if (typeof content !== 'string' || !content.trim()) throw new Error('ai_unavailable');
-  return content.trim();
-}
-
-function aiModels(ai) {
-  return [...new Set([ai?.model, ai?.fallbackModel].filter(Boolean))];
-}
-
-async function generatePlanCandidates(incident, context, options = {}) {
-  const ai = options.ai || {};
-  if (!ai.apiKey) return fallbackPlanCandidates(incident);
-  const messages = [
-    { role: 'system', content: 'Ты помощник организатора поездки. Верни только JSON с plans: ровно speed, comfort, budget. Не выбирай и не публикуй план.' },
-    { role: 'user', content: JSON.stringify({ incident: { label: incident?.label, detail: incident?.detail }, context }) },
-  ];
-  for (const model of aiModels(ai)) {
-    try {
-      return parsePlanResponse(await chatCompletion(messages, { ...options, ai, model, json: true }));
-    } catch {
-      // Try the already configured fallback model before deterministic output.
-    }
+  if (trip.participants && trip.participants.length) {
+    lines.push('Участники: ' + trip.participants.map(function (p) { return p.name + ' (' + p.role + ')'; }).join(', '));
   }
-  return fallbackPlanCandidates(incident);
-}
-
-async function generateAssistantAnswer(question, context, options = {}) {
-  const safeQuestion = String(question || '').trim().slice(0, 2000);
-  const ai = options.ai || {};
-  if (ai.apiKey && safeQuestion) {
-    const messages = [
-      { role: 'system', content: 'Отвечай кратко по-русски только по переданному безопасному контексту поездки. Не выдумывай факты и не раскрывай скрытые документы.' },
-      { role: 'user', content: JSON.stringify({ question: safeQuestion, context }) },
-    ];
-    for (const model of aiModels(ai)) {
-      try {
-        const answer = await chatCompletion(messages, { ...options, ai, model });
-        if (answer.length <= 6000) return { answer, source: 'groq' };
-      } catch {
-        // Try the configured fallback model.
-      }
-    }
+  if (trip.monitoringSignals && trip.monitoringSignals.length) {
+    lines.push('Последние сигналы мониторинга:');
+    trip.monitoringSignals.forEach(function (s) {
+      lines.push('  - [' + (s.severity || 'info') + '] ' + s.label + (s.segment ? ' - ' + s.segment : ''));
+    });
   }
-  const tripTitle = context?.trip?.title || 'поездки';
-  return {
-    answer: `Сейчас доступна сохранённая информация по ${tripTitle}. Проверьте опубликованные сообщения, маршрут и ближайшие события; при угрозе безопасности используйте SOS.`,
-    source: 'deterministic-fallback',
-  };
+  return lines.join(NL);
 }
 
-module.exports = {
-  MAX_PROVIDER_BYTES,
-  buildSafeContext,
-  chatCompletion,
-  fallbackPlanCandidates,
-  generateAssistantAnswer,
-  generatePlanCandidates,
-  loadSafeContext,
-  parsePlanResponse,
-};
+function toMessages(messages) {
+  return (messages || [])
+    .filter(function (m) { return m && m.content; })
+    .map(function (m) { return { role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content) }; });
+}
+
+async function chat(args) {
+  const tripId = args.tripId; const messages = args.messages;
+  const ctx = await buildTripContext(tripId);
+  const system = SYSTEM_BASE + NL + NL + '=== КОНТЕКСТ ПОЕЗДКИ ===' + NL + ctx;
+  const reply = await ai.generate({ system: system, messages: toMessages(messages) });
+  return { mode: 'dialog', reply: reply };
+}
+
+async function plans(args) {
+  const tripId = args.tripId; const messages = args.messages;
+  const ctx = await buildTripContext(tripId);
+  const system = SYSTEM_BASE + NL + NL + '=== КОНТЕКСТ ПОЕЗДКИ ===' + NL + ctx + NL + PLANS_INSTRUCTIONS;
+  const raw = await ai.generate({ system: system, messages: toMessages(messages), json: true });
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    const start = raw ? raw.indexOf('{') : -1;
+    const end = raw ? raw.lastIndexOf('}') : -1;
+    if (start !== -1 && end !== -1 && end > start) { parsed = JSON.parse(raw.slice(start, end + 1)); }
+    else { parsed = { summary: raw, plans: [] }; }
+  }
+  return Object.assign({ mode: 'plans' }, parsed);
+}
+
+module.exports = { chat: chat, plans: plans, buildTripContext: buildTripContext };

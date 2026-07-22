@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
+import os
 
 import httpx
 import pytest
@@ -149,3 +150,48 @@ async def test_sos_uses_idempotency_header_and_is_not_retried() -> None:
 
     assert calls == 1
 
+
+async def test_document_download_returns_a_real_temporary_file() -> None:
+    content = b"%PDF-1.7 canonical document bytes"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/temporary-link"):
+            return httpx.Response(200, json={
+                "url": "https://backend.example.test/api/documents/download/opaque",
+                "filename": "ticket.pdf",
+                "title": "Ticket",
+            })
+        assert request.url.path == "/api/documents/download/opaque"
+        return httpx.Response(200, content=content)
+
+    client = make_client(handler)
+    path = None
+    try:
+        download = await client.get_document_download(42, "doc-1")
+        path = download.location
+        assert download.kind == "file"
+        assert download.filename == "ticket.pdf"
+        with open(path, "rb") as document:
+            assert document.read() == content
+    finally:
+        await client.close()
+        if path and os.path.exists(path):
+            os.unlink(path)
+
+
+async def test_document_download_falls_back_to_the_opaque_url() -> None:
+    url = "https://backend.example.test/api/documents/download/opaque"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/temporary-link"):
+            return httpx.Response(200, json={"url": url, "filename": "ticket.pdf"})
+        return httpx.Response(503, text="unavailable")
+
+    client = make_client(handler)
+    try:
+        download = await client.get_document_download(42, "doc-1")
+    finally:
+        await client.close()
+
+    assert download.kind == "url"
+    assert download.location == url

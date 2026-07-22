@@ -1,188 +1,196 @@
-const os = require('node:os');
-const path = require('node:path');
+// Офлайн OCR / извлечение текста из файлов (без внешних сервисов).
+// PDF с текстовым слоем -> pdf-parse.
+// PDF-скан (без текста) -> растеризация через pdfjs-dist + @napi-rs/canvas, затем tesseract.js.
+// Картинки -> tesseract.js (rus+eng).
+// Все тяжёлые зависимости подгружаются лениво и best-effort: если их нет,
+// загрузка файла не ломается, а документ помечается «текст не найден» (можно ввести вручную).
 
-const { OEM, createWorker } = require('tesseract.js');
+let pdfParse = null;
+let Tesseract = null;
+let pdfjsLib = null;
+let napiCanvas = null;
 
-const { ApiError } = require('../errors');
-
-const MAX_OCR_FILE_BYTES = 4 * 1024 * 1024;
-const MAX_EXTRACTED_TEXT_BYTES = 100 * 1024;
-const MAX_IMAGE_DIMENSION = 12_000;
-const MAX_IMAGE_PIXELS = 20_000_000;
-const IMAGE_OCR_TIMEOUT_MS = 45_000;
-const SUPPORTED_OCR_MIME_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'text/plain']);
-
-function hasPrefix(buffer, bytes) {
-  return bytes.every((value, index) => buffer[index] === value);
-}
-
-function imageDimensions(buffer, mimeType) {
-  if (mimeType === 'image/png') {
-    if (buffer.length < 24 || buffer.subarray(12, 16).toString('ascii') !== 'IHDR') return null;
-    return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+function loadPdf() {
+  if (pdfParse === null) {
+    try { pdfParse = require('pdf-parse'); }
+    catch (e) { pdfParse = false; }
   }
-  if (mimeType !== 'image/jpeg') return null;
-  const sofMarkers = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
-  let offset = 2;
-  while (offset + 8 < buffer.length) {
-    if (buffer[offset] !== 0xff) { offset += 1; continue; }
-    while (buffer[offset] === 0xff) offset += 1;
-    const marker = buffer[offset++];
-    if (marker === 0xd8 || marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7)) continue;
-    if (offset + 2 > buffer.length) return null;
-    const length = buffer.readUInt16BE(offset);
-    if (length < 2 || offset + length > buffer.length) return null;
-    if (sofMarkers.has(marker) && length >= 7) {
-      return { height: buffer.readUInt16BE(offset + 3), width: buffer.readUInt16BE(offset + 5) };
+  return pdfParse;
+}
+function loadTesseract() {
+  if (Tesseract === null) {
+    try { Tesseract = require('tesseract.js'); }
+    catch (e) { Tesseract = false; }
+  }
+  return Tesseract;
+}
+function loadPdfjs() {
+  if (pdfjsLib === null) {
+    try {
+      // Подкладываем глобалы из @napi-rs/canvas ДО загрузки pdfjs, чтобы pdfjs не пытался
+      // подключить нативный node-canvas (его бинарный билд часто заблокирован npm).
+      const c = loadCanvas();
+      if (c) {
+        if (!globalThis.DOMMatrix && c.DOMMatrix) globalThis.DOMMatrix = c.DOMMatrix;
+        if (!globalThis.Path2D && c.Path2D) globalThis.Path2D = c.Path2D;
+        if (!globalThis.ImageData && c.ImageData) globalThis.ImageData = c.ImageData;
+        if (!globalThis.DOMPoint && c.DOMPoint) globalThis.DOMPoint = c.DOMPoint;
+      }
+      pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
     }
-    offset += length;
-  }
-  return null;
-}
-
-function validateDocumentFile({ buffer, mimeType, fileName }) {
-  if (!Buffer.isBuffer(buffer) || buffer.length < 1 || buffer.length > MAX_OCR_FILE_BYTES) {
-    throw new ApiError(422, 'validation_error', 'Файл должен быть непустым и не превышать 4 МБ.');
-  }
-  const type = String(mimeType || '').toLowerCase();
-  const name = String(fileName || '').toLowerCase();
-  if (!SUPPORTED_OCR_MIME_TYPES.has(type)) {
-    throw new ApiError(422, 'validation_error', 'Поддерживаются PDF, JPEG, PNG и TXT до 4 МБ.');
-  }
-  const valid = (
-    (type === 'application/pdf' && name.endsWith('.pdf') && buffer.subarray(0, 5).toString('ascii') === '%PDF-') ||
-    (type === 'image/png' && name.endsWith('.png') && hasPrefix(buffer, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) ||
-    (type === 'image/jpeg' && /\.jpe?g$/.test(name) && hasPrefix(buffer, [0xff, 0xd8, 0xff])) ||
-    (type === 'text/plain' && name.endsWith('.txt') && !buffer.includes(0))
-  );
-  if (!valid) throw new ApiError(422, 'validation_error', 'Содержимое файла не соответствует его формату.');
-  if (type === 'image/png' || type === 'image/jpeg') {
-    const dimensions = imageDimensions(buffer, type);
-    if (
-      !dimensions || dimensions.width < 1 || dimensions.height < 1 ||
-      dimensions.width > MAX_IMAGE_DIMENSION || dimensions.height > MAX_IMAGE_DIMENSION ||
-      dimensions.width * dimensions.height > MAX_IMAGE_PIXELS
-    ) {
-      throw new ApiError(422, 'validation_error', 'Размеры изображения не поддерживаются.');
+    catch (e) {
+      try { pdfjsLib = require('pdfjs-dist'); }
+      catch (e2) { pdfjsLib = false; }
     }
   }
-  return { mimeType: type, fileName: name };
+  return pdfjsLib;
+}
+function loadCanvas() {
+  if (napiCanvas === null) {
+    try { napiCanvas = require('@napi-rs/canvas'); }
+    catch (e) { napiCanvas = false; }
+  }
+  return napiCanvas;
 }
 
-async function parsePdfDefault(buffer) {
-  const pdfParse = require('pdf-parse');
-  const result = await pdfParse(buffer, { max: 5 });
-  return { text: result.text || '', pages: result.numrender || Math.min(result.numpages || 0, 5) };
-}
-
-async function recognizeImageDefault(buffer) {
-  const worker = await createWorker(['rus', 'eng'], OEM.LSTM_ONLY, {
-    cachePath: path.join(os.tmpdir(), 'travel-assistant-tesseract'),
-    logger() {},
-  });
+// Растеризация PDF в PNG постранично и OCR каждой страницы (best-effort).
+async function ocrPdfViaImages(buffer, maxPages) {
+  const pdfjs = loadPdfjs();
+  const cv = loadCanvas();
+  const T = loadTesseract();
+  if (!pdfjs || !cv || !T) return { text: '', reason: 'deps' };
   try {
-    const result = await worker.recognize(buffer);
-    return result?.data?.text || '';
-  } finally {
-    await worker.terminate();
-  }
-}
-
-function withTimeout(factory, timeoutMs, code) {
-  let timer;
-  return Promise.race([
-    Promise.resolve().then(factory),
-    new Promise((_resolve, reject) => {
-      timer = setTimeout(() => reject(new Error(code)), timeoutMs);
-      if (typeof timer.unref === 'function') timer.unref();
-    }),
-  ]).finally(() => clearTimeout(timer));
-}
-
-function validIsoDate(day, month, year) {
-  const value = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() + 1 === month && parsed.getUTCDate() === day ? value : null;
-}
-
-function uniqueMatches(text, expression, mapper, limit) {
-  const values = [];
-  let match;
-  while ((match = expression.exec(text)) && values.length < limit) {
-    const value = mapper(match);
-    if (value && !values.includes(value)) values.push(value);
-  }
-  return values;
-}
-
-function extractStructuredData(text) {
-  const normalized = String(text || '').replace(/\u00a0/g, ' ').replace(/[ \t]+/g, ' ').slice(0, MAX_EXTRACTED_TEXT_BYTES);
-  const flight = normalized.match(/(?:flight|рейс)?[^A-ZА-ЯЁ0-9]{0,8}\b([A-ZА-ЯЁ]{2})\s?(\d{2,4})\b/i);
-  const route = normalized.match(/\b([A-ZА-ЯЁ][A-Za-zА-Яа-яЁё-]{2,})\s*(?:→|>|—|–)\s*([A-ZА-ЯЁ][A-Za-zА-Яа-яЁё-]{2,})\b/);
-  const dates = uniqueMatches(normalized, /\b(\d{1,2})[./](\d{1,2})[./](\d{4})\b/g, function (match) {
-    return validIsoDate(Number(match[1]), Number(match[2]), Number(match[3]));
-  }, 8);
-  const isoDates = uniqueMatches(normalized, /\b(\d{4})-(\d{2})-(\d{2})\b/g, function (match) {
-    return validIsoDate(Number(match[3]), Number(match[2]), Number(match[1]));
-  }, 8);
-  isoDates.forEach(function (value) { if (!dates.includes(value)) dates.push(value); });
-  const times = uniqueMatches(normalized, /\b([01]\d|2[0-3]):([0-5]\d)\b/g, function (match) { return `${match[1]}:${match[2]}`; }, 8);
-  const lower = normalized.toLowerCase();
-  let documentType = 'document';
-  if (/flight|рейс|boarding|авиабилет/.test(lower)) documentType = 'flight_ticket';
-  else if (/hotel|отел|check-?in/.test(lower)) documentType = 'hotel';
-  else if (/transfer|трансфер/.test(lower)) documentType = 'transfer';
-  else if (/train|поезд|ржд/.test(lower)) documentType = 'train_ticket';
-  return {
-    documentType,
-    ...(flight ? { flightNumber: `${flight[1].toUpperCase()} ${flight[2]}` } : {}),
-    ...(route ? { route: [route[1], route[2]] } : {}),
-    ...(dates.length ? { dates: dates.slice(0, 8) } : {}),
-    ...(times.length ? { times } : {}),
-  };
-}
-
-async function extractDocument({ buffer, mimeType, fileName, parsePdf = parsePdfDefault, recognizeImage = recognizeImageDefault, timeoutMs = IMAGE_OCR_TIMEOUT_MS }) {
-  const file = validateDocumentFile({ buffer, mimeType, fileName });
-  let text = '';
-  let engine;
-  let pages;
-
-  if (file.mimeType === 'text/plain') {
-    text = buffer.toString('utf8');
-    engine = 'text';
-  } else if (file.mimeType === 'application/pdf') {
-    const parsed = await parsePdf(buffer);
-    text = String(parsed?.text || '');
-    pages = parsed?.pages;
-    engine = 'pdf-parse';
-    if (!text.trim()) {
-      return { status: 'manual_review', errorCode: 'scanned_pdf_unsupported', engine: 'none', text: '', data: {}, pages };
+    const data = new Uint8Array(buffer);
+    const doc = await pdfjs.getDocument({
+      data: data,
+      disableWorker: true,
+      isEvalSupported: false,
+      useSystemFonts: true,
+    }).promise;
+    const n = Math.min(doc.numPages || 1, maxPages || 5);
+    const parts = [];
+    for (let i = 1; i <= n; i++) {
+      const page = await doc.getPage(i);
+      const viewport = page.getViewport({ scale: 2 });
+      const canvas = cv.createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+      const png = canvas.toBuffer('image/png');
+      const res = await T.recognize(png, 'rus+eng');
+      const pageText = (res && res.data && res.data.text) ? res.data.text.trim() : '';
+      if (pageText) parts.push(pageText);
     }
-  } else {
-    text = await withTimeout(() => recognizeImage(buffer), Math.min(Math.max(Number(timeoutMs) || IMAGE_OCR_TIMEOUT_MS, 1000), IMAGE_OCR_TIMEOUT_MS), 'ocr_timeout');
-    engine = 'tesseract';
-    if (!String(text).trim()) {
-      return { status: 'manual_review', errorCode: 'empty_ocr_result', engine, text: '', data: {} };
-    }
+    return { text: parts.join('\n').trim() };
+  } catch (e) {
+    return { text: '', reason: String((e && e.message) || e) };
   }
-
-  const bounded = Buffer.from(String(text), 'utf8').subarray(0, MAX_EXTRACTED_TEXT_BYTES).toString('utf8').trim();
-  return { status: bounded ? 'extracted' : 'manual_review', errorCode: bounded ? null : 'empty_ocr_result', engine, text: bounded, data: extractStructuredData(bounded), pages };
 }
 
-module.exports = {
-  IMAGE_OCR_TIMEOUT_MS,
-  MAX_EXTRACTED_TEXT_BYTES,
-  MAX_IMAGE_DIMENSION,
-  MAX_IMAGE_PIXELS,
-  MAX_OCR_FILE_BYTES,
-  SUPPORTED_OCR_MIME_TYPES,
-  extractDocument,
-  extractStructuredData,
-  imageDimensions,
-  parsePdfDefault,
-  recognizeImageDefault,
-  validateDocumentFile,
-  withTimeout,
-};
+async function extractText(buffer, mimeType, filename) {
+  const mt = String(mimeType || '').toLowerCase();
+  const name = String(filename || '').toLowerCase();
+  try {
+    if (mt.indexOf('pdf') !== -1 || name.endsWith('.pdf')) {
+      const pp = loadPdf();
+      let text = '';
+      let pages;
+      if (pp) {
+        const parsed = await pp(buffer);
+        text = (parsed && parsed.text) ? parsed.text.trim() : '';
+        pages = parsed ? parsed.numpages : undefined;
+      }
+      // Есть нормальный текстовый слой — используем его.
+      if (text && text.length >= 20) {
+        return { text: text, engine: 'pdf-parse', pages: pages };
+      }
+      // PDF-скан без текстового слоя — пробуем растеризацию + OCR.
+      const viaImg = await ocrPdfViaImages(buffer);
+      if (viaImg.text) {
+        return { text: viaImg.text, engine: 'pdf-ocr', pages: pages };
+      }
+      const note = viaImg.reason === 'deps'
+        ? 'PDF без текстового слоя; для OCR сканов нужны pdfjs-dist и @napi-rs/canvas'
+        : ('PDF без текстового слоя; OCR-растеризация не удалась: ' + (viaImg.reason || ''));
+      return { text: '', engine: 'none', note: note };
+    }
+    if (mt.indexOf('image') !== -1 || /\.(png|jpe?g|webp|bmp|gif|tiff?)$/.test(name)) {
+      const T = loadTesseract();
+      if (!T) return { text: '', engine: 'none', note: 'tesseract.js не установлен' };
+      const res = await T.recognize(buffer, 'rus+eng');
+      const text = (res && res.data && res.data.text) ? res.data.text.trim() : '';
+      return { text: text, engine: 'tesseract' };
+    }
+    if (mt.indexOf('text') !== -1 || name.endsWith('.txt') || name.endsWith('.csv')) {
+      return { text: buffer.toString('utf8').trim(), engine: 'text' };
+    }
+  } catch (e) {
+    return { text: '', engine: 'error', note: String((e && e.message) || e) };
+  }
+  return { text: '', engine: 'unsupported' };
+}
+
+// Сокращённые русские месяцы (первые 3 буквы) -> номер.
+const RU_MONTHS = { 'янв': 1, 'фев': 2, 'мар': 3, 'апр': 4, 'май': 5, 'мая': 5, 'июн': 6, 'июл': 7, 'авг': 8, 'сен': 9, 'окт': 10, 'ноя': 11, 'дек': 12 };
+
+function pad2(n) { return (n < 10 ? '0' : '') + n; }
+function plausibleYear(y) { const now = new Date().getFullYear(); return y >= now - 1 && y <= now + 3; }
+
+// Эвристическое извлечение сущностей из текста (офлайн).
+// Цель — повысить точность: отсеиваем шум (даты из правил тарифа и т.п.),
+// нормализуем даты, ищем номер рейса рядом с ключевым словом.
+function extractFields(text) {
+  const fields = {};
+  if (!text) return fields;
+  const t = String(text).replace(/[\u00a0]/g, ' ').replace(/\s+/g, ' ');
+  const low = t.toLowerCase();
+
+  if (/(boarding|посадочн|авиабилет|air ?ticket|маршрут следован|перевозчик|номер рейса|flight|airline|aeroflot|аэрофлот)/.test(low)) fields.type = 'Авиабилет';
+  else if (/(электронный билет.*поезд|поезд|вагон| жд |ржд|railway|train)/.test(low)) fields.type = 'ЖД-билет';
+  else if (/(отел|hotel|бронирование номер|заселен|check-?in|номер в отел)/.test(low)) fields.type = 'Отель';
+  else if (/(трансфер|transfer)/.test(low)) fields.type = 'Трансфер';
+  else if (/(страхов|insurance|полис)/.test(low)) fields.type = 'Страховка';
+  else if (/(виз[аы]\b|visa)/.test(low)) fields.type = 'Виза';
+
+  // Даты: собираем из разных форматов, нормализуем, оставляем только правдоподобные годы.
+  const found = [];
+  let m;
+  const reNum = /\b(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})\b/g;
+  while ((m = reNum.exec(t))) { const d = +m[1], mo = +m[2], y = +m[3]; if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31 && plausibleYear(y)) found.push({ key: y + '-' + pad2(mo) + '-' + pad2(d), disp: pad2(d) + '.' + pad2(mo) + '.' + y }); }
+  const reIso = /\b(\d{4})-(\d{2})-(\d{2})\b/g;
+  while ((m = reIso.exec(t))) { const y = +m[1], mo = +m[2], d = +m[3]; if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31 && plausibleYear(y)) found.push({ key: y + '-' + pad2(mo) + '-' + pad2(d), disp: pad2(d) + '.' + pad2(mo) + '.' + y }); }
+  const reRu = /\b(\d{1,2})\s*([а-яё]{3,})\.?\s*(\d{4})\b/gi;
+  while ((m = reRu.exec(t))) { const d = +m[1], mon = RU_MONTHS[m[2].slice(0, 3).toLowerCase()], y = +m[3]; if (mon && d >= 1 && d <= 31 && plausibleYear(y)) found.push({ key: y + '-' + pad2(mon) + '-' + pad2(d), disp: pad2(d) + '.' + pad2(mon) + '.' + y }); }
+  if (found.length) {
+    found.sort(function (a, b) { return a.key < b.key ? -1 : (a.key > b.key ? 1 : 0); });
+    const seen = {}, uniq = [];
+    found.forEach(function (f) { if (!seen[f.key]) { seen[f.key] = 1; uniq.push(f.disp); } });
+    fields.dates = uniq.slice(0, 4);
+  }
+
+  // Номер рейса: сначала рядом с ключевым словом, иначе общий паттерн латиницей.
+  let fn = t.match(/(?:рейс|flight)[^A-ZА-Я0-9]{0,6}([A-ZА-Я]{2}\s?\d{2,4})/i);
+  if (!fn) fn = t.match(/\b([A-Z]{2}\s?\d{3,4})\b/);
+  if (fn) fields.flight = fn[1].toUpperCase().replace(/([A-ZА-Я]{2})\s?(\d+)/, '$1 $2').trim();
+
+  // Маршрут (города через стрелку/тире).
+  const route = t.match(/([А-ЯЁ][а-яёА-ЯЁ\-]+)\s*(?:→|—|–|>|-)\s*([А-ЯЁ][а-яёА-ЯЁ\-]+)/);
+  if (route) fields.route = route[1] + ' → ' + route[2];
+
+  const emails = t.match(/[\w.+-]+@[\w-]+\.[\w.-]+/g);
+  if (emails) { const es = {}; fields.emails = emails.map(function (e) { return e.toLowerCase(); }).filter(function (e) { if (es[e]) return false; es[e] = 1; return true; }).slice(0, 3); }
+
+  return fields;
+}
+
+function buildSegment(fields) {
+  if (!fields) return null;
+  const head = fields.type || '';
+  if (fields.dates && fields.dates.length) {
+    const d = fields.dates.length > 1 ? (fields.dates[0] + ' – ' + fields.dates[fields.dates.length - 1]) : fields.dates[0];
+    return (head ? head + ' · ' : '') + d;
+  }
+  if (fields.route) return (head ? head + ' · ' : '') + fields.route;
+  return head || null;
+}
+
+module.exports = { extractText: extractText, extractFields: extractFields, buildSegment: buildSegment };
