@@ -107,4 +107,42 @@ describe('frontend production API integration', () => {
     assert.match(overview, /TravelAPI\.trips\.uploadDocument/);
     assert.match(overview, /TravelAPI\.trips\.removeDocument/);
   });
+
+  test('uses the same-origin geo API for live search and weather refresh', () => {
+    const client = read('assets/js/api-client.js');
+    assert.match(client, /geo:\s*\{/);
+    assert.match(client, /search\(query, signal\)/);
+    assert.match(client, /\/api\/site\/geo\/search\?q=/);
+    assert.match(client, /weather\(latitude, longitude, refresh\)/);
+    assert.match(client, /\/api\/site\/geo\/weather\?/);
+    assert.match(client, /params\.set\(["']refresh["'], ["']1["']\)/);
+  });
+
+  test('provides accessible cancellable city autocomplete in the trip wizard', () => {
+    const autocomplete = read('assets/js/city-autocomplete.js');
+    const wizard = read('trip-wizard.html');
+    const pages = read('assets/js/trip-pages.js');
+    assert.match(autocomplete, /AbortController/);
+    assert.match(autocomplete, /setTimeout/);
+    assert.match(autocomplete, /setAttribute\(["']role["'], ["']listbox["']\)/);
+    assert.match(autocomplete, /role=["']option["']/);
+    for (const key of ['ArrowDown', 'ArrowUp', 'Enter', 'Escape']) assert.match(autocomplete, new RegExp(key));
+    assert.match(autocomplete, /travel:city-selected/);
+    assert.match(autocomplete, /provider_unavailable|city_not_found/);
+    assert.ok(wizard.indexOf('assets/js/city-autocomplete.js') < wizard.indexOf('assets/js/trip-pages.js'));
+    assert.match(pages, /data-city-autocomplete/);
+    assert.match(pages, /fromPoint/);
+    assert.match(pages, /toPoint/);
+    assert.match(pages, /Подтвердите город/);
+  });
+
+  test('persists canonical ordered route points and complete event provenance', () => {
+    const sync = read('assets/js/site-sync.js');
+    assert.match(sync, /routePoints:/);
+    for (const field of ['canonicalName', 'latitude', 'longitude', 'sortOrder', 'source']) {
+      assert.match(sync, new RegExp(field));
+    }
+    assert.match(sync, /reference:/);
+    assert.match(sync, /detail\.routePoints/);
+  });
 });

@@ -103,6 +103,7 @@
     root.addEventListener("click", handleAction, { signal: controller.signal });
     root.addEventListener("input", handleInput, { signal: controller.signal });
     root.addEventListener("change", handleInput, { signal: controller.signal });
+    root.addEventListener("travel:city-selected", handleCitySelection, { signal: controller.signal });
     const unsubscribe = adapter.subscribe?.(() => render(root));
     pageState.mountedRoots.set(root, { controller, render, unsubscribe });
   }
@@ -348,13 +349,13 @@
   }
 
   function wizardRouteDates(wz) {
-    return `<h2>Маршрут и даты</h2><p>Укажите основные точки маршрута. Сегменты с рейсами, поездами и трансферами добавляются на следующем шаге.</p><div class="wizard-form-grid">${input("from", "Откуда", "text", wz.data.from || "")}${input("to", "Куда", "text", wz.data.to || "")}${input("start", "Дата начала", "date", wz.data.start, true)}${input("end", "Дата окончания", "date", wz.data.end, true)}<div class="tp-data-cell wizard-wide"><strong>${esc(routeTitle(wz) || [wz.data.from, wz.data.to].filter(Boolean).join(" → ") || "Маршрут не задан")}</strong><span>Итоговая схема будет построена по сегментам, если они добавлены.</span></div></div><div class="wizard-errors">${stepErrors(wz, 2).join("")}</div>`;
+    return `<h2>Маршрут и даты</h2><p>Укажите основные точки маршрута. Сегменты с рейсами, поездами и трансферами добавляются на следующем шаге.</p><div class="wizard-form-grid">${cityInput("from", "Откуда", wz.data.from || "", wz.data.fromPoint, true)}${cityInput("to", "Куда", wz.data.to || "", wz.data.toPoint, true)}${input("start", "Дата начала", "date", wz.data.start, true)}${input("end", "Дата окончания", "date", wz.data.end, true)}<div class="tp-data-cell wizard-wide"><strong>${esc(routeTitle(wz) || [wz.data.from, wz.data.to].filter(Boolean).join(" → ") || "Маршрут не задан")}</strong><span>Итоговая схема будет построена по сегментам, если они добавлены.</span></div></div><div class="wizard-errors">${stepErrors(wz, 2).join("")}</div>`;
   }
 
   function wizardSegments(wz) {
     const edit = wz.editingSegment ? wz.segments.find((item) => item.id === wz.editingSegment) : null;
     const draft = edit || {};
-    return `<h2>Сегменты</h2><p>Добавьте рейсы, поезда, трансферы, отель, пересадки и другие части маршрута.</p><div class="wizard-route-grid">${selectField("seg-type", "Тип", ["Самолёт","Поезд","Автобус","Автомобиль","Трансфер","Проживание","Активность","Другое"], draft.type)}${inputRaw("seg-from", "Откуда", "text", draft.from || "")}${inputRaw("seg-to", "Куда", "text", draft.to || "")}${inputRaw("seg-start", "Начало", "datetime-local", draft.start || "")}${inputRaw("seg-end", "Окончание", "datetime-local", draft.end || "")}${inputRaw("seg-ref", "Рейс или бронь", "text", draft.ref || "")}${inputRaw("seg-provider", "Перевозчик или поставщик", "text", draft.provider || "")}${selectField("seg-status", "Статус", ["Черновик","Подтверждён","Требует проверки"], draft.status || "Черновик")}${inputRaw("seg-note", "Заметка", "text", draft.note || "", "wizard-wide")}</div><div class="tp-row-actions route-actions"><button class="tp-button tp-button-secondary" type="button" data-action="save-segment">${edit ? "Сохранить сегмент" : "Добавить сегмент"}</button>${edit ? `<button class="tp-button tp-button-quiet" type="button" data-action="cancel-segment-edit">Отмена</button>` : ""}</div><div class="wizard-segment-list">${wz.segments.sort((a,b)=>a.order-b.order).map(segmentRow).join("")}</div><div class="wizard-errors">${routeIssues(wz).map(issueLine).join("")}</div>`;
+    return `<h2>Сегменты</h2><p>Добавьте рейсы, поезда, трансферы, отель, пересадки и другие части маршрута.</p><div class="wizard-route-grid">${selectField("seg-type", "Тип", ["Самолёт","Поезд","Автобус","Автомобиль","Трансфер","Проживание","Активность","Другое"], draft.type)}${cityInput("seg-from", "Откуда", draft.from || "", draft.fromPoint)}${cityInput("seg-to", "Куда", draft.to || "", draft.toPoint)}${inputRaw("seg-start", "Начало", "datetime-local", draft.start || "")}${inputRaw("seg-end", "Окончание", "datetime-local", draft.end || "")}${inputRaw("seg-ref", "Рейс или бронь", "text", draft.ref || "")}${inputRaw("seg-provider", "Перевозчик или поставщик", "text", draft.provider || "")}${selectField("seg-status", "Статус", ["Черновик","Подтверждён","Требует проверки"], draft.status || "Черновик")}${inputRaw("seg-note", "Заметка", "text", draft.note || "", "wizard-wide")}</div><div class="tp-row-actions route-actions"><button class="tp-button tp-button-secondary" type="button" data-action="save-segment">${edit ? "Сохранить сегмент" : "Добавить сегмент"}</button>${edit ? `<button class="tp-button tp-button-quiet" type="button" data-action="cancel-segment-edit">Отмена</button>` : ""}</div><div class="wizard-segment-list">${wz.segments.sort((a,b)=>a.order-b.order).map(segmentRow).join("")}</div><div class="wizard-errors">${routeIssues(wz).map(issueLine).join("")}</div>`;
   }
 
   function wizardLogistics(wz) {
@@ -465,6 +466,20 @@
     wz.dirty = true;
   }
 
+  function handleCitySelection(event) {
+    if (!pageState.wizard) return;
+    const field = event.detail?.field;
+    if (field === "from" || field === "to") {
+      pageState.wizard.data[`${field}Point`] = event.detail.selection;
+      pageState.wizard.data[field] = event.target.value;
+      pageState.wizard.dirty = true;
+    }
+  }
+
+  function readCitySelection(input) {
+    try { return JSON.parse(input?.dataset.citySelection || "null"); } catch (_) { return null; }
+  }
+
   function canMutate(message) {
     const state = adapter.getState ? adapter.getState() : {};
     if (state.networkState === "offline") {
@@ -506,6 +521,8 @@
       type: $("#seg-type", root).value,
       from: $("#seg-from", root).value.trim(),
       to: $("#seg-to", root).value.trim(),
+      fromPoint: readCitySelection($("#seg-from", root)),
+      toPoint: readCitySelection($("#seg-to", root)),
       start: $("#seg-start", root).value,
       end: $("#seg-end", root).value,
       ref: $("#seg-ref", root).value.trim(),
@@ -514,9 +531,11 @@
       status: $("#seg-status", root).value,
       order: wz.editingSegment ? wz.segments.find((item) => item.id === wz.editingSegment).order : wz.segments.length + 1
     };
-    if (!segment.from || !segment.to || !segment.start || !segment.end) return setInlineErrors(root, [
+    if (!segment.from || !segment.to || !segment.fromPoint || !segment.toPoint || !segment.start || !segment.end) return setInlineErrors(root, [
       !segment.from && { field: "seg-from", message: "Укажите точку отправления" },
       !segment.to && { field: "seg-to", message: "Укажите точку прибытия" },
+      segment.from && !segment.fromPoint && { field: "seg-from", message: "Подтвердите город отправления из списка" },
+      segment.to && !segment.toPoint && { field: "seg-to", message: "Подтвердите город прибытия из списка" },
       !segment.start && { field: "seg-start", message: "Укажите начало" },
       !segment.end && { field: "seg-end", message: "Укажите окончание" }
     ].filter(Boolean));
@@ -649,6 +668,8 @@
     if (step === 2) {
       if (!d.from && !wz.segments.length) issues.push(block(step, "Укажите начальную точку", "from"));
       if (!d.to && !wz.segments.length) issues.push(block(step, "Укажите конечную точку", "to"));
+      if (d.from && !d.fromPoint && !wz.segments.length) issues.push(block(step, "Подтвердите город отправления из списка", "from"));
+      if (d.to && !d.toPoint && !wz.segments.length) issues.push(block(step, "Подтвердите город прибытия из списка", "to"));
     }
     if (step === 3) issues.push(...routeIssues(wz));
     if (step === 4 && d.checkin && d.checkout && d.checkout < d.checkin) issues.push(block(step, "Выселение раньше заселения", "checkout"));
@@ -665,6 +686,8 @@
     if (!wz.segments.length) issues.push(block(3, "Добавьте минимум один сегмент маршрута"));
     wz.segments.forEach((segment) => {
       if (!segment.from || !segment.to) issues.push(block(3, "У сегмента нет точки отправления или прибытия", "seg-from"));
+      if (segment.from && !segment.fromPoint) issues.push(block(3, "Подтвердите город отправления из списка", "seg-from"));
+      if (segment.to && !segment.toPoint) issues.push(block(3, "Подтвердите город прибытия из списка", "seg-to"));
       if (segment.from && segment.to && segment.from === segment.to) issues.push(block(3, "Точки отправления и прибытия совпадают", "seg-to"));
       if (segment.end && segment.start && segment.end < segment.start) issues.push(block(3, "Окончание сегмента раньше начала", "seg-end"));
       if (wz.data.start && segment.start && segment.start.slice(0, 10) < wz.data.start) issues.push(warn(3, "Сегмент начинается раньше даты поездки", "seg-start"));
@@ -727,6 +750,8 @@
       cover: trip.cover || "",
       from: trip.from || "",
       to: trip.to || "",
+      fromPoint: trip.routePoints?.[0] || null,
+      toPoint: trip.routePoints?.[trip.routePoints.length - 1] || null,
       hotel: trip.hotel || logistics.hotel || "",
       address: logistics.address || "",
       checkin: logistics.checkin || "",
@@ -753,12 +778,17 @@
     return `<div class="summary-stack"><div><span>Тип</span><strong>${wz.data.type === "solo" ? "Соло" : "Групповая"}</strong></div><div><span>Название</span><strong>${esc(wz.data.title || "Не заполнено")}</strong></div><div><span>Даты</span><strong>${esc(wz.data.start || "—")} — ${esc(wz.data.end || "—")}</strong></div><div><span>Маршрут</span><strong>${esc(routeTitle(wz) || "Не задан")}</strong></div><div><span>Приглашения</span><strong>${wz.data.type === "solo" ? 0 : (wz.data.invitationDrafts || []).length}</strong></div><div><span>Документы</span><strong>${(wz.data.documentSetup || []).length}</strong></div><div><span>Уведомления</span><strong>${notifyList(wz.data).join(", ") || "Нет"}</strong></div><div><span>Прогресс</span><strong>${Math.round(((wz.maxStep + 1) / 8) * 100)}%</strong></div></div>`;
   }
 
-  function routeTitle(wz) { return wz.segments.length ? [wz.segments[0].from, ...wz.segments.map((s) => s.to)].filter(Boolean).join(" → ") : ""; }
+  function routeTitle(wz) { return wz.segments.length ? [wz.segments[0].from, ...wz.segments.map((s) => s.to)].filter(Boolean).join(" → ") : [wz.data.from, wz.data.to].filter(Boolean).join(" → "); }
   function notifyList(data) { return [data.notifyTelegram && "Telegram", data.notifyEmail && "Email", data.notifyDaily && "Ежедневная сводка", data.sos && "SOS"].filter(Boolean); }
 
   function option(name, value, title, text, selected) { return `<label class="wizard-option ${selected === value ? "is-selected" : ""}"><input type="radio" name="${name}" data-field="${name}" value="${value}" ${selected === value ? "checked" : ""}/><strong>${title}</strong><span>${text}</span></label>`; }
   function check(name, label, checked) { return `<label class="tp-field check-field"><span><input type="checkbox" data-field="${name}" ${checked ? "checked" : ""}/> ${label}</span></label>`; }
   function input(name, label, type, value, required) { return inputRaw(name, label, type, value, "", required, true); }
+  function cityInput(id, label, value, point, dataField = false) {
+    const fieldAttr = dataField ? `data-field="${id}"` : `id="${id}"`;
+    const selection = point ? ` data-city-selection="${esc(JSON.stringify(point))}"` : "";
+    return `<label class="tp-field city-autocomplete"><span>${label} *</span><input class="tp-input" type="text" ${fieldAttr} data-city-field="${id}" data-city-autocomplete value="${esc(value || "")}"${selection} required/><span class="tp-field-error" data-error-for="${id}"></span></label>`;
+  }
   function inputRaw(id, label, type, value, extraClass = "", required = false, dataField = false) {
     const attr = dataField ? `data-field="${id}"` : `id="${id}"`;
     if (type === "textarea") return `<label class="tp-field ${extraClass}"><span>${label}${required ? " *" : ""}</span><textarea class="tp-textarea" ${attr} ${required ? "required" : ""}>${esc(value || "")}</textarea><span class="tp-field-error" data-error-for="${id}"></span></label>`;

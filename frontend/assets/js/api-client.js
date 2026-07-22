@@ -42,6 +42,16 @@
       createLink() { return request("/api/site/integrations/telegram/link-token", { method: "POST" }); },
       disconnect() { return request("/api/site/integrations/telegram", { method: "DELETE" }); }
     },
+    geo: {
+      search(query, signal) {
+        return request("/api/site/geo/search?q=" + encodeURIComponent(query), { signal });
+      },
+      weather(latitude, longitude, refresh) {
+        const params = new URLSearchParams({ latitude: String(latitude), longitude: String(longitude) });
+        if (refresh) params.set("refresh", "1");
+        return request("/api/site/geo/weather?" + params.toString());
+      }
+    },
     trips: {
       list() { return request("/api/site/trips"); },
       get(id) { return request("/api/site/trips/" + encodeURIComponent(id)); },

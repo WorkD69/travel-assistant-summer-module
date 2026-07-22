@@ -60,6 +60,33 @@
     return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
   }
 
+  function confirmedRoutePoints(data, segments) {
+    const points = [];
+    function append(point) {
+      if (!point || !Number.isFinite(Number(point.latitude)) || !Number.isFinite(Number(point.longitude))) return;
+      const previous = points[points.length - 1];
+      const canonicalName = String(point.canonicalName || point.name || "").trim();
+      if (!canonicalName) return;
+      if (previous && previous.canonicalName === canonicalName) return;
+      points.push({
+        name: String(point.name || canonicalName).trim(),
+        canonicalName,
+        latitude: Number(point.latitude),
+        longitude: Number(point.longitude),
+        sortOrder: points.length,
+        source: String(point.source || "nominatim")
+      });
+    }
+    if (segments.length) {
+      segments.slice().sort(function (left, right) { return Number(left.order || left.sortOrder || 0) - Number(right.order || right.sortOrder || 0); })
+        .forEach(function (segment) { append(segment.fromPoint); append(segment.toPoint); });
+    } else {
+      append(data.fromPoint);
+      append(data.toPoint);
+    }
+    return points;
+  }
+
   function mutationPayload(payload) {
     const data = payload && payload.data || {};
     const segments = payload && payload.segments || [];
@@ -67,14 +94,16 @@
     const last = segments[segments.length - 1] || {};
     const from = first.from || data.from || "";
     const to = last.to || data.to || "";
-    return {
+    const routePoints = confirmedRoutePoints(data, segments);
+    const body = {
       title: data.title,
-      route: [from, to].filter(Boolean).join(" → "),
+      route: (routePoints.length ? routePoints.map(function (point) { return point.name; }) : [from, to]).filter(Boolean).join(" → "),
       startDate: data.start,
       endDate: data.end,
       timezone: data.timezone,
       type: data.type === "solo" || data.type === "personal" ? "personal" : "group",
       status: data.status,
+      routePoints: routePoints,
       events: segments.map(function (segment, index) {
         return {
           type: segment.type || "other",
@@ -84,10 +113,15 @@
           departure: segment.from || segment.departure || null,
           arrival: segment.to || segment.arrival || null,
           status: segment.status || "scheduled",
-          detail: segment.note || segment.detail || null
+          detail: segment.note || segment.detail || null,
+          source: segment.source || segment.provider || "manual",
+          reference: segment.ref || segment.reference || null,
+          sortOrder: Number.isInteger(segment.sortOrder) ? segment.sortOrder : index
         };
       }).filter(function (event) { return Boolean(event.startsAt); })
     };
+    if (body.routePoints.length < 2) delete body.routePoints;
+    return body;
   }
 
   function replaceTripInCollections(trip) {
@@ -222,8 +256,18 @@
       try {
         const detail = await api.trips.get(tripId);
         const trip = uiTrip(detail.trip, user.id);
+        trip.routePoints = (detail.routePoints || []).map(function (point) { return Object.assign({}, point); });
+        function pointFor(name) {
+          return trip.routePoints.find(function (point) {
+            return point.name === name || point.canonicalName === name;
+          }) || null;
+        }
         trip.segments = (detail.events || []).map(function (event) {
-          return Object.assign({}, event, { start: event.startsAt, end: event.endsAt, from: event.departure, to: event.arrival });
+          return Object.assign({}, event, {
+            start: event.startsAt, end: event.endsAt, from: event.departure, to: event.arrival,
+            fromPoint: pointFor(event.departure), toPoint: pointFor(event.arrival),
+            ref: event.reference, order: Number.isInteger(event.sortOrder) ? event.sortOrder + 1 : undefined
+          });
         });
         trip.participants = (detail.participants || []).map(function (participant) { return participant.name; });
         trip.participantIds = (detail.participants || []).map(function (participant) { return participant.userId; });
