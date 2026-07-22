@@ -4,6 +4,7 @@ const helmet = require('helmet');
 
 const { ApiError } = require('./errors');
 const { createAuthRouter } = require('./routes/site/auth');
+const { createSiteAssistantRouter } = require('./routes/site/assistant');
 const { createBotRouter } = require('./routes/bot');
 const { createSiteTripsRouter } = require('./routes/site/trips');
 const { createSiteOperationsRouter } = require('./routes/site/operations');
@@ -34,6 +35,12 @@ function createApp({ config, prisma }) {
     createOriginMiddleware(config),
     createSiteAuthMiddleware(config, prisma),
     createSiteOperationsRouter({ config, prisma }),
+  );
+  app.use(
+    '/api/site/trips',
+    createOriginMiddleware(config),
+    createSiteAuthMiddleware(config, prisma),
+    createSiteAssistantRouter({ config, prisma }),
   );
   app.use(
     '/api/site/integrations/telegram',

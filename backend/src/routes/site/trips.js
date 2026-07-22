@@ -7,6 +7,7 @@ const { ACTIONS, assertCan, loadTripAccess } = require('../../access/trip-access
 const { createOpaqueToken } = require('../../security/tokens');
 const { documentVisible } = require('../../services/document-tokens');
 const { accessibleTripWhere, messageVisible } = require('../bot');
+const { publicTripPlan } = require('../../services/plan-b');
 
 function siteTrip(trip, userId) {
   const membership = trip.ownerId === userId
@@ -183,10 +184,7 @@ function createSiteTripsRouter({ config, prisma, now = () => new Date() }) {
         id: item.id, type: item.type, label: item.label, detail: item.detail, severity: item.severity,
         status: item.status, occurredAt: item.occurredAt,
       })),
-      plans: plans.map((item) => ({
-        id: item.id, rank: item.rank, strategy: item.strategy, title: item.title, summary: item.summary,
-        steps: item.steps, pros: item.pros, cons: item.cons, status: item.status, visibility: item.visibility,
-      })),
+      plans: plans.map(publicTripPlan),
       sos: sos.map((item) => ({
         id: item.id, number: item.number, category: item.category, description: item.description,
         status: item.status, authorUserId: item.authorUserId, createdAt: item.createdAt,

@@ -283,11 +283,14 @@
       if (!selectedPlan) return "";
       return monitoringParticipantSelectedPlan(monitoringState, selectedPlan);
     }
+    if (plans.length !== 3) {
+      return `<section class="coreflow-card" data-od-id="monitoring-plan-b-invalid"><div class="coreflow-card-body"><p>Не удалось получить ровно три безопасных варианта Plan B. Обновите данные или повторите генерацию.</p></div></section>`;
+    }
     return `
       <section class="coreflow-card" data-od-id="monitoring-plan-b">
         <div class="coreflow-card-head">
           <div><h3>Варианты Plan B</h3><p>Доступно 3 варианта. Данные сформированы после подтверждения нарушения.</p></div>
-          <span class="coreflow-badge coreflow-badge--warning">Демонстрационные данные</span>
+          <span class="coreflow-badge coreflow-badge--info">${plans.some(function (plan) { return plan.generationSource === "groq"; }) ? "AI provider" : "Резервный расчёт"}</span>
         </div>
         <div class="coreflow-card-body">
           <div class="monitoring-plan-grid">
@@ -300,8 +303,8 @@
                   <p>${monitoringEscape(monitoringState, plan.description)}</p>
                   <div class="monitoring-plan-meta">
                     <span>Новое время: ${monitoringEscape(monitoringState, plan.newTime)}</span>
-                    <span>Задержка: ${monitoringEscape(monitoringState, plan.delay)}</span>
-                    <span>Стоимость: ${monitoringEscape(monitoringState, plan.cost)}</span>
+                    <span>Время: ${monitoringEscape(monitoringState, plan.timeImpact || plan.delay)}</span>
+                    <span>Стоимость: ${monitoringEscape(monitoringState, plan.priceImpact || plan.cost)}</span>
                     <span>Риск: ${monitoringEscape(monitoringState, plan.risk)}</span>
                     <span>Сложность: ${monitoringEscape(monitoringState, plan.complexity)}</span>
                   </div>
@@ -319,8 +322,8 @@
 
   function monitoringComparison(monitoringState) {
     const rows = [
-      { key: "delay", label: "Задержка" },
-      { key: "cost", label: "Дополнительные расходы" },
+      { key: "timeImpact", label: "Изменение времени" },
+      { key: "priceImpact", label: "Дополнительные расходы" },
       { key: "risk", label: "Уровень риска" },
       { key: "hotel", label: "Влияние на отель" },
       { key: "transfer", label: "Влияние на трансфер" },
@@ -500,6 +503,12 @@
 
   function monitoringOpenPlanDetails(monitoringState, planId) {
     const plan = monitoringState.adapter.getPlanBOptions().find(function monitoringFindPlan(item) { return item.id === planId; });
+    const list = function (items) {
+      return Array.isArray(items) && items.length
+        ? `<ul>${items.map(function (item) { return `<li>${monitoringEscape(monitoringState, item)}</li>`; }).join("")}</ul>`
+        : "<p>Не указано</p>";
+    };
+    const emailDraft = plan.emailDraft && typeof plan.emailDraft === "object" ? plan.emailDraft : null;
     monitoringState.adapter.openModal({
       title: plan.label,
       body: `
@@ -513,7 +522,13 @@
             <div class="coreflow-fact"><span class="coreflow-fact-label">Трансфер</span><strong class="coreflow-fact-value">${monitoringEscape(monitoringState, plan.transfer)}</strong></div>
             <div class="coreflow-fact"><span class="coreflow-fact-label">Активности</span><strong class="coreflow-fact-value">${monitoringEscape(monitoringState, plan.activities)}</strong></div>
           </div>
-          <p>Источник расчёта: ${monitoringEscape(monitoringState, plan.source)}. Данные демонстрационные.</p>
+          <div><strong>Когда применять</strong><p>${monitoringEscape(monitoringState, plan.whenToUse || "Не указано")}</p></div>
+          <div><strong>Шаги</strong>${list(plan.actions)}</div>
+          <div><strong>Плюсы</strong>${list(plan.pros)}</div>
+          <div><strong>Минусы</strong>${list(plan.cons)}</div>
+          <div><strong>Затронутые элементы</strong>${list(plan.affectedElements)}</div>
+          ${emailDraft ? `<div><strong>Черновик письма</strong><p>${monitoringEscape(monitoringState, emailDraft.subject || "")}</p><p>${monitoringEscape(monitoringState, emailDraft.body || "")}</p></div>` : ""}
+          <p>Источник расчёта: ${monitoringEscape(monitoringState, plan.source)}.</p>
         </div>`,
       footer: `<button id="coreflow-plan-close" class="coreflow-button coreflow-button--secondary" type="button">Закрыть</button>`,
       onMount: function monitoringDetailsMount(modalRoot) {

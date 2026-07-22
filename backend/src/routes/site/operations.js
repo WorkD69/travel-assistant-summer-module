@@ -5,7 +5,8 @@ const multer = require('multer');
 
 const { ApiError } = require('../../errors');
 const { ACTIONS, assertCan, loadTripAccess, scopeChildToTrip } = require('../../access/trip-access');
-const { generatePlans } = require('../../services/plan-b');
+const { generatePlanCandidates, loadSafeContext } = require('../../services/assistant');
+const { generatePlans, publicTripPlan } = require('../../services/plan-b');
 const { createSos } = require('../../services/sos');
 const { createOpaqueToken } = require('../../security/tokens');
 
@@ -51,7 +52,7 @@ async function enqueuePublishedMessage(tx, trip, message, authorUserId) {
   }
 }
 
-function createSiteOperationsRouter({ prisma, now = () => new Date() }) {
+function createSiteOperationsRouter({ config = {}, prisma, now = () => new Date() }) {
   const router = express.Router();
 
   router.post('/:trip_id/invitations', async (req, res) => {
@@ -158,8 +159,19 @@ function createSiteOperationsRouter({ prisma, now = () => new Date() }) {
   router.post('/:trip_id/monitoring/:signal_id/plans', async (req, res) => {
     const access = await loadTripAccess(prisma, req.siteUser.id, req.params.trip_id);
     assertCan(access, ACTIONS.GENERATE_PLANS);
-    const plans = await generatePlans(prisma, { tripId: access.trip.id, incidentId: req.params.signal_id, userId: req.siteUser.id });
-    res.status(201).json({ items: plans });
+    const incident = await prisma.monitoringSignal.findFirst({
+      where: { id: req.params.signal_id, tripId: access.trip.id, status: 'confirmed' },
+    });
+    if (!incident) throw new ApiError(404, 'not_found', 'Подтверждённое событие не найдено.');
+    const context = await loadSafeContext(prisma, { access, userId: req.siteUser.id });
+    const candidates = await generatePlanCandidates(incident, context, { ai: config.ai || {} });
+    const plans = await generatePlans(prisma, {
+      tripId: access.trip.id,
+      incidentId: incident.id,
+      userId: req.siteUser.id,
+      candidates,
+    });
+    res.status(201).json({ items: plans.map(publicTripPlan) });
   });
 
   router.post('/:trip_id/plans/:plan_id/select', async (req, res) => {

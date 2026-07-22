@@ -70,6 +70,12 @@
       generatePlans(id, signalId) {
         return request("/api/site/trips/" + encodeURIComponent(id) + "/monitoring/" + encodeURIComponent(signalId) + "/plans", { method: "POST" });
       },
+      assistantHistory(id) {
+        return request("/api/site/trips/" + encodeURIComponent(id) + "/assistant/history");
+      },
+      askAssistant(id, question) {
+        return request("/api/site/trips/" + encodeURIComponent(id) + "/assistant", { method: "POST", body: { question } });
+      },
       selectPlan(id, planId) {
         return request("/api/site/trips/" + encodeURIComponent(id) + "/plans/" + encodeURIComponent(planId) + "/select", { method: "POST" });
       },

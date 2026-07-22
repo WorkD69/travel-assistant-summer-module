@@ -174,4 +174,29 @@ describe('frontend production API integration', () => {
     assert.match(route, /sortOrder/);
     assert.match(route, /reference/);
   });
+
+  test('connects the site assistant and rich Plan B fields without browser secrets or demo auth', () => {
+    const client = read('assets/js/api-client.js');
+    const sync = read('assets/js/site-sync.js');
+    const assistant = read('assets/js/site-assistant.js');
+    const monitoring = read('assets/js/trip-monitoring.js');
+    const overview = read('trip-overview.html');
+
+    assert.match(client, /assistantHistory\s*\(/);
+    assert.match(client, /askAssistant\s*\(/);
+    assert.match(client, /\/assistant\/history/);
+    assert.match(client, /\/assistant["']/);
+    assert.match(assistant, /TravelSite\.ready/);
+    assert.match(assistant, /api\.trips\.assistantHistory/);
+    assert.match(assistant, /api\.trips\.askAssistant/);
+    assert.match(assistant, /role\s*===\s*["']organizer["']/);
+    assert.doesNotMatch(assistant, /ensureAuth|Password2026|GROQ_API_KEY|AI_API_KEY|Bearer\s/);
+    assert.ok(overview.indexOf('assets/js/site-sync.js') < overview.indexOf('assets/js/site-assistant.js'));
+
+    for (const field of ['whenToUse', 'timeImpact', 'priceImpact', 'affectedElements', 'emailDraft', 'generationSource']) {
+      assert.match(sync, new RegExp(field));
+      assert.match(monitoring, new RegExp(field));
+    }
+    assert.match(monitoring, /plans\.length\s*!==\s*3/);
+  });
 });

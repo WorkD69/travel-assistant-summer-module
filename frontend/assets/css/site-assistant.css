@@ -1,0 +1,32 @@
+.site-assistant-host { margin-top: 16px; }
+.site-assistant {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.site-assistant__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.site-assistant__header h3 { margin: 0; font-size: var(--fs-lg); }
+.site-assistant__header p { margin: 4px 0 0; color: var(--fg-secondary); font-size: var(--fs-sm); }
+.site-assistant__status { flex: 0 0 auto; padding: 4px 9px; border-radius: 999px; background: var(--accent-soft); font-size: var(--fs-xs); font-weight: 700; }
+.site-assistant__status[data-tone="ok"] { color: #166534; background: #dcfce7; }
+.site-assistant__status[data-tone="error"] { color: #991b1b; background: #fee2e2; }
+.site-assistant__log { display: flex; flex-direction: column; gap: 9px; max-height: 360px; overflow: auto; }
+.site-assistant__message { max-width: 88%; padding: 10px 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); }
+.site-assistant__message--user { align-self: flex-end; color: #fff; background: var(--accent); border-color: var(--accent); }
+.site-assistant__message p { margin: 0; white-space: pre-wrap; }
+.site-assistant__message small { display: block; margin-top: 5px; color: var(--fg-secondary); }
+.site-assistant__notice { margin: 0; padding: 9px 11px; border-radius: 9px; background: var(--accent-soft); }
+.site-assistant__notice.is-error { color: #991b1b; background: #fee2e2; }
+.site-assistant__composer { display: grid; gap: 8px; }
+.site-assistant__composer label { font-size: var(--fs-sm); font-weight: 600; }
+.site-assistant__composer textarea { width: 100%; min-height: 72px; resize: vertical; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--fg); font: inherit; box-sizing: border-box; }
+.site-assistant__composer textarea:focus { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.site-assistant__actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .site-assistant__header { flex-direction: column; }
+  .site-assistant__message { max-width: 96%; }
+  .site-assistant__actions button { width: 100%; }
+}

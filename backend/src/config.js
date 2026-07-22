@@ -102,9 +102,11 @@ function loadConfig(env = process.env) {
       || (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : '')
       || (env.VERCEL_URL ? `https://${env.VERCEL_URL}` : ''),
     ai: Object.freeze({
-      baseUrl: env.AI_BASE_URL || 'https://api.groq.com/openai/v1',
-      apiKey: env.AI_API_KEY || '',
-      model: env.AI_MODEL || 'llama-3.3-70b-versatile',
+      baseUrl: env.GROQ_BASE_URL || env.AI_BASE_URL || 'https://api.groq.com/openai/v1',
+      apiKey: env.GROQ_API_KEY || env.AI_API_KEY || '',
+      model: env.GROQ_MODEL || env.AI_MODEL || 'llama-3.3-70b-versatile',
+      fallbackModel: env.GROQ_FALLBACK_MODEL || env.AI_FALLBACK_MODEL || 'openai/gpt-oss-20b',
+      timeoutMs: parseInteger('AI_TIMEOUT_MS', env.AI_TIMEOUT_MS, 15_000, 1_000, 30_000),
     }),
   });
 }

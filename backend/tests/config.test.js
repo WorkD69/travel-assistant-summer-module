@@ -42,6 +42,9 @@ describe('loadConfig', () => {
       TELEGRAM_BOT_USERNAME: 'travel_assistent10_bot',
       ALLOWED_ORIGINS: 'https://travel-assistant-summer-module.vercel.app',
       SESSION_TTL_SECONDS: '3600',
+      GROQ_API_KEY: 'g'.repeat(48),
+      GROQ_MODEL: 'llama-3.3-70b-versatile',
+      GROQ_FALLBACK_MODEL: 'openai/gpt-oss-20b',
     });
 
     assert.equal(config.isProduction, true);
@@ -51,5 +54,14 @@ describe('loadConfig', () => {
     ]);
     assert.equal(config.sessionTtlSeconds, 3600);
     assert.equal(config.telegramBotUsername, 'travel_assistent10_bot');
+    assert.equal(config.ai.apiKey, 'g'.repeat(48));
+    assert.equal(config.ai.model, 'llama-3.3-70b-versatile');
+    assert.equal(config.ai.fallbackModel, 'openai/gpt-oss-20b');
+  });
+
+  test('keeps legacy AI variable names as a non-breaking fallback', () => {
+    const config = loadConfig({ AI_API_KEY: 'legacy-key', AI_MODEL: 'legacy-model' });
+    assert.equal(config.ai.apiKey, 'legacy-key');
+    assert.equal(config.ai.model, 'legacy-model');
   });
 });

@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { describe, test } = require('node:test');
 
-const { buildPlanCandidates, generatePlans } = require('../src/services/plan-b');
+const { buildPlanCandidates, generatePlans, publicTripPlan } = require('../src/services/plan-b');
 
 describe('Plan B service', () => {
   test('always returns exactly three distinct human-selectable strategies', () => {
@@ -9,8 +9,11 @@ describe('Plan B service', () => {
     assert.equal(candidates.length, 3);
     assert.deepEqual(candidates.map((item) => item.rank), [1, 2, 3]);
     assert.deepEqual(new Set(candidates.map((item) => item.strategy)).size, 3);
-    assert.deepEqual(candidates.map((item) => item.strategy), ['fast', 'reliable', 'delegate']);
+    assert.deepEqual(candidates.map((item) => item.strategy), ['speed', 'comfort', 'budget']);
     assert.ok(candidates.every((item) => Array.isArray(item.steps) && item.steps.length >= 2));
+    assert.ok(candidates.every((item) => Array.isArray(item.pros) && item.pros.length >= 1));
+    assert.ok(candidates.every((item) => Array.isArray(item.cons) && item.cons.length >= 1));
+    assert.ok(candidates.every((item) => item.emailDraft && item.emailDraft.subject && item.emailDraft.body));
     assert.ok(candidates.every((item) => item.status === undefined && item.visibility === undefined));
   });
 
@@ -31,5 +34,20 @@ describe('Plan B service', () => {
     assert.ok(writes.every((query) => query.create.status === 'candidate'));
     assert.ok(writes.every((query) => query.create.visibility === 'internal'));
     assert.ok(writes.every((query) => query.create.selectedAt === undefined));
+    assert.ok(writes.every((query) => query.create.generationSource === 'deterministic-fallback'));
+  });
+
+  test('returns persisted lists and rich fields as a stable public contract', () => {
+    const item = publicTripPlan({
+      id: 'plan-1', rank: 1, strategy: 'speed', title: 'Fast', summary: 'Summary',
+      steps: ['Call airline'], pros: '["Earlier arrival"]', cons: '["Higher price"]',
+      whenToUse: 'When time matters', timeImpact: '+2 hours', priceImpact: '+20%',
+      affectedElements: ['flight', 'transfer'], emailDraft: { subject: 'Update', body: 'New route' }, generationSource: 'groq',
+      status: 'candidate', visibility: 'internal',
+    });
+    assert.deepEqual(item.pros, ['Earlier arrival']);
+    assert.deepEqual(item.cons, ['Higher price']);
+    assert.equal(item.whenToUse, 'When time matters');
+    assert.deepEqual(item.emailDraft, { subject: 'Update', body: 'New route' });
   });
 });

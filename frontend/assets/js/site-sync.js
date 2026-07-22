@@ -167,6 +167,12 @@
         };
       }),
       planBOptions: plans.map(function (plan) {
+        const affectedElements = Array.isArray(plan.affectedElements) ? plan.affectedElements : [];
+        const impactFor = function (kind) {
+          return affectedElements.some(function (item) { return String(item).toLowerCase().includes(kind); })
+            ? "Затронуто — см. шаги плана"
+            : "Без подтверждённых изменений";
+        };
         return {
           id: plan.id,
           label: "Plan B — вариант " + plan.rank,
@@ -175,15 +181,21 @@
           actions: Array.isArray(plan.steps) ? plan.steps : [],
           pros: Array.isArray(plan.pros) ? plan.pros : [],
           cons: Array.isArray(plan.cons) ? plan.cons : [],
-          newTime: "Уточняется",
-          delay: "Уточняется",
-          cost: "Уточняется",
+          newTime: plan.timeImpact || "Не указано",
+          delay: plan.timeImpact || "Не указано",
+          cost: plan.priceImpact || "Не указано",
           risk: plan.strategy,
-          complexity: "Уточняется",
-          hotel: "Проверить по шагам плана",
-          transfer: "Проверить по шагам плана",
-          activities: "Проверить по шагам плана",
-          source: "Backend API",
+          complexity: affectedElements.length ? affectedElements.length + " затронуто" : "Не указано",
+          hotel: impactFor("отел"),
+          transfer: impactFor("трансфер"),
+          activities: impactFor("актив"),
+          whenToUse: plan.whenToUse || "",
+          timeImpact: plan.timeImpact || "",
+          priceImpact: plan.priceImpact || "",
+          affectedElements: affectedElements,
+          emailDraft: plan.emailDraft || null,
+          generationSource: plan.generationSource || "deterministic-fallback",
+          source: plan.generationSource === "groq" ? "AI provider" : "Безопасный резервный расчёт",
           serverBacked: true
         };
       }),

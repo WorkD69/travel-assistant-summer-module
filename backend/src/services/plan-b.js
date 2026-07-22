@@ -1,53 +1,60 @@
 const { ApiError } = require('../errors');
+const { fallbackPlanCandidates } = require('./assistant');
 
 function buildPlanCandidates(incident) {
-  const reason = incident.detail || incident.label || 'изменение маршрута';
-  return [
-    {
-      rank: 1,
-      strategy: 'fast',
-      title: 'Быстро восстановить маршрут',
-      summary: `Минимизировать задержку после события: ${reason}`,
-      steps: ['Связаться с перевозчиком или принимающей стороной', 'Забронировать ближайший подтверждённый вариант', 'Сообщить участникам новое время'],
-      pros: 'Минимальная потеря времени',
-      cons: 'Стоимость может быть выше',
-      whenToUse: 'Когда критично продолжить поездку как можно быстрее',
-    },
-    {
-      rank: 2,
-      strategy: 'reliable',
-      title: 'Надёжный подтверждённый вариант',
-      summary: `Выбрать решение с подтверждёнными местами и условиями после: ${reason}`,
-      steps: ['Проверить официальные альтернативы', 'Подтвердить места и правила возврата', 'Обновить маршрут и документы участников'],
-      pros: 'Ниже риск повторного сбоя',
-      cons: 'Может потребоваться больше времени',
-      whenToUse: 'Когда важнее предсказуемость и подтверждение',
-    },
-    {
-      rank: 3,
-      strategy: 'delegate',
-      title: 'Передать решение поддержке',
-      summary: `Подключить организатора, агента или поддержку к ситуации: ${reason}`,
-      steps: ['Собрать номера бронирований и факты', 'Передать единый запрос ответственному', 'Зафиксировать подтверждённое решение для группы'],
-      pros: 'Снижает нагрузку на участника',
-      cons: 'Зависит от скорости внешней поддержки',
-      whenToUse: 'Когда требуется согласование нескольких бронирований',
-    },
-  ];
+  return fallbackPlanCandidates(incident);
 }
 
-async function generatePlans(prisma, { tripId, incidentId, userId }) {
+function serializeList(value) {
+  return JSON.stringify(Array.isArray(value) ? value : [String(value || '')].filter(Boolean));
+}
+
+function storedList(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [String(value)];
+  } catch {
+    return [String(value)];
+  }
+}
+
+function publicTripPlan(item) {
+  return {
+    id: item.id,
+    rank: item.rank,
+    strategy: item.strategy,
+    title: item.title,
+    summary: item.summary,
+    steps: Array.isArray(item.steps) ? item.steps : [],
+    pros: storedList(item.pros),
+    cons: storedList(item.cons),
+    whenToUse: item.whenToUse,
+    timeImpact: item.timeImpact,
+    priceImpact: item.priceImpact,
+    affectedElements: Array.isArray(item.affectedElements) ? item.affectedElements : [],
+    emailDraft: item.emailDraft && typeof item.emailDraft === 'object' ? item.emailDraft : null,
+    generationSource: item.generationSource,
+    status: item.status,
+    visibility: item.visibility,
+  };
+}
+
+async function generatePlans(prisma, { tripId, incidentId, userId, candidates }) {
   return prisma.$transaction(async (tx) => {
     const incident = await tx.monitoringSignal.findFirst({
       where: { id: incidentId, tripId, status: 'confirmed' },
     });
     if (!incident) throw new ApiError(404, 'not_found', 'Подтверждённое событие не найдено.');
-    const candidates = buildPlanCandidates(incident);
+    const selectedCandidates = candidates || buildPlanCandidates(incident);
     await tx.tripPlan.deleteMany({ where: { incidentId, rank: { notIn: [1, 2, 3] } } });
     const plans = [];
-    for (const candidate of candidates) {
+    for (const candidate of selectedCandidates) {
       const data = {
         ...candidate,
+        pros: serializeList(candidate.pros),
+        cons: serializeList(candidate.cons),
         tripId,
         incidentId,
         createdByUserId: userId,
@@ -65,6 +72,11 @@ async function generatePlans(prisma, { tripId, incidentId, userId }) {
           pros: data.pros,
           cons: data.cons,
           whenToUse: data.whenToUse,
+          timeImpact: data.timeImpact,
+          priceImpact: data.priceImpact,
+          affectedElements: data.affectedElements,
+          emailDraft: data.emailDraft,
+          generationSource: data.generationSource,
           status: 'candidate',
           visibility: 'internal',
           selectedAt: null,
@@ -76,4 +88,4 @@ async function generatePlans(prisma, { tripId, incidentId, userId }) {
   });
 }
 
-module.exports = { buildPlanCandidates, generatePlans };
+module.exports = { buildPlanCandidates, generatePlans, publicTripPlan, serializeList, storedList };
