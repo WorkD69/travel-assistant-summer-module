@@ -98,6 +98,77 @@
     return { active, completed };
   }
 
+  function coreFlowState(detail, trip, user) {
+    const monitoring = detail.monitoring || [];
+    const plans = detail.plans || [];
+    const messages = detail.messages || [];
+    const selectedPlan = plans.find(function (plan) { return plan.status === "selected" || plan.status === "published"; });
+    return {
+      environment: "production",
+      sourceStatus: "Backend API",
+      accessState: "granted",
+      networkState: "online",
+      role: detail.trip.role,
+      currentUser: { id: user.id, name: user.name, role: detail.trip.role, label: "Вы" },
+      trip: { id: trip.id, title: trip.title, status: trip.status },
+      participants: (detail.participants || []).map(function (participant) {
+        return { id: participant.userId, name: participant.name, role: participant.role };
+      }),
+      segments: trip.segments,
+      selectedSignalId: monitoring[0] && monitoring[0].id || "",
+      violationConfirmed: monitoring.some(function (signal) { return signal.status === "confirmed"; }),
+      planBVisible: plans.length > 0,
+      selectedPlanBId: selectedPlan && selectedPlan.id || "",
+      signals: monitoring.map(function (signal) {
+        return {
+          id: signal.id,
+          type: signal.label,
+          description: signal.detail || "",
+          urgency: signal.severity,
+          status: signal.status,
+          time: signal.occurredAt,
+          source: "Backend API",
+          serverBacked: true,
+          audience: { type: "all-participants", participantIds: [] }
+        };
+      }),
+      planBOptions: plans.map(function (plan) {
+        return {
+          id: plan.id,
+          label: "Plan B — вариант " + plan.rank,
+          title: plan.title,
+          description: plan.summary || "",
+          actions: Array.isArray(plan.steps) ? plan.steps : [],
+          pros: Array.isArray(plan.pros) ? plan.pros : [],
+          cons: Array.isArray(plan.cons) ? plan.cons : [],
+          newTime: "Уточняется",
+          delay: "Уточняется",
+          cost: "Уточняется",
+          risk: plan.strategy,
+          complexity: "Уточняется",
+          hotel: "Проверить по шагам плана",
+          transfer: "Проверить по шагам плана",
+          activities: "Проверить по шагам плана",
+          source: "Backend API",
+          serverBacked: true
+        };
+      }),
+      messages: messages.map(function (message) {
+        return {
+          id: message.id,
+          topic: message.title,
+          text: message.text,
+          author: message.authorName,
+          time: message.publishedAt || "",
+          status: message.status === "draft" ? "Черновик" : "Отправлено",
+          recipients: { type: "all-participants", participantIds: [], providerType: null },
+          planB: message.isPlanB ? "Plan B" : "",
+          serverBacked: true
+        };
+      })
+    };
+  }
+
   function installPersistence() {
     if (localCreateTrip) {
       app.createTrip = async function (payload) {
@@ -162,7 +233,7 @@
           return roles;
         }, { [user.id]: detail.trip.role });
         trip.workspaceDocuments = (detail.documents || []).map(function (document) {
-          return Object.assign({}, document, { name: document.title, visibility: document.visibility === "organizer_only" ? "private" : document.visibility });
+          return Object.assign({}, document, { name: document.title, visibility: document.visibility === "organizer_only" ? "private" : document.visibility, serverBacked: true });
         });
         trip.documents = trip.workspaceDocuments.length;
         trip.planB = (detail.plans || []).length;
@@ -179,7 +250,8 @@
           monitoringSignals: detail.monitoring || [],
           plans: detail.plans || [],
           messages: detail.messages || [],
-          sosTickets: detail.sos || []
+          sosTickets: detail.sos || [],
+          coreFlow: coreFlowState(detail, trip, user)
         }, { source: "backend-trip" });
       } catch (error) {
         if (error && (error.status === 403 || error.status === 404)) {

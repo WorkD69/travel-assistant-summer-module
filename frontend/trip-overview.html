@@ -3985,7 +3985,7 @@
       list.innerHTML = `<div class="upload-state-row"><span><strong>${label}</strong>${detail ? `<br><span class="field-hint">${detail}</span>` : ''}</span><span class="badge ${badge}">${label}</span></div>`;
     }
 
-    function startMockUpload() {
+    async function startMockUpload() {
       if (!docsTripActive()) return;
       if (!pendingUploadFiles.length) {
         renderUploadState('Сначала выберите файл', 'badge-danger', 'Загрузка не началась.');
@@ -4012,14 +4012,31 @@
         return;
       }
       const visibility = document.getElementById('upload-visibility').value;
+      let persistedDocument = null;
+      if (typeof File !== 'undefined' && file instanceof File && window.TravelAPI) {
+        const form = new FormData();
+        form.append('file', file);
+        form.append('title', file.name);
+        form.append('type', 'document');
+        form.append('visibility', visibility === 'private' ? 'organizer_only' : 'shared');
+        try {
+          const tripId = window.TravelAppState.getState().trip.id;
+          const response = await window.TravelAPI.trips.uploadDocument(tripId, form);
+          persistedDocument = response.document;
+        } catch (error) {
+          renderUploadState('Ошибка загрузки', 'badge-danger', error && error.message ? error.message : 'Повторите попытку позже.');
+          return;
+        }
+      }
       const newDoc = {
-        id: 'uploaded-' + Date.now(),
+        id: persistedDocument ? persistedDocument.id : 'uploaded-' + Date.now(),
         name: file.name,
         type: 'Другое',
         format: ext === 'jpeg' ? 'JPG' : ext.toUpperCase(),
         size: file.size ? `${Math.max(file.size / 1024, 1).toFixed(0)} КБ` : '760 КБ',
         uploadedAt: 'сейчас',
-        status: 'review',
+        status: persistedDocument ? persistedDocument.status : 'review',
+        serverBacked: Boolean(persistedDocument),
         visibility,
         segment: 'Вся поездка',
         source: 'Загружено организатором',
@@ -4198,8 +4215,18 @@
       openModal('modal-doc-delete');
     }
 
-    function confirmDeleteDocument() {
+    async function confirmDeleteDocument() {
       if (!docsTripActive()) return;
+      const documentToDelete = findDoc(selectedDocumentId);
+      if (documentToDelete && documentToDelete.serverBacked && window.TravelAPI) {
+        try {
+          const tripId = window.TravelAppState.getState().trip.id;
+          await window.TravelAPI.trips.removeDocument(tripId, selectedDocumentId);
+        } catch (error) {
+          toastWarning(error && error.message ? error.message : 'Не удалось удалить документ');
+          return;
+        }
+      }
       docsData = docsData.filter((doc) => doc.id !== selectedDocumentId);
       docsCommitShared();
       closeModal('modal-doc-delete');

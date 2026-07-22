@@ -61,6 +61,89 @@
     return false;
   };
 
+  function connectServerOperations(adapter) {
+    const api = window.TravelAPI;
+    if (!adapter || !api || !api.trips || adapter.serverOperationsConnected) return adapter;
+    adapter.serverOperationsConnected = true;
+
+    function tripId() {
+      return (state().trip || {}).id;
+    }
+
+    function refreshAfter(promise, fallbackMessage) {
+      Promise.resolve(promise)
+        .then(function () {
+          if (window.TravelSite && typeof window.TravelSite.hydrate === "function") return window.TravelSite.hydrate();
+          return true;
+        })
+        .catch(function (error) {
+          adapter.toast(error && error.message ? error.message : fallbackMessage);
+        });
+    }
+
+    const addSignal = adapter.addSignal.bind(adapter);
+    adapter.addSignal = function (signal) {
+      const accepted = addSignal(signal);
+      if (accepted && tripId()) {
+        const key = window.crypto && typeof window.crypto.randomUUID === "function"
+          ? window.crypto.randomUUID()
+          : "sos-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+        refreshAfter(api.trips.createSos(tripId(), {
+          category: "other",
+          description: signal.description || signal.type || "Требуется помощь",
+          segmentId: signal.segmentId || null
+        }, key), "Не удалось передать SOS на сервер");
+      }
+      return accepted;
+    };
+
+    const setVerdict = adapter.setVerdict.bind(adapter);
+    adapter.setVerdict = function (verdict) {
+      const before = adapter.getState();
+      const signal = (before.signals || []).find(function (item) { return item.id === before.selectedSignalId; });
+      const accepted = setVerdict(verdict);
+      if (accepted && verdict === "confirm" && signal && signal.serverBacked && tripId()) {
+        refreshAfter(
+          api.trips.confirmSignal(tripId(), signal.id).then(function () { return api.trips.generatePlans(tripId(), signal.id); }),
+          "Не удалось подтвердить событие"
+        );
+      }
+      return accepted;
+    };
+
+    const choosePlan = adapter.choosePlan.bind(adapter);
+    adapter.choosePlan = function (planId) {
+      const plan = adapter.getPlanBOptions().find(function (item) { return item.id === planId; });
+      const accepted = choosePlan(planId);
+      if (accepted && plan && plan.serverBacked && tripId()) {
+        refreshAfter(api.trips.selectPlan(tripId(), planId), "Не удалось выбрать Plan B");
+      }
+      return accepted;
+    };
+
+    const sendMessage = adapter.sendMessage.bind(adapter);
+    adapter.sendMessage = function (messageId) {
+      const before = adapter.getState();
+      const message = (before.messages || []).find(function (item) { return item.id === messageId; });
+      const plan = adapter.getPlanBOptions().find(function (item) { return item.id === before.selectedPlanBId; });
+      const accepted = sendMessage(messageId);
+      if (accepted && message && tripId()) {
+        const operation = message.planB && plan && plan.serverBacked
+          ? api.trips.publishPlan(tripId(), plan.id)
+          : api.trips.createMessage(tripId(), {
+            title: message.topic || "Сообщение организатора",
+            text: message.text || "Обновление по поездке",
+            audience: "participants",
+            status: "published"
+          });
+        refreshAfter(operation, "Не удалось отправить сообщение");
+      }
+      return accepted;
+    };
+
+    return adapter;
+  }
+
   async function boot() {
     if (window.TravelSite && window.TravelSite.ready) await window.TravelSite.ready;
     // dev override
@@ -92,6 +175,7 @@
         modalRoot: document.getElementById("coreflow-shared-modal-root") || undefined,
         toastRoot: document.getElementById("coreflow-shared-toast-root") || undefined
       });
+      connectServerOperations(adapter);
       window.coreFlowActiveAdapter = adapter;
       const monitoringRoot = document.querySelector("#panel-monitor .monitoring-surface");
       const messagesRoot = document.querySelector("#panel-messages .messages-surface");

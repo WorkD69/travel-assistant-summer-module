@@ -67,4 +67,30 @@ describe('frontend production API integration', () => {
     assert.match(sync, /trips:\s*collections\.active/);
     assert.match(sync, /completedTrips:\s*collections\.completed/);
   });
+
+  test('connects workspace SOS, monitoring, Plan B, and messages to backend operations', () => {
+    const client = read('assets/js/api-client.js');
+    const workspace = read('assets/js/workspace-integration.js');
+    for (const method of ['createSos', 'confirmSignal', 'generatePlans', 'selectPlan', 'publishPlan', 'createMessage']) {
+      assert.match(client, new RegExp(method + '\\s*\\('));
+      assert.match(workspace, new RegExp('api\\.trips\\.' + method));
+    }
+    assert.match(workspace, /connectServerOperations/);
+  });
+
+  test('hydrates monitoring, plans, and messages into the shared workspace state', () => {
+    const sync = read('assets/js/site-sync.js');
+    assert.match(sync, /function coreFlowState/);
+    assert.match(sync, /planBOptions/);
+    assert.match(sync, /serverBacked:\s*true/);
+  });
+
+  test('persists real document uploads and deletions from the workspace', () => {
+    const client = read('assets/js/api-client.js');
+    const overview = read('trip-overview.html');
+    assert.match(client, /uploadDocument\s*\(/);
+    assert.match(client, /removeDocument\s*\(/);
+    assert.match(overview, /TravelAPI\.trips\.uploadDocument/);
+    assert.match(overview, /TravelAPI\.trips\.removeDocument/);
+  });
 });

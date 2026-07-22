@@ -43,7 +43,33 @@
       create(payload) { return request("/api/site/trips", { method: "POST", body: payload }); },
       update(id, payload) { return request("/api/site/trips/" + encodeURIComponent(id), { method: "PATCH", body: payload }); },
       remove(id) { return request("/api/site/trips/" + encodeURIComponent(id), { method: "DELETE" }); },
-      telegramLinkToken(id) { return request("/api/site/trips/" + encodeURIComponent(id) + "/telegram-link-token", { method: "POST" }); }
+      telegramLinkToken(id) { return request("/api/site/trips/" + encodeURIComponent(id) + "/telegram-link-token", { method: "POST" }); },
+      createSos(id, payload, idempotencyKey) {
+        return request("/api/site/trips/" + encodeURIComponent(id) + "/sos", {
+          method: "POST", body: payload, headers: { "Idempotency-Key": idempotencyKey }
+        });
+      },
+      confirmSignal(id, signalId) {
+        return request("/api/site/trips/" + encodeURIComponent(id) + "/monitoring/" + encodeURIComponent(signalId) + "/confirm", { method: "POST" });
+      },
+      generatePlans(id, signalId) {
+        return request("/api/site/trips/" + encodeURIComponent(id) + "/monitoring/" + encodeURIComponent(signalId) + "/plans", { method: "POST" });
+      },
+      selectPlan(id, planId) {
+        return request("/api/site/trips/" + encodeURIComponent(id) + "/plans/" + encodeURIComponent(planId) + "/select", { method: "POST" });
+      },
+      publishPlan(id, planId) {
+        return request("/api/site/trips/" + encodeURIComponent(id) + "/plans/" + encodeURIComponent(planId) + "/publish", { method: "POST" });
+      },
+      createMessage(id, payload) {
+        return request("/api/site/trips/" + encodeURIComponent(id) + "/messages", { method: "POST", body: payload });
+      },
+      uploadDocument(id, formData) {
+        return request("/api/site/trips/" + encodeURIComponent(id) + "/documents", { method: "POST", body: formData });
+      },
+      removeDocument(id, documentId) {
+        return request("/api/site/trips/" + encodeURIComponent(id) + "/documents/" + encodeURIComponent(documentId), { method: "DELETE" });
+      }
     }
   };
 })();

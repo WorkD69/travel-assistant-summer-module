@@ -505,7 +505,7 @@
         modalRoot.querySelector("#coreflow-message-confirm-send").addEventListener("click", function messagesConfirmClick() {
           messagesState.adapter.sendMessage(messageId);
           messagesState.adapter.closeSharedUi();
-          messagesState.adapter.toast("Демонстрационная отправка записана");
+          messagesState.adapter.toast("Сообщение отправлено");
         });
       }
     });
