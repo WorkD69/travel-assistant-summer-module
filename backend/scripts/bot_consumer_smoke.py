@@ -19,7 +19,10 @@ from app.services.travel_api.http_client import HttpTravelApiClient
 BACKEND_URL = os.environ["TRAVEL_BACKEND_URL"].rstrip("/")
 SERVICE_TOKEN = os.environ["TRAVEL_API_SERVICE_TOKEN"]
 ORGANIZER_PASSWORD = os.environ["DEMO_ORGANIZER_PASSWORD"]
-ORIGIN = "https://travel-assistant-summer-module.vercel.app"
+ORIGIN = os.environ.get(
+    "TRAVEL_FRONTEND_ORIGIN",
+    "https://travel-assistant-summer-module.vercel.app",
+).rstrip("/")
 TRIP_ID = "trip-turkey-2026"
 TELEGRAM_USER_ID = 7_000_000_001
 

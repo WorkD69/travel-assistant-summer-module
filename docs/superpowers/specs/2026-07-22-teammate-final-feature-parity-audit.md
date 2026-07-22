@@ -123,7 +123,7 @@ The matrix above records the baseline gap at the start of the audit. The current
 
 ## Local quality gates
 
-- Backend: **116/116** tests passed.
+- Backend: **117/117** tests passed.
 - Telegram bot: **149/149** tests passed in the project virtual environment.
 - `npm audit --omit=dev` reported **0** known production vulnerabilities before the PDF runtime correction. The post-correction audit is queued in the remote Preview build because the local npm advisory endpoint currently resets TLS connections.
 - Prisma generation and validation passed; validation used process-only non-secret dummy URLs.
