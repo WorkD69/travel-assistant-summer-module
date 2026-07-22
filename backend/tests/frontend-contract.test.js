@@ -56,4 +56,13 @@ describe('canonical teammate frontend integration', () => {
     assert.match(rewrite.destination, /^https:\/\/travel-assistant-api-parity-preview\.vercel\.app\/api\/:path\*$/);
     assert.doesNotMatch(rewrite.destination, /localhost|127\.0\.0\.1/);
   });
+
+  test('exposes backend deployment metadata at the frontend build marker path', () => {
+    const config = JSON.parse(read('vercel.json'));
+    const marker = config.rewrites.find((item) => item.source === '/build-info.json');
+    assert.equal(
+      marker.destination,
+      'https://travel-assistant-api-parity-preview.vercel.app/api/build-info',
+    );
+  });
 });

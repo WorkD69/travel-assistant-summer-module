@@ -39,6 +39,14 @@ function createApp({ config, prisma, now }) {
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true, ai: ai.hasKey(), env: configModule.nodeEnv });
   });
+  app.get('/api/build-info', (_req, res) => {
+    res.json({
+      commitSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
+      buildDate: process.env.BUILD_DATE || null,
+      environment: process.env.VERCEL_ENV || config.nodeEnv,
+      apiBaseUrl: config.publicBaseUrl || null,
+    });
+  });
   app.use('/api', createSystemRouter({ prisma }));
   const browserOrigin = createOriginMiddleware(config);
   app.use('/api/auth', browserOrigin, authRoutes);

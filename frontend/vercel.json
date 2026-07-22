@@ -3,6 +3,10 @@
   "cleanUrls": false,
   "rewrites": [
     {
+      "source": "/build-info.json",
+      "destination": "https://travel-assistant-api-parity-preview.vercel.app/api/build-info"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://travel-assistant-api-parity-preview.vercel.app/api/:path*"
     }

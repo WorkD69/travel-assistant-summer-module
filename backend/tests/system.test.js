@@ -27,3 +27,34 @@ test('health is minimal and readiness checks the database safely', async () => {
   assert.deepEqual(response.body, { error: { code: 'not_ready', message_ru: 'Сервис временно не готов.' } });
   assert.doesNotMatch(JSON.stringify(response.body), /postgres secret/i);
 });
+
+test('build info exposes only safe deployment metadata', async () => {
+  const previous = {
+    VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA,
+    VERCEL_ENV: process.env.VERCEL_ENV,
+    BUILD_DATE: process.env.BUILD_DATE,
+  };
+  process.env.VERCEL_GIT_COMMIT_SHA = 'a'.repeat(40);
+  process.env.VERCEL_ENV = 'preview';
+  process.env.BUILD_DATE = '2026-07-22T12:00:00.000Z';
+
+  try {
+    const app = createApp({
+      config: { ...config, publicBaseUrl: 'https://api-preview.example.test' },
+      prisma: { async $queryRaw() { return [{ ok: 1 }]; } },
+    });
+    const response = await request(app).get('/api/build-info');
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body, {
+      commitSha: 'a'.repeat(40),
+      buildDate: '2026-07-22T12:00:00.000Z',
+      environment: 'preview',
+      apiBaseUrl: 'https://api-preview.example.test',
+    });
+  } finally {
+    for (const [name, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+});
