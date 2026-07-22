@@ -97,6 +97,28 @@ function tripEvents(input, tripId) {
   });
 }
 
+function siteDocument(item, includeOcr = false) {
+  const document = {
+    id: item.id,
+    title: item.name,
+    type: item.type,
+    mimeType: item.mimeType,
+    sizeBytes: item.sizeBytes,
+    visibility: item.visibility,
+    status: item.status,
+    segment: item.segment,
+    uploadedAt: item.createdAt,
+  };
+  if (includeOcr) {
+    document.ocrStatus = item.ocrStatus;
+    document.extractedData = item.extractedData && typeof item.extractedData === 'object' ? item.extractedData : {};
+    document.ocrErrorCode = item.ocrErrorCode || null;
+    document.processedAt = item.processedAt || null;
+    document.reviewedAt = item.reviewedAt || null;
+  }
+  return document;
+}
+
 function createSiteTripsRouter({ config, prisma, now = () => new Date() }) {
   const router = express.Router();
 
@@ -172,10 +194,9 @@ function createSiteTripsRouter({ config, prisma, now = () => new Date() }) {
         departure: item.departure, arrival: item.arrival, status: item.status, detail: item.detail,
         source: item.source, reference: item.reference, sortOrder: item.sortOrder,
       })),
-      documents: allDocuments.filter((item) => documentVisible(item, userId, access.role)).map((item) => ({
-        id: item.id, title: item.name, type: item.type, visibility: item.visibility, status: item.status,
-        segment: item.segment, uploadedAt: item.createdAt,
-      })),
+      documents: allDocuments
+        .filter((item) => documentVisible(item, userId, access.role))
+        .map((item) => siteDocument(item, access.role === 'organizer')),
       messages: allMessages.filter((item) => messageVisible(item, userId, access.role)).map((item) => ({
         id: item.id, title: item.title || '', text: item.content, authorName: item.author?.name || '',
         status: item.status, publishedAt: item.publishedAt, isPlanB: Boolean(item.planId),
@@ -249,4 +270,4 @@ function createSiteTripsRouter({ config, prisma, now = () => new Date() }) {
   return router;
 }
 
-module.exports = { createSiteTripsRouter, routePoints, siteTrip, tripEvents, validDate, validDateTime };
+module.exports = { createSiteTripsRouter, routePoints, siteDocument, siteTrip, tripEvents, validDate, validDateTime };

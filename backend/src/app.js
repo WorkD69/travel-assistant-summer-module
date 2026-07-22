@@ -14,7 +14,7 @@ const { createSystemRouter } = require('./routes/system');
 const { createOriginMiddleware } = require('./security/origin');
 const { createSiteAuthMiddleware } = require('./security/site-auth');
 
-function createApp({ config, prisma }) {
+function createApp({ config, prisma, ocrExtractor }) {
   const app = express();
   app.disable('x-powered-by');
   if (config.isProduction) app.set('trust proxy', 1);
@@ -34,7 +34,7 @@ function createApp({ config, prisma }) {
     '/api/site/trips',
     createOriginMiddleware(config),
     createSiteAuthMiddleware(config, prisma),
-    createSiteOperationsRouter({ config, prisma }),
+    createSiteOperationsRouter({ config, prisma, ocrExtractor }),
   );
   app.use(
     '/api/site/trips',

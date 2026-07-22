@@ -199,4 +199,19 @@ describe('frontend production API integration', () => {
     }
     assert.match(monitoring, /plans\.length\s*!==\s*3/);
   });
+
+  test('runs document OCR and persists reviewed fields through the current cookie API', () => {
+    const client = read('assets/js/api-client.js');
+    const sync = read('assets/js/site-sync.js');
+    const overview = read('trip-overview.html');
+    assert.match(client, /processDocument\s*\(/);
+    assert.match(client, /reviewDocument\s*\(/);
+    assert.match(client, /\/documents\/.*\/ocr/);
+    assert.match(sync, /ocrStatus/);
+    assert.match(sync, /extractedData/);
+    assert.match(overview, /TravelAPI\.trips\.processDocument/);
+    assert.match(overview, /TravelAPI\.trips\.reviewDocument/);
+    assert.doesNotMatch(overview, /id=["']upload-demo-scenario["']/);
+    assert.doesNotMatch(overview, /selectDemoUploadFile\(\)/);
+  });
 });

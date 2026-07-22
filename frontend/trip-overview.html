@@ -3200,7 +3200,7 @@
       <div class="modal-header">
         <div>
           <h2 class="modal-title" id="doc-upload-title">Добавить документ</h2>
-          <p class="modal-desc">PDF, JPG, JPEG или PNG · до 4 МБ. Можно загрузить один файл за раз.</p>
+          <p class="modal-desc">PDF, JPG, JPEG, PNG или TXT · до 4 МБ. Можно загрузить один файл за раз.</p>
         </div>
         <button type="button" class="btn btn-icon" aria-label="Закрыть" onclick="closeModal('modal-doc-upload')">
           <svg class="icon" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -3211,23 +3211,12 @@
           <div>
             <svg class="icon" viewBox="0 0 24 24" style="width:32px;height:32px;margin-bottom:var(--space-3);"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 19h14"/></svg>
             <p style="margin:0 0 var(--space-2);color:var(--fg);font-weight:var(--fw-semibold);">Перетащите файл сюда</p>
-            <p class="field-hint" style="margin:0 0 var(--space-3);">Поддерживаются PDF, JPG, JPEG и PNG · максимум 4 МБ · один файл за раз</p>
-            <input id="doc-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png" hidden onchange="handleDocFileInput(this.files)" />
+            <p class="field-hint" style="margin:0 0 var(--space-3);">Поддерживаются PDF, JPG, JPEG, PNG и TXT · максимум 4 МБ · один файл за раз</p>
+            <input id="doc-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png,.txt" hidden onchange="handleDocFileInput(this.files)" />
             <button type="button" class="btn btn-secondary" onclick="document.getElementById('doc-file-input').click()">Выбрать файл</button>
-            <button type="button" class="btn btn-ghost" onclick="selectDemoUploadFile()">Выбрать демонстрационный файл</button>
           </div>
         </div>
         <div class="upload-file-list" id="upload-file-list"></div>
-        <div class="field" style="margin-top:var(--space-4);">
-          <label class="field-label" for="upload-demo-scenario">Демонстрационный сценарий</label>
-          <select class="select" id="upload-demo-scenario">
-            <option value="success">Успешная загрузка</option>
-            <option value="format">Неподдерживаемый формат</option>
-            <option value="size">Файл слишком большой</option>
-            <option value="duplicate">Найден дубликат</option>
-            <option value="processing-error">Ошибка обработки</option>
-          </select>
-        </div>
         <div class="field" style="margin-top:var(--space-4);">
           <label class="field-label" for="upload-visibility">Видимость</label>
           <select class="select" id="upload-visibility">
@@ -3239,7 +3228,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="closeModal('modal-doc-upload')">Отмена</button>
-        <button type="button" class="btn btn-primary" id="upload-submit-btn" onclick="startMockUpload()">Загрузить</button>
+        <button type="button" class="btn btn-primary" id="upload-submit-btn" onclick="startDocumentUpload()">Загрузить</button>
       </div>
     </div>
   </div>
@@ -3518,7 +3507,13 @@
       });
     }
 
-    let docsRole = 'organizer';
+    function docsRoleFromState(sharedState) {
+      const state = sharedState || (window.TravelAppState && window.TravelAppState.getState()) || {};
+      const role = state.coreFlow?.role || state.trip?.role || state.currentUser?.currentTripRole || state.currentUser?.role;
+      return role === 'participant' || role === 'viewer' ? 'participant' : 'organizer';
+    }
+
+    let docsRole = docsRoleFromState();
     let docsDemoState = 'list';
     let selectedDocumentId = null;
     let activeDocMenuId = null;
@@ -3862,7 +3857,7 @@
 
     /* Роль вкладки «Документы» следует за ролью currentUserId + tripId из общего состояния (без тоста) */
     window.appSyncDocsRole = function (appSharedState) {
-      const appNextRole = appSharedState && appSharedState.currentUser && appSharedState.currentUser.currentTripRole === 'participant' ? 'participant' : 'organizer';
+      const appNextRole = docsRoleFromState(appSharedState);
       if (appNextRole === docsRole) return;
       docsRole = appNextRole;
       if (typeof closeDocActionsMenu === 'function') closeDocActionsMenu();
@@ -3944,18 +3939,9 @@
       if (docsRole !== 'organizer' || docsDemoState === 'offline') return;
       pendingUploadFiles = [];
       uploadStatus = 'idle';
-      document.getElementById('upload-demo-scenario').value = 'success';
       renderUploadFiles();
-      renderUploadState('Файл не выбран', 'badge-neutral', 'Выберите файл или демонстрационный файл, чтобы начать загрузку.');
+      renderUploadState('Файл не выбран', 'badge-neutral', 'Выберите файл, чтобы начать загрузку.');
       openModal('modal-doc-upload');
-    }
-
-    function selectDemoUploadFile() {
-      const stamp = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replaceAll(':', '-');
-      pendingUploadFiles = [{ name: `Новый документ поездки ${stamp}.pdf`, size: 760 * 1024, type: 'application/pdf' }];
-      uploadStatus = 'selected';
-      renderUploadFiles();
-      renderUploadState('Файл выбран', 'badge-neutral', 'Файл готов к демонстрационной загрузке.');
     }
 
     function handleDocFileInput(files) {
@@ -3969,7 +3955,7 @@
       pendingUploadFiles.splice(index, 1);
       uploadStatus = pendingUploadFiles.length ? 'selected' : 'idle';
       renderUploadFiles();
-      renderUploadState('Файл не выбран', 'badge-neutral', 'Выберите файл или демонстрационный файл, чтобы начать загрузку.');
+      renderUploadState('Файл не выбран', 'badge-neutral', 'Выберите файл, чтобы начать загрузку.');
     }
 
     function renderUploadFiles() {
@@ -3993,30 +3979,25 @@
       list.innerHTML = `<div class="upload-state-row"><span><strong>${label}</strong>${detail ? `<br><span class="field-hint">${detail}</span>` : ''}</span><span class="badge ${badge}">${label}</span></div>`;
     }
 
-    async function startMockUpload() {
+    async function startDocumentUpload() {
       if (!docsTripActive()) return;
       if (!pendingUploadFiles.length) {
         renderUploadState('Сначала выберите файл', 'badge-danger', 'Загрузка не началась.');
         return;
       }
       const file = pendingUploadFiles[0];
-      const scenario = document.getElementById('upload-demo-scenario')?.value || 'success';
       const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
-      const valid = ['pdf', 'jpg', 'jpeg', 'png'].includes(ext);
-      if (!valid || scenario === 'format') {
-        renderUploadState('Неподдерживаемый формат', 'badge-danger', 'Выберите PDF, JPG, JPEG или PNG.');
+      const valid = ['pdf', 'jpg', 'jpeg', 'png', 'txt'].includes(ext);
+      if (!valid) {
+        renderUploadState('Неподдерживаемый формат', 'badge-danger', 'Выберите PDF, JPG, JPEG, PNG или TXT.');
         return;
       }
-      if ((file.size && file.size > 4 * 1024 * 1024) || scenario === 'size') {
+      if (file.size && file.size > 4 * 1024 * 1024) {
         renderUploadState('Файл слишком большой', 'badge-danger', 'Максимальный размер одного файла — 4 МБ.');
         return;
       }
-      if (docsData.some((doc) => doc.name.toLowerCase() === file.name.toLowerCase()) || scenario === 'duplicate') {
+      if (docsData.some((doc) => doc.name.toLowerCase() === file.name.toLowerCase())) {
         renderUploadState('Найден дубликат', 'badge-warning', 'Такой документ уже есть в поездке.');
-        return;
-      }
-      if (scenario === 'processing-error') {
-        renderUploadState('Произошла ошибка обработки', 'badge-danger', 'Повторите попытку позже.');
         return;
       }
       const visibility = document.getElementById('upload-visibility').value;
@@ -4031,10 +4012,18 @@
           const tripId = window.TravelAppState.getState().trip.id;
           const response = await window.TravelAPI.trips.uploadDocument(tripId, form);
           persistedDocument = response.document;
+          if (persistedDocument.ocrStatus !== 'extracted') {
+            renderUploadState('Распознаётся', 'badge-info', 'Извлекаем данные документа.');
+            const processed = await window.TravelAPI.trips.processDocument(tripId, persistedDocument.id);
+            persistedDocument = Object.assign({}, persistedDocument, processed.document);
+          }
         } catch (error) {
           renderUploadState('Ошибка загрузки', 'badge-danger', error && error.message ? error.message : 'Повторите попытку позже.');
           return;
         }
+      } else {
+        renderUploadState('Файл не выбран', 'badge-danger', 'Выберите настоящий файл для загрузки.');
+        return;
       }
       const newDoc = {
         id: persistedDocument ? persistedDocument.id : 'uploaded-' + Date.now(),
@@ -4043,38 +4032,36 @@
         format: ext === 'jpeg' ? 'JPG' : ext.toUpperCase(),
         size: file.size ? `${Math.max(file.size / 1024, 1).toFixed(0)} КБ` : '760 КБ',
         uploadedAt: 'сейчас',
-        status: persistedDocument ? persistedDocument.status : 'review',
+        status: persistedDocument && persistedDocument.status === 'confirmed' ? 'confirmed' : persistedDocument && persistedDocument.ocrStatus === 'failed' ? 'error' : 'review',
+        ocrStatus: persistedDocument ? persistedDocument.ocrStatus : 'not_requested',
+        extractedData: persistedDocument ? persistedDocument.extractedData || {} : {},
         serverBacked: Boolean(persistedDocument),
         visibility,
         segment: 'Вся поездка',
         source: 'Загружено организатором',
         processedAt: 'сейчас'
       };
-      const steps = [
-        ['Загружается', 'badge-info', 'Файл добавляется в поездку.'],
-        ['Проверяется', 'badge-info', 'Проверяем формат и дубликаты.'],
-        ['Распознаётся', 'badge-info', 'Извлекаем данные документа.'],
-        ['Требует проверки', 'badge-warning', 'Документ добавлен и ожидает проверки данных.']
-      ];
-      let index = 0;
-      const advance = () => {
-        const [label, badge, detail] = steps[index];
-        renderUploadState(label, badge, detail);
-        index += 1;
-        if (index < steps.length) {
-          setTimeout(advance, 420);
-          return;
-        }
-        setTimeout(() => {
-          docsData.unshift(newDoc);
-          docsDemoState = 'list';
-          docsCommitShared();
-          closeModal('modal-doc-upload');
-          renderDocuments();
-          toastSuccess('Документ загружен и ожидает проверки');
-        }, 520);
-      };
-      advance();
+      renderUploadState(
+        persistedDocument.ocrStatus === 'failed' ? 'Нужна ручная проверка' : 'Документ сохранён',
+        persistedDocument.ocrStatus === 'failed' ? 'badge-warning' : 'badge-success',
+        persistedDocument.ocrStatus === 'failed'
+          ? 'Файл сохранён, но автоматическое распознавание недоступно.'
+          : 'Данные загружены из backend.'
+      );
+      if (window.TravelSite && typeof window.TravelSite.hydrate === 'function') {
+        await window.TravelSite.hydrate();
+      } else {
+        docsData.unshift(newDoc);
+        docsCommitShared();
+      }
+      docsDemoState = 'list';
+      closeModal('modal-doc-upload');
+      renderDocuments();
+      if (persistedDocument.ocrStatus === 'failed') {
+        toastWarning('Документ сохранён, распознанные поля нужно заполнить вручную');
+      } else {
+        toastSuccess('Документ загружен и ожидает проверки');
+      }
     }
 
     function openOcrReview(id) {
@@ -4095,8 +4082,36 @@
     }
 
     function ensureDocOcrFields(doc) {
-      if (!doc.ocrFields) doc.ocrFields = defaultOcrFields();
+      if (!doc.ocrFields) {
+        const labels = {
+          documentType: 'Тип документа',
+          flightNumber: 'Номер рейса',
+          route: 'Маршрут',
+          dates: 'Даты',
+          times: 'Время'
+        };
+        const data = doc.extractedData && typeof doc.extractedData === 'object' ? doc.extractedData : {};
+        const keys = Object.keys(data);
+        if (doc.serverBacked) {
+          const visibleKeys = keys.length ? keys : ['documentType', 'flightNumber', 'route', 'dates', 'times'];
+          doc.ocrFields = visibleKeys.map((key) => ({
+            key,
+            label: labels[key] || key,
+            value: Array.isArray(data[key]) ? data[key].join(', ') : String(data[key] == null ? '' : data[key]),
+            isArray: Array.isArray(data[key]),
+            level: data[key] ? 'high' : 'low',
+            confidence: data[key] ? 'Распознано — проверьте' : 'Значение не найдено',
+            explain: 'Перед подтверждением сверьте поле с исходным документом.'
+          }));
+        } else doc.ocrFields = defaultOcrFields();
+      }
       return doc.ocrFields;
+    }
+
+    function escapeOcrValue(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     function renderOcrFields() {
@@ -4110,10 +4125,10 @@
       const fields = ensureDocOcrFields(doc || {});
       form.innerHTML = fields.map(({ key, label, value, level, confidence, explain }) => `
         <div class="ocr-field ${level === 'low' ? 'low' : ''} ${readonly ? 'readonly' : ''}" data-ocr-field="${key}" onclick="highlightOcrField('${key}')">
-          <label for="ocr-${key}">${label}</label>
-          <input class="input" id="ocr-${key}" type="text" value="${value}" ${readonly || key === 'bookingRef' ? 'readonly' : ''} />
-          <span class="ocr-confidence">${confidence}</span>
-          <p class="ocr-explain">${explain}</p>
+          <label for="ocr-${escapeOcrValue(key)}">${escapeOcrValue(label)}</label>
+          <input class="input" id="ocr-${escapeOcrValue(key)}" type="text" value="${escapeOcrValue(value)}" ${readonly || key === 'bookingRef' ? 'readonly' : ''} />
+          <span class="ocr-confidence">${escapeOcrValue(confidence)}</span>
+          <p class="ocr-explain">${escapeOcrValue(explain)}</p>
         </div>`).join('');
       if (footer) {
         const canEdit = docsRole === 'organizer' && docsDemoState !== 'offline' && docsTripActive();
@@ -4125,7 +4140,7 @@
           footer.innerHTML = `
             <button type="button" class="btn btn-ghost" onclick="closeModal('modal-ocr-review')">Отмена</button>
             <button type="button" class="btn btn-secondary" onclick="saveOcrChanges()">Сохранить изменения</button>
-            ${doc && doc.status === 'review' ? '<button type="button" class="btn btn-primary" onclick="confirmOcrAndAddToTrip()">Подтвердить и добавить в поездку</button>' : ''}`;
+            ${doc && doc.status === 'review' ? '<button type="button" class="btn btn-primary" onclick="confirmOcrAndAddToTrip()">Подтвердить данные</button>' : ''}`;
         }
       }
     }
@@ -4143,6 +4158,12 @@
         const input = document.getElementById('ocr-' + field.key);
         if (input && field.key !== 'bookingRef') field.value = input.value;
       });
+      doc.extractedData = fields.reduce((data, field) => {
+        data[field.key] = field.isArray
+          ? field.value.split(',').map((item) => item.trim()).filter(Boolean)
+          : field.value;
+        return data;
+      }, {});
       doc.processedAt = 'сейчас';
       return doc;
     }
@@ -4173,24 +4194,34 @@
       if (page) page.style.transform = `scale(${ocrPreviewScale})`;
     }
 
-    function saveOcrChanges() {
-      if (!docsTripActive()) return;
-      collectOcrChanges();
-      docsCommitShared();
-      toastSuccess('Изменения сохранены в демонстрационной версии');
-    }
-
-    function confirmOcrAndAddToTrip() {
+    async function saveOcrChanges() {
       if (!docsTripActive()) return;
       const doc = collectOcrChanges();
-      if (doc) {
-        doc.status = 'confirmed';
-        doc.processedAt = 'сейчас';
-      }
+      if (!doc) return;
+      if (doc.serverBacked && window.TravelAPI) {
+        try {
+          const tripId = window.TravelAppState.getState().trip.id;
+          const response = await window.TravelAPI.trips.reviewDocument(tripId, doc.id, doc.extractedData);
+          Object.assign(doc, response.document, { status: 'confirmed' });
+          if (window.TravelSite && typeof window.TravelSite.hydrate === 'function') await window.TravelSite.hydrate();
+        } catch (error) {
+          toastWarning(error && error.message ? error.message : 'Не удалось сохранить проверенные данные');
+          return;
+        }
+      } else docsCommitShared();
+      activeOcrMode = 'read';
+      renderOcrFields();
+      toastSuccess('Проверенные данные сохранены');
+    }
+
+    async function confirmOcrAndAddToTrip() {
+      if (!docsTripActive()) return;
+      await saveOcrChanges();
+      const doc = findDoc(selectedDocumentId);
+      if (!doc || doc.status !== 'confirmed') return;
       closeModal('modal-ocr-review');
-      docsCommitShared();
       renderDocuments();
-      toastSuccess('Данные подтверждены и добавлены в маршрут');
+      toastSuccess('Данные документа подтверждены');
     }
 
     function openAccessModal(id) {

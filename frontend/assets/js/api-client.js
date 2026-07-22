@@ -88,6 +88,14 @@
       uploadDocument(id, formData) {
         return request("/api/site/trips/" + encodeURIComponent(id) + "/documents", { method: "POST", body: formData });
       },
+      processDocument(id, documentId) {
+        return request("/api/site/trips/" + encodeURIComponent(id) + "/documents/" + encodeURIComponent(documentId) + "/ocr", { method: "POST" });
+      },
+      reviewDocument(id, documentId, extractedData) {
+        return request("/api/site/trips/" + encodeURIComponent(id) + "/documents/" + encodeURIComponent(documentId) + "/ocr", {
+          method: "PATCH", body: { extractedData }
+        });
+      },
       removeDocument(id, documentId) {
         return request("/api/site/trips/" + encodeURIComponent(id) + "/documents/" + encodeURIComponent(documentId), { method: "DELETE" });
       }

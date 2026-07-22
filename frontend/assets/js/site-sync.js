@@ -289,7 +289,20 @@
           return roles;
         }, { [user.id]: detail.trip.role });
         trip.workspaceDocuments = (detail.documents || []).map(function (document) {
-          return Object.assign({}, document, { name: document.title, visibility: document.visibility === "organizer_only" ? "private" : document.visibility, serverBacked: true });
+          const status = document.status === "confirmed"
+            ? "confirmed"
+            : document.ocrStatus === "failed" ? "error" : "review";
+          return Object.assign({}, document, {
+            name: document.title,
+            format: String(document.mimeType || "").split("/").pop().toUpperCase() || "FILE",
+            size: document.sizeBytes ? Math.max(document.sizeBytes / 1024, 1).toFixed(0) + " КБ" : "—",
+            status,
+            visibility: document.visibility === "organizer_only" ? "private" : document.visibility,
+            ocrStatus: document.ocrStatus || "not_requested",
+            extractedData: document.extractedData || {},
+            source: "Backend API",
+            serverBacked: true
+          });
         });
         trip.documents = trip.workspaceDocuments.length;
         trip.planB = (detail.plans || []).length;

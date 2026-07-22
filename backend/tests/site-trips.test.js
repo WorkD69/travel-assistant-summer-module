@@ -4,7 +4,7 @@ const { describe, test } = require('node:test');
 const request = require('supertest');
 
 const { createApp } = require('../src/app');
-const { routePoints } = require('../src/routes/site/trips');
+const { routePoints, siteDocument } = require('../src/routes/site/trips');
 const { COOKIE_NAME, issueSession } = require('../src/security/site-auth');
 
 const config = {
@@ -143,5 +143,17 @@ describe('site trip API', () => {
       ] });
     assert.equal(response.status, 403);
     assert.equal(transactionCalls, 0);
+  });
+
+  test('shows OCR review data only in the organizer document contract', () => {
+    const document = {
+      id: 'd-1', name: 'ticket.pdf', type: 'ticket', mimeType: 'application/pdf', sizeBytes: 1200,
+      visibility: 'shared', status: 'pending', segment: null, createdAt: new Date('2026-07-22T10:00:00Z'),
+      ocrStatus: 'extracted', extractedData: { flightNumber: 'SU 2142' }, ocrErrorCode: null,
+      processedAt: new Date('2026-07-22T10:01:00Z'), reviewedAt: null,
+    };
+    assert.equal(siteDocument(document, false).extractedData, undefined);
+    assert.equal(siteDocument(document, true).extractedData.flightNumber, 'SU 2142');
+    assert.equal(siteDocument(document, true).ocrStatus, 'extracted');
   });
 });

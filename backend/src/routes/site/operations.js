@@ -6,17 +6,55 @@ const multer = require('multer');
 const { ApiError } = require('../../errors');
 const { ACTIONS, assertCan, loadTripAccess, scopeChildToTrip } = require('../../access/trip-access');
 const { generatePlanCandidates, loadSafeContext } = require('../../services/assistant');
+const { MAX_OCR_FILE_BYTES, extractDocument, validateDocumentFile } = require('../../services/ocr');
 const { generatePlans, publicTripPlan } = require('../../services/plan-b');
 const { createSos } = require('../../services/sos');
 const { createOpaqueToken } = require('../../security/tokens');
 
 const UPLOAD_MIME_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'text/plain']);
-const upload = multer({ storage: multer.memoryStorage(), limits: { files: 1, fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { files: 1, fileSize: MAX_OCR_FILE_BYTES } });
 
 function requireText(value, min, max, message) {
   const text = String(value || '').trim();
   if (text.length < min || text.length > max) throw new ApiError(422, 'validation_error', message);
   return text;
+}
+
+function publicDocumentOcr(document) {
+  return {
+    id: document.id,
+    title: document.name,
+    status: document.status,
+    ocrStatus: document.ocrStatus,
+    extractedData: document.extractedData && typeof document.extractedData === 'object' ? document.extractedData : {},
+    ocrErrorCode: document.ocrErrorCode || null,
+    processedAt: document.processedAt || null,
+    reviewedAt: document.reviewedAt || null,
+  };
+}
+
+function sanitizeExtractedData(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new ApiError(422, 'validation_error', 'Проверьте распознанные поля документа.');
+  }
+  const entries = Object.entries(value);
+  if (entries.length > 40 || Buffer.byteLength(JSON.stringify(value), 'utf8') > 20 * 1024) {
+    throw new ApiError(422, 'validation_error', 'Слишком много распознанных данных.');
+  }
+  const output = Object.create(null);
+  for (const [key, raw] of entries) {
+    if (!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(key)) throw new ApiError(422, 'validation_error', 'Некорректное имя распознанного поля.');
+    if (Array.isArray(raw)) {
+      if (raw.length > 12 || raw.some((item) => typeof item !== 'string' || item.length > 500)) {
+        throw new ApiError(422, 'validation_error', 'Некорректное значение распознанного поля.');
+      }
+      output[key] = raw.map((item) => item.trim());
+    } else if (typeof raw === 'string') output[key] = raw.trim().slice(0, 2000);
+    else if (typeof raw === 'number' && Number.isFinite(raw)) output[key] = raw;
+    else if (typeof raw === 'boolean' || raw === null) output[key] = raw;
+    else throw new ApiError(422, 'validation_error', 'Некорректное значение распознанного поля.');
+  }
+  return output;
 }
 
 async function activeTelegramRecipients(tx, tripId, excludedUserId) {
@@ -52,7 +90,7 @@ async function enqueuePublishedMessage(tx, trip, message, authorUserId) {
   }
 }
 
-function createSiteOperationsRouter({ config = {}, prisma, now = () => new Date() }) {
+function createSiteOperationsRouter({ config = {}, prisma, now = () => new Date(), ocrExtractor = extractDocument }) {
   const router = express.Router();
 
   router.post('/:trip_id/invitations', async (req, res) => {
@@ -100,8 +138,9 @@ function createSiteOperationsRouter({ config = {}, prisma, now = () => new Date(
     const access = await loadTripAccess(prisma, req.siteUser.id, req.params.trip_id);
     assertCan(access, ACTIONS.MANAGE_DOCUMENTS);
     if (!req.file || !UPLOAD_MIME_TYPES.has(req.file.mimetype)) {
-      throw new ApiError(422, 'validation_error', 'Поддерживаются PDF, JPEG, PNG и TXT до 5 МБ.');
+      throw new ApiError(422, 'validation_error', 'Поддерживаются PDF, JPEG, PNG и TXT до 4 МБ.');
     }
+    validateDocumentFile({ buffer: req.file.buffer, mimeType: req.file.mimetype, fileName: req.file.originalname });
     const title = requireText(req.body?.title || req.file.originalname, 1, 180, 'Некорректное название документа.');
     const visibility = ['shared', 'personal', 'organizer_only'].includes(req.body?.visibility) ? req.body.visibility : 'shared';
     const isText = req.file.mimetype === 'text/plain';
@@ -119,7 +158,7 @@ function createSiteOperationsRouter({ config = {}, prisma, now = () => new Date(
           visibility,
           status: isText ? 'confirmed' : 'pending',
           segment: req.body?.segment || null,
-          ocrStatus: isText ? 'extracted' : 'manual_review',
+          ocrStatus: isText ? 'extracted' : 'not_requested',
           extractedText: isText ? req.file.buffer.toString('utf8').slice(0, 100_000) : null,
         },
       });
@@ -127,6 +166,56 @@ function createSiteOperationsRouter({ config = {}, prisma, now = () => new Date(
       return item;
     });
     res.status(201).json({ document: { id: document.id, title: document.name, status: document.status, ocrStatus: document.ocrStatus } });
+  });
+
+  router.post('/:trip_id/documents/:document_id/ocr', async (req, res) => {
+    const access = await loadTripAccess(prisma, req.siteUser.id, req.params.trip_id);
+    assertCan(access, ACTIONS.MANAGE_DOCUMENTS);
+    const document = scopeChildToTrip(
+      await prisma.document.findUnique({ where: { id: req.params.document_id }, include: { blob: true } }),
+      access.trip.id,
+      'not_found',
+    );
+    if (!document.blob?.bytes || !document.mimeType) throw new ApiError(404, 'not_found', 'Файл документа не найден.');
+    let result;
+    try {
+      result = await ocrExtractor({ buffer: Buffer.from(document.blob.bytes), mimeType: document.mimeType, fileName: document.name });
+    } catch {
+      const failed = await prisma.document.update({
+        where: { id: document.id },
+        data: { ocrStatus: 'failed', ocrErrorCode: 'ocr_unavailable', processedAt: now(), status: 'pending' },
+      });
+      res.json({ document: publicDocumentOcr(failed) });
+      return;
+    }
+    const updated = await prisma.document.update({
+      where: { id: document.id },
+      data: {
+        ocrStatus: result.status === 'extracted' ? 'extracted' : 'manual_review',
+        extractedText: result.text || null,
+        extractedData: result.data || {},
+        ocrErrorCode: result.errorCode || null,
+        processedAt: now(),
+        status: 'pending',
+      },
+    });
+    res.json({ document: publicDocumentOcr(updated) });
+  });
+
+  router.patch('/:trip_id/documents/:document_id/ocr', async (req, res) => {
+    const access = await loadTripAccess(prisma, req.siteUser.id, req.params.trip_id);
+    assertCan(access, ACTIONS.MANAGE_DOCUMENTS);
+    const document = scopeChildToTrip(
+      await prisma.document.findUnique({ where: { id: req.params.document_id } }),
+      access.trip.id,
+      'not_found',
+    );
+    const extractedData = sanitizeExtractedData(req.body?.extractedData);
+    const updated = await prisma.document.update({
+      where: { id: document.id },
+      data: { extractedData, ocrStatus: 'extracted', ocrErrorCode: null, status: 'confirmed', reviewedAt: now() },
+    });
+    res.json({ document: publicDocumentOcr(updated) });
   });
 
   router.delete('/:trip_id/documents/:document_id', async (req, res) => {
@@ -271,4 +360,11 @@ function createSiteOperationsRouter({ config = {}, prisma, now = () => new Date(
   return router;
 }
 
-module.exports = { UPLOAD_MIME_TYPES, activeTelegramRecipients, createSiteOperationsRouter, enqueuePublishedMessage };
+module.exports = {
+  UPLOAD_MIME_TYPES,
+  activeTelegramRecipients,
+  createSiteOperationsRouter,
+  enqueuePublishedMessage,
+  publicDocumentOcr,
+  sanitizeExtractedData,
+};
