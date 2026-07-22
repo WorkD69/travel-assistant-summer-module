@@ -8,7 +8,8 @@ function createGeoRouter(options = {}) {
     res.json({ items: await searchPlaces(req.query.q, options) });
   });
   router.get('/weather', async (req, res) => {
-    res.json(await getWeather(req.query.latitude, req.query.longitude, options));
+    const refresh = req.query.refresh === '1' || req.query.refresh === 'true';
+    res.json(await getWeather(req.query.latitude, req.query.longitude, { ...options, refresh }));
   });
   return router;
 }
