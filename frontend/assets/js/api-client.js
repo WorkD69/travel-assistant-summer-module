@@ -11,24 +11,7 @@
   BASE = stripTrail(BASE);
 
   var DEMO = { email: "artem@example.test", password: "Password2026!" };
-  var SESSION_TOKEN_KEY = "travelAssistant.apiToken.session";
-  var PERSISTENT_TOKEN_KEY = "travelAssistant.apiToken.persistent";
-
-  function readToken(){
-    try { return sessionStorage.getItem(SESSION_TOKEN_KEY) || localStorage.getItem(PERSISTENT_TOKEN_KEY); }
-    catch (e) { return null; }
-  }
-
-  function storeToken(token, remember){
-    authToken = token || null;
-    try {
-      sessionStorage.removeItem(SESSION_TOKEN_KEY);
-      localStorage.removeItem(PERSISTENT_TOKEN_KEY);
-      if (authToken) (remember ? localStorage : sessionStorage).setItem(remember ? PERSISTENT_TOKEN_KEY : SESSION_TOKEN_KEY, authToken);
-    } catch (e) { /* HttpOnly cookie remains the fallback. */ }
-  }
-
-  var authToken = readToken();
+  var authToken = null;
 
   async function req(path, opts){
     opts = opts || {};
@@ -62,12 +45,12 @@
     me: function(){ return req("/api/auth/me"); },
     login: async function(email, password, remember){
       var data = await req("/api/auth/login", { method: "POST", body: { email: email, password: password, remember: !!remember } });
-      if (data && data.token) storeToken(data.token, !!remember);
+      if (data && data.token) authToken = data.token;
       return data;
     },
     register: async function(payload){
       var data = await req("/api/auth/register", { method: "POST", body: payload });
-      if (data && data.token) storeToken(data.token, false);
+      if (data && data.token) authToken = data.token;
       return data;
     },
     updateProfile: function(patch){
@@ -75,7 +58,7 @@
     },
     logout: async function(){
       var data = await req("/api/auth/logout", { method: "POST" });
-      storeToken(null, false);
+      authToken = null;
       return data;
     },
     ensureAuth: async function(creds){

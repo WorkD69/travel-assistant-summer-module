@@ -75,20 +75,37 @@ describe('canonical teammate frontend integration', () => {
       removeItem(key) { values.delete(key); },
     };
     let authorization = null;
+    const location = { port: '', hostname: 'preview.example.test', href: 'https://preview.example.test/home.html', origin: 'https://preview.example.test' };
+    const rawFetch = async (_url, options) => {
+      authorization = options.headers.Authorization;
+      return { ok: true, async json() { return { trips: [] }; } };
+    };
     const context = {
-      window: { TRAVEL_API_BASE: '', sessionStorage: storage, localStorage: storage },
-      location: { port: '', hostname: 'preview.example.test' },
+      window: { TRAVEL_API_BASE: '', sessionStorage: storage, localStorage: storage, location, fetch: rawFetch },
+      location,
       sessionStorage: storage,
       localStorage: storage,
-      fetch: async (_url, options) => {
-        authorization = options.headers.Authorization;
-        return { ok: true, async json() { return { trips: [] }; } };
-      },
+      URL,
     };
+    context.fetch = (...args) => context.window.fetch(...args);
     vm.runInNewContext(read('assets/js/api-client.js'), context);
+    vm.runInNewContext(read('assets/js/api-session-runtime.js'), context);
 
     assert.equal(context.window.TravelApi.getToken(), 'persisted-token');
     await context.window.TravelApi.listTrips();
     assert.equal(authorization, 'Bearer persisted-token');
+  });
+
+  test('loads the session adapter after the byte-identical teammate API client', () => {
+    for (const page of ['home.html', 'trip-wizard.html', 'trip-overview.html']) {
+      const html = read(page);
+      assert.ok(html.indexOf('assets/js/api-client.js') >= 0, page);
+      assert.ok(html.indexOf('assets/js/api-session-runtime.js') > html.indexOf('assets/js/api-client.js'), page);
+    }
+
+    const runtime = read('assets/js/api-session-runtime.js');
+    assert.match(runtime, /api\.ensureAuth/);
+    assert.match(runtime, /accountPages\.credentials/);
+    assert.doesNotMatch(runtime, /api\/site|serverBacked|service.?token/i);
   });
 });
