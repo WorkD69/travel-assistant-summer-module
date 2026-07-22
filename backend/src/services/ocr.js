@@ -8,11 +8,37 @@ const { ApiError } = require('../errors');
 
 const MAX_OCR_FILE_BYTES = 4 * 1024 * 1024;
 const MAX_EXTRACTED_TEXT_BYTES = 100 * 1024;
+const MAX_IMAGE_DIMENSION = 12_000;
+const MAX_IMAGE_PIXELS = 20_000_000;
 const IMAGE_OCR_TIMEOUT_MS = 45_000;
 const SUPPORTED_OCR_MIME_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'text/plain']);
 
 function hasPrefix(buffer, bytes) {
   return bytes.every((value, index) => buffer[index] === value);
+}
+
+function imageDimensions(buffer, mimeType) {
+  if (mimeType === 'image/png') {
+    if (buffer.length < 24 || buffer.subarray(12, 16).toString('ascii') !== 'IHDR') return null;
+    return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+  }
+  if (mimeType !== 'image/jpeg') return null;
+  const sofMarkers = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
+  let offset = 2;
+  while (offset + 8 < buffer.length) {
+    if (buffer[offset] !== 0xff) { offset += 1; continue; }
+    while (buffer[offset] === 0xff) offset += 1;
+    const marker = buffer[offset++];
+    if (marker === 0xd8 || marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7)) continue;
+    if (offset + 2 > buffer.length) return null;
+    const length = buffer.readUInt16BE(offset);
+    if (length < 2 || offset + length > buffer.length) return null;
+    if (sofMarkers.has(marker) && length >= 7) {
+      return { height: buffer.readUInt16BE(offset + 3), width: buffer.readUInt16BE(offset + 5) };
+    }
+    offset += length;
+  }
+  return null;
 }
 
 function validateDocumentFile({ buffer, mimeType, fileName }) {
@@ -31,6 +57,16 @@ function validateDocumentFile({ buffer, mimeType, fileName }) {
     (type === 'text/plain' && name.endsWith('.txt') && !buffer.includes(0))
   );
   if (!valid) throw new ApiError(422, 'validation_error', 'Содержимое файла не соответствует его формату.');
+  if (type === 'image/png' || type === 'image/jpeg') {
+    const dimensions = imageDimensions(buffer, type);
+    if (
+      !dimensions || dimensions.width < 1 || dimensions.height < 1 ||
+      dimensions.width > MAX_IMAGE_DIMENSION || dimensions.height > MAX_IMAGE_DIMENSION ||
+      dimensions.width * dimensions.height > MAX_IMAGE_PIXELS
+    ) {
+      throw new ApiError(422, 'validation_error', 'Размеры изображения не поддерживаются.');
+    }
+  }
   return { mimeType: type, fileName: name };
 }
 
@@ -143,10 +179,13 @@ async function extractDocument({ buffer, mimeType, fileName, parsePdf = parsePdf
 module.exports = {
   IMAGE_OCR_TIMEOUT_MS,
   MAX_EXTRACTED_TEXT_BYTES,
+  MAX_IMAGE_DIMENSION,
+  MAX_IMAGE_PIXELS,
   MAX_OCR_FILE_BYTES,
   SUPPORTED_OCR_MIME_TYPES,
   extractDocument,
   extractStructuredData,
+  imageDimensions,
   parsePdfDefault,
   recognizeImageDefault,
   validateDocumentFile,

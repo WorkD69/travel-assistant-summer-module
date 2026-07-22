@@ -226,4 +226,16 @@ describe('frontend production API integration', () => {
     assert.match(overview, /URL\.createObjectURL/);
     assert.doesNotMatch(overview, /downloadMockDocument/);
   });
+
+  test('escapes uploaded document metadata before rendering HTML', () => {
+    const overview = read('trip-overview.html');
+    const renderDocuments = overview.slice(overview.indexOf('function renderDocuments'), overview.indexOf('function handleDocCardKeydown'));
+    const renderPreview = overview.slice(overview.indexOf('function renderPreview'), overview.indexOf('function openDocumentView'));
+    assert.match(overview, /function escapeDocValue/);
+    assert.match(renderDocuments, /escapeDocValue\(doc\.name\)/);
+    assert.match(renderDocuments, /escapeDocValue\(doc\.type\)/);
+    assert.match(renderDocuments, /escapeDocValue\(doc\.segment\)/);
+    assert.match(renderPreview, /escapeDocValue\(doc\.name\)/);
+    assert.match(renderPreview, /escapeDocValue\(value\)/);
+  });
 });

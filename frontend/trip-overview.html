@@ -3493,6 +3493,12 @@
       window.TravelAppState.setState({ documents: docsData.map((doc) => ({ ...doc, ocrConfirmed: doc.status === 'confirmed' })) }, { source: 'docs' });
     }
 
+    function escapeDocValue(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
     if (window.TravelAppState) {
       window.TravelAppState.subscribe((appSharedState, appChangedKeys, appMeta) => {
         if (appMeta && appMeta.source === 'docs') return;
@@ -3683,21 +3689,21 @@
         const reviewAction = doc.status === 'review' && organizer
           ? `<button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); openOcrReview('${doc.id}')">Проверить данные</button>`
           : '';
-        const menu = `<button type="button" class="btn btn-icon doc-menu-trigger" aria-haspopup="menu" aria-expanded="false" aria-label="Действия с документом ${doc.name}" onclick="event.stopPropagation(); openDocActionsMenu('${doc.id}', this)"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg></button>`;
+        const menu = `<button type="button" class="btn btn-icon doc-menu-trigger" aria-haspopup="menu" aria-expanded="false" aria-label="Действия с документом ${escapeDocValue(doc.name)}" onclick="event.stopPropagation(); openDocActionsMenu('${doc.id}', this)"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg></button>`;
         return `
-          <article class="doc-card ${doc.status === 'review' ? 'needs-review' : ''}" data-od-id="doc-card-${doc.id}" tabindex="0" role="button" aria-label="Открыть документ ${doc.name}" onclick="openDocumentView('${doc.id}')" onkeydown="handleDocCardKeydown(event, '${doc.id}')">
+          <article class="doc-card ${doc.status === 'review' ? 'needs-review' : ''}" data-od-id="doc-card-${doc.id}" tabindex="0" role="button" aria-label="Открыть документ ${escapeDocValue(doc.name)}" onclick="openDocumentView('${doc.id}')" onkeydown="handleDocCardKeydown(event, '${doc.id}')">
             <div class="doc-icon ${doc.status === 'review' ? 'warning' : ''}" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24">${docIconSvg(doc)}</svg></div>
             <div class="doc-main">
-              <h3 class="doc-name">${doc.name}</h3>
-              <p class="doc-meta">${doc.type} · ${doc.format} · ${doc.size} · загружен ${doc.uploadedAt}</p>
+              <h3 class="doc-name">${escapeDocValue(doc.name)}</h3>
+              <p class="doc-meta">${escapeDocValue(doc.type)} · ${escapeDocValue(doc.format)} · ${escapeDocValue(doc.size)} · загружен ${escapeDocValue(doc.uploadedAt)}</p>
             </div>
             <div class="doc-chip-row">
               <span class="badge ${status.badge} badge-dot">${status.label}</span>
               <span class="badge ${visibility.badge}">${visibility.label}</span>
             </div>
             <div class="doc-segment-block">
-              <p class="doc-segment">${doc.segment}</p>
-              <p class="doc-source-note">${doc.source}</p>
+              <p class="doc-segment">${escapeDocValue(doc.segment)}</p>
+              <p class="doc-source-note">${escapeDocValue(doc.source)}</p>
             </div>
             <div class="doc-actions">${reviewAction}${menu}</div>
           </article>`;
@@ -3883,8 +3889,8 @@
     function renderPreview(doc) {
       return `
         <div class="doc-preview-page">
-          <h3>${doc.type}</h3>
-          <div style="font-family:var(--font-mono);font-size:13px;margin-bottom:18px;">${doc.name}</div>
+          <h3>${escapeDocValue(doc.type)}</h3>
+          <div style="font-family:var(--font-mono);font-size:13px;margin-bottom:18px;">${escapeDocValue(doc.name)}</div>
           <div class="doc-preview-line" style="width:88%"></div>
           <div class="doc-preview-line" style="width:64%"></div>
           <div class="doc-preview-line" style="width:78%;margin-top:28px;"></div>
@@ -3895,7 +3901,7 @@
     }
 
     function detailCell(label, value) {
-      return `<div class="doc-detail-cell"><span>${label}</span><strong>${value}</strong></div>`;
+      return `<div class="doc-detail-cell"><span>${escapeDocValue(label)}</span><strong>${escapeDocValue(value)}</strong></div>`;
     }
 
     function openDocumentView(id) {
@@ -3989,13 +3995,13 @@
       if (submit) submit.disabled = false;
       const file = pendingUploadFiles[0];
       const size = file.size ? `${Math.max(file.size / 1024 / 1024, 0.01).toFixed(1).replace('.', ',')} МБ` : '760 КБ';
-      list.innerHTML = `<div class="upload-file-row"><span>${file.name} · ${size}</span><button type="button" class="btn btn-ghost btn-sm" onclick="removePendingUpload(0)">Удалить</button></div>`;
+      list.innerHTML = `<div class="upload-file-row"><span>${escapeDocValue(file.name)} · ${escapeDocValue(size)}</span><button type="button" class="btn btn-ghost btn-sm" onclick="removePendingUpload(0)">Удалить</button></div>`;
     }
 
     function renderUploadState(label, badge = 'badge-neutral', detail = '') {
       const list = document.getElementById('upload-state-list');
       if (!list) return;
-      list.innerHTML = `<div class="upload-state-row"><span><strong>${label}</strong>${detail ? `<br><span class="field-hint">${detail}</span>` : ''}</span><span class="badge ${badge}">${label}</span></div>`;
+      list.innerHTML = `<div class="upload-state-row"><span><strong>${escapeDocValue(label)}</strong>${detail ? `<br><span class="field-hint">${escapeDocValue(detail)}</span>` : ''}</span><span class="badge ${badge}">${escapeDocValue(label)}</span></div>`;
     }
 
     async function startDocumentUpload() {
@@ -4128,9 +4134,7 @@
     }
 
     function escapeOcrValue(value) {
-      return String(value == null ? '' : value)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      return escapeDocValue(value);
     }
 
     function renderOcrFields() {

@@ -30,6 +30,16 @@ function textPdf(text) {
   return Buffer.from(output);
 }
 
+function pngHeader(width, height) {
+  const buffer = Buffer.alloc(32);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(buffer, 0);
+  buffer.writeUInt32BE(13, 8);
+  buffer.write('IHDR', 12, 'ascii');
+  buffer.writeUInt32BE(width, 16);
+  buffer.writeUInt32BE(height, 20);
+  return buffer;
+}
+
 describe('bounded document OCR', () => {
   test('extracts a real text-layer PDF and structured travel fields', async () => {
     const result = await extractDocument({
@@ -44,7 +54,7 @@ describe('bounded document OCR', () => {
   });
 
   test('uses bounded image OCR through an injected recognizer', async () => {
-    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]);
+    const png = pngHeader(1200, 800);
     const result = await extractDocument({
       buffer: png,
       mimeType: 'image/png',
@@ -76,6 +86,10 @@ describe('bounded document OCR', () => {
     );
     assert.throws(
       () => validateDocumentFile({ buffer: Buffer.alloc(MAX_OCR_FILE_BYTES + 1), mimeType: 'text/plain', fileName: 'large.txt' }),
+      (error) => error.code === 'validation_error',
+    );
+    assert.throws(
+      () => validateDocumentFile({ buffer: pngHeader(20_000, 20_000), mimeType: 'image/png', fileName: 'huge.png' }),
       (error) => error.code === 'validation_error',
     );
   });
