@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const { describe, test } = require('node:test');
 
 const frontend = path.join(__dirname, '..', '..', 'frontend');
@@ -64,5 +65,30 @@ describe('canonical teammate frontend integration', () => {
       marker.destination,
       'https://travel-assistant-api-parity-preview.vercel.app/api/build-info',
     );
+  });
+
+  test('restores the canonical Bearer session across static page navigation', async () => {
+    const values = new Map([['travelAssistant.apiToken.session', 'persisted-token']]);
+    const storage = {
+      getItem(key) { return values.has(key) ? values.get(key) : null; },
+      setItem(key, value) { values.set(key, String(value)); },
+      removeItem(key) { values.delete(key); },
+    };
+    let authorization = null;
+    const context = {
+      window: { TRAVEL_API_BASE: '', sessionStorage: storage, localStorage: storage },
+      location: { port: '', hostname: 'preview.example.test' },
+      sessionStorage: storage,
+      localStorage: storage,
+      fetch: async (_url, options) => {
+        authorization = options.headers.Authorization;
+        return { ok: true, async json() { return { trips: [] }; } };
+      },
+    };
+    vm.runInNewContext(read('assets/js/api-client.js'), context);
+
+    assert.equal(context.window.TravelApi.getToken(), 'persisted-token');
+    await context.window.TravelApi.listTrips();
+    assert.equal(authorization, 'Bearer persisted-token');
   });
 });
