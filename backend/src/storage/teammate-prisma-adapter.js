@@ -78,6 +78,7 @@ function physicalPlanData(data, { incidentId, rank = 1, now = new Date() }) {
 }
 
 function canonicalPlanData(row) {
+  if (!row) return null;
   const email = row.emailDraft && typeof row.emailDraft === 'object' ? row.emailDraft : {};
   return {
     id: row.id,

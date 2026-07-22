@@ -10,6 +10,10 @@ const {
 } = require('../src/storage/teammate-prisma-adapter');
 
 describe('teammate PostgreSQL compatibility adapter', () => {
+  test('preserves the canonical empty active-plan response', () => {
+    assert.equal(canonicalPlanData(null), null);
+  });
+
   test('round-trips every canonical route segment field', () => {
     const segment = {
       id: 'seg-1',
