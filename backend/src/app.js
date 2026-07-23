@@ -1,73 +1,50 @@
-const cookieParser = require('cookie-parser');
 const express = require('express');
-const helmet = require('helmet');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const path = require('path');
+const fs = require('fs');
+const config = require('./config');
+const ai = require('./services/ai');
 
-const { ApiError } = require('./errors');
-const { createAuthRouter } = require('./routes/site/auth');
-const { createBotRouter } = require('./routes/bot');
-const { createSiteTripsRouter } = require('./routes/site/trips');
-const { createSiteOperationsRouter } = require('./routes/site/operations');
-const { createGeoRouter } = require('./routes/site/geo');
-const { createSiteTelegramRouter } = require('./routes/site/telegram');
-const { createSystemRouter } = require('./routes/system');
-const { createOriginMiddleware } = require('./security/origin');
-const { createSiteAuthMiddleware } = require('./security/site-auth');
+const app = express();
 
-function createApp({ config, prisma }) {
-  const app = express();
-  app.disable('x-powered-by');
-  if (config.isProduction) app.set('trust proxy', 1);
-  app.use(helmet());
-  app.use(express.json({ limit: '256kb' }));
-  app.use(cookieParser());
-
-  app.use('/api', createSystemRouter({ prisma }));
-  app.use('/api/auth', createOriginMiddleware(config), createAuthRouter({ config, prisma }));
-  app.use(
-    '/api/site/trips',
-    createOriginMiddleware(config),
-    createSiteAuthMiddleware(config, prisma),
-    createSiteTripsRouter({ config, prisma }),
-  );
-  app.use(
-    '/api/site/trips',
-    createOriginMiddleware(config),
-    createSiteAuthMiddleware(config, prisma),
-    createSiteOperationsRouter({ config, prisma }),
-  );
-  app.use(
-    '/api/site/integrations/telegram',
-    createOriginMiddleware(config),
-    createSiteAuthMiddleware(config, prisma),
-    createSiteTelegramRouter({ config, prisma }),
-  );
-  app.use(
-    '/api/site/geo',
-    createOriginMiddleware(config),
-    createSiteAuthMiddleware(config, prisma),
-    createGeoRouter(),
-  );
-  app.use(createBotRouter({ config, prisma }));
-
-  app.use((_req, _res, next) => {
-    next(new ApiError(404, 'not_found', 'Ресурс не найден.'));
-  });
-
-  app.use((error, req, res, _next) => {
-    let safe;
-    if (error instanceof ApiError) safe = error;
-    else if (error?.type === 'entity.parse.failed') safe = new ApiError(400, 'validation_error', 'Некорректный JSON.');
-    else if (error?.code === 'LIMIT_FILE_SIZE') safe = new ApiError(422, 'validation_error', 'Файл превышает допустимый размер.');
-    else safe = new ApiError(500, 'internal_error', 'Внутренняя ошибка сервиса.');
-    if (req.botContract) {
-      const { botErrorCode } = require('./errors');
-      res.status(safe.status).json({ error: { code: botErrorCode(safe.code), message_ru: safe.messageRu } });
-      return;
+app.use(cors({
+  origin: function (origin, callback) {
+    if (config.isCorsOriginAllowed(origin, config.corsOrigins)) {
+      return callback(null, true);
     }
-    res.status(safe.status).json(safe.toJSON());
-  });
+    const error = new Error('CORS origin denied');
+    error.status = 403;
+    return callback(error);
+  },
+  credentials: true,
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Telegram-User-Id',
+    'Idempotency-Key',
+  ],
+}));
+app.use(express.json({ limit: '2mb' }));
+app.use(cookieParser());
 
-  return app;
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, ai: ai.hasKey(), env: config.nodeEnv });
+});
+
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api', require('./routes/monitoring'));
+app.use('/api', require('./routes/geo'));
+app.use('/api', require('./routes/trips'));
+// Telegram bot bridge (its routes use absolute /api/bot and /api/integrations paths).
+app.use(require('./routes/bot'));
+
+if (config.frontendDir && fs.existsSync(config.frontendDir)) {
+  app.use(express.static(config.frontendDir));
+  app.get('*', (req, res, next) => {
+    if (req.path.indexOf('/api/') === 0) return next();
+    res.sendFile(path.join(config.frontendDir, 'index.html'));
+  });
 }
 
-module.exports = { createApp };
+module.exports = app;

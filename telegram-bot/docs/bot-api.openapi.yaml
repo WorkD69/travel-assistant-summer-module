@@ -653,10 +653,10 @@ components:
         occurred_at: {type: string, format: date-time}
         source: {type: string}
         sos_id: {type: [string, 'null']}
-        deep_link_target: {type: string, enum: [home, trip, monitoring, documents, messages, sos]}
+        deep_link_target: {type: string, enum: [home, trip, monitoring, documents, messages, sos, members, invitation]}
     AssistantContext:
       type: object
-      additionalProperties: false
+      additionalProperties: true
       required: [trip, events, documents, messages, own_sos, recent_changes]
       properties:
         trip: {$ref: '#/components/schemas/Trip'}
@@ -664,7 +664,29 @@ components:
         documents: {type: array, items: {$ref: '#/components/schemas/TripDocument'}}
         messages: {type: array, items: {$ref: '#/components/schemas/OrganizerMessage'}}
         own_sos: {type: array, items: {$ref: '#/components/schemas/SosTicket'}}
-        recent_changes: {type: array, items: {type: string}}
+        recent_changes: {type: array, items: {$ref: '#/components/schemas/RecentTripChange'}}
+        weather: {type: array, items: {$ref: '#/components/schemas/WeatherSnapshot'}}
+    RecentTripChange:
+      type: object
+      additionalProperties: false
+      required: [id, type, oldValue, newValue, createdAt]
+      properties:
+        id: {type: string}
+        type: {type: string}
+        oldValue: {type: [string, 'null']}
+        newValue: {type: [string, 'null']}
+        createdAt: {type: string, format: date-time}
+    WeatherSnapshot:
+      type: object
+      additionalProperties: false
+      required: [city, temperature, conditions, windSpeed, updatedAt, source]
+      properties:
+        city: {type: string}
+        temperature: {type: [number, 'null']}
+        conditions: {type: string}
+        windSpeed: {type: [number, 'null']}
+        updatedAt: {type: string, format: date-time}
+        source: {type: string}
     TripPage:
       type: object
       required: [items, next_cursor]

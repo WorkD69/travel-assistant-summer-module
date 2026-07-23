@@ -15,11 +15,17 @@
       Откройте <a href="login.html">страницу входа</a>.
     </p>
   </noscript>
-  <script src="assets/js/api-client.js"></script>
+  <script src="assets/js/auth-storage.js"></script>
   <script>
-    window.TravelAPI.auth.me()
-      .then(function () { window.location.replace("home.html" + window.location.search); })
-      .catch(function () { window.location.replace("login.html" + window.location.search); });
+    // Единая точка входа: с активной сессией — на Главную, без неё — на вход.
+    (function () {
+      var target = "login.html";
+      try {
+        var token = window.TravelAuthStorage && window.TravelAuthStorage.load();
+        if (token) target = "home.html";
+      } catch (error) { /* нет сессии — на вход */ }
+      window.location.replace(target + window.location.search.replace(/^\?/, "?"));
+    })();
   </script>
 </body>
 </html>

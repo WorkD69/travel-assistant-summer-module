@@ -53,4 +53,21 @@ def build_safe_context(ctx: AssistantContext) -> str:
         lines.append("Последние изменения:")
         for c in ctx.recent_changes[:10]:
             lines.append(f"- {c}")
+    if ctx.weather:
+        lines.append("Погода по маршруту:")
+        for weather in ctx.weather[:4]:
+            temperature = (
+                f"{weather.temperature:g} °C"
+                if weather.temperature is not None
+                else "температура недоступна"
+            )
+            wind = (
+                f", ветер {weather.wind_speed:g} км/ч"
+                if weather.wind_speed is not None
+                else ""
+            )
+            lines.append(
+                f"- {weather.city}: {temperature}, {weather.conditions}{wind}; "
+                f"источник {weather.source}, обновлено {weather.updated_at.isoformat()}."
+            )
     return sanitize_text("\n".join(lines))

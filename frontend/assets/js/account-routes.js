@@ -136,8 +136,15 @@
   }
 
   function logout(adapter) {
-    if (adapter && typeof adapter.logout === "function") adapter.logout();
-    goToLogin();
+    const finish = function () {
+      if (adapter && typeof adapter.logout === "function") adapter.logout();
+      goToLogin();
+    };
+    if (window.TravelApi && typeof window.TravelApi.logout === "function") {
+      Promise.resolve(window.TravelApi.logout()).catch(function () {}).then(finish);
+    } else {
+      finish();
+    }
   }
 
   window.AccountRoutes = {

@@ -160,7 +160,11 @@
         lastLoginAt: nowIso()
       },
       users,
-      credentials: {},
+      credentials: {
+        "artem@example.test": "Travel2026!",
+        "irina@example.test": "Invite2026!",
+        "boris@example.test": "Boris2026!"
+      },
       trips: {
         "trip-turkey-2026": {
           id: "trip-turkey-2026",
@@ -498,6 +502,39 @@
         // Session persistence is best effort in standalone preview.
       }
       return { ok: true, user: clone(user) };
+    }
+
+    function adoptBackendUser(backendUser, remember) {
+      if (!backendUser || !backendUser.id || !backendUser.email) {
+        return { ok: false, code: "invalid_backend_user" };
+      }
+      const current = getState();
+      const fullName = String(backendUser.name || "").trim();
+      const nameParts = fullName.split(/\s+/).filter(Boolean);
+      const firstName = nameParts.shift() || backendUser.email.split("@")[0];
+      const lastName = nameParts.join(" ");
+      const id = String(backendUser.id);
+      const existing = current.users[id] || {};
+      current.users[id] = Object.assign(
+        makeUser(id, firstName, lastName, backendUser.email),
+        existing,
+        {
+          id: id,
+          firstName: firstName,
+          lastName: lastName,
+          email: backendUser.email,
+          accountStatus: "active",
+        },
+      );
+      current.session = {
+        isAuthenticated: true,
+        userId: id,
+        email: backendUser.email,
+        remember: Boolean(remember),
+        lastLoginAt: nowIso(),
+      };
+      commit(current, { source: "backend-auth" });
+      return { ok: true, user: clone(current.users[id]) };
     }
 
     function register(payload) {
@@ -845,6 +882,7 @@
       getAccessibleTrips,
       authenticate,
       login: (email, password, remember) => authenticate({ email, password, remember }),
+      adoptBackendUser,
       register,
       logout,
       updateUser,

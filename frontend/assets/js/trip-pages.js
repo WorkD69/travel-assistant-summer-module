@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   "use strict";
 
   let adapter = window.TripPagesAdapter;
@@ -520,6 +520,12 @@
       !segment.start && { field: "seg-start", message: "Укажите начало" },
       !segment.end && { field: "seg-end", message: "Укажите окончание" }
     ].filter(Boolean));
+    if (window.CityValidator) {
+      if (window.CityValidator.isConfirmedInvalid(segment.from)) return setInlineErrors(root, [{ field: "seg-from", message: "Город не найден — выберите из подсказок" }]);
+      if (window.CityValidator.isConfirmedInvalid(segment.to)) return setInlineErrors(root, [{ field: "seg-to", message: "Город не найден — выберите из подсказок" }]);
+      segment.from = window.CityValidator.canonical(segment.from);
+      segment.to = window.CityValidator.canonical(segment.to);
+    }
     if (segment.from === segment.to) return setInlineErrors(root, [{ field: "seg-to", message: "Точки не должны совпадать" }]);
     if (segment.end < segment.start) return setInlineErrors(root, [{ field: "seg-end", message: "Окончание сегмента раньше начала" }]);
     const index = wz.segments.findIndex((item) => item.id === segment.id);
@@ -595,20 +601,24 @@
     location.href = "home.html#drafts";
   }
 
-  async function wizardCreate(root) {
+  function wizardCreate(root) {
     const wz = pageState.wizard;
     const issues = allWizardIssues(wz).errors;
     if (issues.length) return toast(issues[0].message);
-    let trip;
-    try {
-      trip = await adapter.createTrip({ data: wz.data, segments: wz.segments, draftId: wz.draftId, errors: [], warnings: allWizardIssues(wz).warnings });
-    } catch (error) {
-      return toast(error && error.message ? error.message : "Не удалось создать поездку");
+    const created = adapter.createTrip({ data: wz.data, segments: wz.segments, draftId: wz.draftId, errors: [], warnings: allWizardIssues(wz).warnings });
+    if (!created) return toast("Поездка не создана: действие недоступно офлайн");
+    const finish = (trip) => {
+      if (!trip || !trip.id) return toast("Поездка не создана: попробуйте ещё раз");
+      wz.dirty = false;
+      try { sessionStorage.setItem("travelAssistant.shellToast", "Поездка создана"); } catch (error) { /* best effort */ }
+      location.href = `${esc(adapter.workspaceHref)}?tripId=${encodeURIComponent(trip.id)}`;
+    };
+    if (created && typeof created.then === "function") {
+      toast("Создаём поездку…");
+      created.then(finish).catch(() => toast("Не удалось создать поездку. Проверьте, запущен ли сервер."));
+    } else {
+      finish(created);
     }
-    if (!trip) return toast("Поездка не создана: действие недоступно офлайн");
-    wz.dirty = false;
-    try { sessionStorage.setItem("travelAssistant.shellToast", "Поездка создана"); } catch (error) { /* best effort */ }
-    location.href = `${esc(adapter.workspaceHref)}?tripId=${encodeURIComponent(trip.id)}`;
   }
 
   function wizardSaveEdit(root) {
@@ -616,16 +626,7 @@
     const issues = allWizardIssues(wz).errors;
     if (issues.length) return toast(issues[0].message);
     confirmModal("Сохранить изменения?", "Будут обновлены основные данные, будущие сегменты, участники и уведомления. Прошедшие события не переписываются.", [
-      ["Сохранить", "primary", async () => {
-        try {
-          await adapter.updateTrip(wz.tripId, { data: wz.data, segments: wz.segments });
-          wz.dirty = false;
-          closeModal();
-          toast("Изменения сохранены");
-        } catch (error) {
-          toast(error && error.message ? error.message : "Не удалось сохранить изменения");
-        }
-      }],
+      ["Сохранить", "primary", () => { adapter.updateTrip(wz.tripId, { data: wz.data, segments: wz.segments }); wz.dirty = false; closeModal(); toast("Изменения сохранены"); }],
       ["Отмена", "secondary", closeModal]
     ]);
   }

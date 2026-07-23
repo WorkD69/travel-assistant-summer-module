@@ -21,8 +21,11 @@ NotificationType = Literal[
     "departure_place_change", "delay", "cancellation", "transfer_change", "hotel_change",
     "new_document", "trip_invitation", "sos_status_change", "sos_received",
     "violation_confirmed", "plan_b_published", "organizer_message",
+    "route_changed", "dates_changed", "segments_changed", "event_changed",
+    "participant_changed", "document_added", "plan_b_created", "plan_b_applied",
+    "risk_detected", "sos_created", "sos_status_changed",
 ]
-DeepLinkTarget = Literal["home", "trip", "monitoring", "documents", "messages", "sos"]
+DeepLinkTarget = Literal["home", "trip", "monitoring", "documents", "messages", "sos", "members", "invitation"]
 
 
 class BotUser(BaseModel):
@@ -147,10 +150,28 @@ class NotificationEvent(BaseModel):
     deep_link_target: DeepLinkTarget = "trip"
 
 
+class RecentTripChange(BaseModel):
+    id: str
+    type: str
+    old_value: Optional[str] = Field(default=None, alias="oldValue")
+    new_value: Optional[str] = Field(default=None, alias="newValue")
+    created_at: datetime = Field(alias="createdAt")
+
+
+class WeatherSnapshot(BaseModel):
+    city: str
+    temperature: Optional[float] = None
+    conditions: str = ""
+    wind_speed: Optional[float] = Field(default=None, alias="windSpeed")
+    updated_at: datetime = Field(alias="updatedAt")
+    source: str = "Open-Meteo"
+
+
 class AssistantContext(BaseModel):
     trip: Trip
     events: list[TripEvent] = Field(default_factory=list)
     documents: list[TripDocument] = Field(default_factory=list)
     messages: list[OrganizerMessage] = Field(default_factory=list)
     own_sos: list[SosTicket] = Field(default_factory=list)
-    recent_changes: list[str] = Field(default_factory=list)
+    recent_changes: list[str | RecentTripChange] = Field(default_factory=list)
+    weather: list[WeatherSnapshot] = Field(default_factory=list)

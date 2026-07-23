@@ -1,159 +1,71 @@
-const crypto = require('node:crypto');
-
 const bcrypt = require('bcryptjs');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../src/db');
 
-const { SEED_DATA } = require('../src/seed-data');
+async function main() {
+  console.log('Seeding demo data...');
+  const passwordHash = await bcrypt.hash('Password2026!', 10);
 
-const prisma = new PrismaClient();
+  const artem = await prisma.user.upsert({
+    where: { email: 'artem@example.test' },
+    update: {},
+    create: { email: 'artem@example.test', passwordHash: passwordHash, name: 'Артём Иванов', initials: 'А', telegram: 'Подключён' },
+  });
+  const anna = await prisma.user.upsert({
+    where: { email: 'anna@example.test' },
+    update: {},
+    create: { email: 'anna@example.test', passwordHash: passwordHash, name: 'Анна Соколова', initials: 'А', telegram: 'Не подключён' },
+  });
 
-function requiredCredential(name) {
-  const value = process.env[name];
-  if (!value || value.length < 12) {
-    throw new Error(`${name} must be supplied externally and contain at least 12 characters`);
-  }
-  return value;
-}
+  await prisma.trip.deleteMany({ where: { id: 'trip-turkey-2026' } });
 
-async function seed() {
-  if (SEED_DATA.plans.length !== 3) {
-    throw new Error('Safe seed must contain exactly three Plan B candidates');
-  }
-
-  const credentials = {
-    'u-artem': requiredCredential('DEMO_ORGANIZER_PASSWORD'),
-    'u-anna': requiredCredential('DEMO_PARTICIPANT_PASSWORD'),
-    'u-no-access': requiredCredential('DEMO_NO_ACCESS_PASSWORD'),
-  };
-  const hashes = {};
-  for (const [userId, value] of Object.entries(credentials)) {
-    hashes[userId] = await bcrypt.hash(value, 12);
-  }
-
-  await prisma.$transaction(async (tx) => {
-    for (const user of SEED_DATA.users) {
-      const data = { ...user, passwordHash: hashes[user.id] };
-      await tx.user.upsert({ where: { id: user.id }, create: data, update: data });
-    }
-
-    const tripData = {
-      ...SEED_DATA.trip,
-      startDate: new Date(SEED_DATA.trip.startDate),
-      endDate: new Date(SEED_DATA.trip.endDate),
-    };
-    await tx.trip.upsert({
-      where: { id: tripData.id },
-      create: tripData,
-      update: {
-        title: tripData.title,
-        route: tripData.route,
-        startDate: tripData.startDate,
-        endDate: tripData.endDate,
-        timezone: tripData.timezone,
-        type: tripData.type,
-        status: tripData.status,
-        ownerId: tripData.ownerId,
+  const trip = await prisma.trip.create({
+    data: {
+      id: 'trip-turkey-2026',
+      title: 'Отпуск в Турции',
+      route: 'Сыктывкар - Москва - Анталья',
+      startDate: new Date('2026-07-19'),
+      endDate: new Date('2026-07-25'),
+      status: 'active',
+      type: 'group',
+      ownerId: artem.id,
+      participants: {
+        create: [
+          { userId: artem.id, name: 'Артём', initials: 'А', shortLabel: 'Ар', role: 'organizer', access: 'Активен', telegram: 'Подключён', tone: 'a' },
+          { name: 'Станислав', initials: 'С', shortLabel: 'Ст', role: 'participant', access: 'Активен', telegram: 'Подключён', tone: 'b' },
+          { userId: anna.id, name: 'Анна', initials: 'А', shortLabel: 'Ан', role: 'participant', access: 'Активен', telegram: 'Не подключён', tone: 'c' },
+          { name: 'Михаил', initials: 'М', shortLabel: 'Ми', role: 'participant', access: 'Активен', telegram: 'Подключён', tone: 'd' },
+        ],
       },
-    });
-
-    for (const membership of SEED_DATA.participants) {
-      const data = {
-        id: membership.id,
-        tripId: tripData.id,
-        userId: membership.userId,
-        role: membership.role,
-        status: 'active',
-      };
-      await tx.participant.upsert({
-        where: { tripId_userId: { tripId: tripData.id, userId: membership.userId } },
-        create: data,
-        update: { role: data.role, status: data.status, revokedAt: null },
-      });
-    }
-
-    for (const event of SEED_DATA.events) {
-      const data = {
-        ...event,
-        tripId: tripData.id,
-        startsAt: new Date(event.startsAt),
-        endsAt: event.endsAt ? new Date(event.endsAt) : null,
-      };
-      await tx.tripEvent.upsert({ where: { id: event.id }, create: data, update: data });
-    }
-
-    for (const document of SEED_DATA.documents) {
-      const { safeDemo, ...documentData } = document;
-      const data = { ...documentData, tripId: tripData.id };
-      await tx.document.upsert({ where: { id: document.id }, create: data, update: data });
-
-      const bytes = Buffer.from(document.extractedText, 'utf8');
-      const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
-      await tx.documentBlob.upsert({
-        where: { documentId: document.id },
-        create: { documentId: document.id, bytes, sha256 },
-        update: { bytes, sha256 },
-      });
-    }
-
-    const incident = {
-      ...SEED_DATA.incident,
-      tripId: tripData.id,
-      confirmedByUserId: 'u-artem',
-      occurredAt: new Date(SEED_DATA.incident.occurredAt),
-      confirmedAt: new Date(SEED_DATA.incident.confirmedAt),
-    };
-    await tx.monitoringSignal.upsert({
-      where: { id: incident.id },
-      create: incident,
-      update: incident,
-    });
-
-    for (const plan of SEED_DATA.plans) {
-      const data = {
-        ...plan,
-        tripId: tripData.id,
-        incidentId: incident.id,
-        createdByUserId: 'u-artem',
-        status: 'candidate',
-        visibility: 'internal',
-      };
-      await tx.tripPlan.upsert({ where: { id: plan.id }, create: data, update: data });
-    }
-
-    const message = {
-      ...SEED_DATA.message,
-      tripId: tripData.id,
-      publishedAt: new Date(SEED_DATA.message.publishedAt),
-    };
-    await tx.message.upsert({
-      where: { id: message.id },
-      create: message,
-      update: message,
-    });
-
-    for (const preference of SEED_DATA.preferences) {
-      await tx.notificationPreference.upsert({
-        where: { siteUserId: preference.siteUserId },
-        create: preference,
-        update: { timezone: preference.timezone },
-      });
-      await tx.botUserState.upsert({
-        where: { siteUserId: preference.siteUserId },
-        create: { siteUserId: preference.siteUserId, activeTripId: tripData.id },
-        update: { activeTripId: tripData.id },
-      });
-    }
+      invitations: {
+        create: [
+          { email: 'nina@example.com', status: 'pending', active: true, expiresAt: new Date('2026-07-20T12:30:00') },
+          { email: 'sergey@example.com', status: 'expired', active: false, expiresAt: new Date('2026-07-15T00:00:00') },
+        ],
+      },
+      // демо-документы убраны — реальная загрузка через POST /api/trips/:id/documents/upload
+      monitoringSignals: {
+        create: [
+          { label: 'Мониторинг включён', status: 'Активно', severity: 'info', segment: 'Маршрут целиком', source: 'Система', detail: 'Мониторинг поездки запущен.' },
+          { label: 'Проверка трансфера', status: 'Требует внимания', severity: 'warning', segment: 'Анталья - Отель', source: 'Демо-источник', detail: 'Требуется проверка деталей трансфера.' },
+        ],
+      },
+      offlineCopy: {
+        create: {
+          status: 'saved',
+          savedAt: new Date('2026-07-17T14:30:00'),
+          size: 8.4,
+          includeRouteMap: true,
+          includeObservations: true,
+          includeDocuments: true,
+          selectedDocuments: JSON.stringify([]),
+        },
+      },
+    },
   });
+
+  console.log('Done. Trip:', trip.id, '| Users: artem@example.test / anna@example.test (password Password2026!)');
 }
 
-seed()
-  .then(() => {
-    console.log('Safe demo seed applied.');
-  })
-  .catch((error) => {
-    console.error('Safe demo seed failed:', error && error.name ? error.name : 'Error');
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main()
+  .catch(function (e) { console.error(e); process.exit(1); })
+  .finally(async function () { await prisma.$disconnect(); });

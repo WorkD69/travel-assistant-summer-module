@@ -688,22 +688,41 @@
     if (settingsError) settingsError.textContent = settingsMessage;
   }
 
-  function settingsSaveTrip(settingsContext, settingsEvent) {
+  async function settingsSaveTrip(settingsContext, settingsEvent) {
     settingsEvent.preventDefault();
     if (!settingsValidateEditForm(settingsContext)) return;
-    settingsContext.settingsState.title = settingsById(settingsContext, "settings-field-title").value.trim();
-    settingsContext.settingsState.route = settingsById(settingsContext, "settings-field-route").value.trim();
-    settingsContext.settingsState.startDate = settingsById(settingsContext, "settings-field-start").value;
-    settingsContext.settingsState.endDate = settingsById(settingsContext, "settings-field-end").value;
-    settingsCommitShared(settingsContext, { trip: {
-      title: settingsContext.settingsState.title,
-      route: settingsContext.settingsState.route,
-      startDate: settingsContext.settingsState.startDate,
-      endDate: settingsContext.settingsState.endDate
-    } });
-    settingsRender(settingsContext);
-    settingsCloseModal(settingsContext, true);
-    settingsToast(settingsContext, "Изменения сохранены");
+    const settingsSubmit = settingsById(settingsContext, "settings-edit-submit");
+    const settingsShared = window.TravelAppState ? window.TravelAppState.getState() : {};
+    const settingsTrip = settingsShared.trip || {};
+    const settingsPatch = {
+      title: settingsById(settingsContext, "settings-field-title").value.trim(),
+      route: settingsById(settingsContext, "settings-field-route").value.trim(),
+      startDate: settingsById(settingsContext, "settings-field-start").value,
+      endDate: settingsById(settingsContext, "settings-field-end").value,
+      type: settingsTrip.type || "group",
+      status: settingsTrip.status || "active",
+      segments: Array.isArray(settingsTrip.segments) ? settingsTrip.segments : []
+    };
+    if (!settingsTrip.id || !window.TravelTripSync || typeof window.TravelTripSync.updateCanonicalTrip !== "function") {
+      settingsToast(settingsContext, "Ошибка сохранения: сервис синхронизации недоступен");
+      return;
+    }
+    if (settingsSubmit) settingsSubmit.disabled = true;
+    try {
+      const settingsCanonical = await window.TravelTripSync.updateCanonicalTrip(settingsTrip.id, settingsPatch);
+      settingsContext.settingsState.title = settingsCanonical.title;
+      settingsContext.settingsState.route = settingsCanonical.route;
+      settingsContext.settingsState.startDate = settingsCanonical.startDate;
+      settingsContext.settingsState.endDate = settingsCanonical.endDate;
+      settingsRender(settingsContext);
+      settingsCloseModal(settingsContext, true);
+      settingsToast(settingsContext, "Изменения сохранены");
+    } catch (settingsError) {
+      const settingsMessage = settingsError && settingsError.message ? settingsError.message : "Неизвестная ошибка";
+      settingsToast(settingsContext, "Ошибка сохранения: " + settingsMessage);
+    } finally {
+      if (settingsSubmit) settingsSubmit.disabled = false;
+    }
   }
 
   function settingsOpenConfigureModal(settingsContext, settingsTrigger) {

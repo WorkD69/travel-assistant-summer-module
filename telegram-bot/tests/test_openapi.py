@@ -84,3 +84,23 @@ def test_sos_declares_idempotency_key() -> None:
         "#/components/parameters/IdempotencyKey",
     }
 
+
+def test_b2_notification_and_assistant_schemas_match_live_payloads() -> None:
+    contract = load_contract()
+    schemas = contract["components"]["schemas"]
+    pending = contract["paths"]["/api/bot/notifications/pending"]["get"]
+    pending_schema = pending["responses"]["200"]["content"]["application/json"]["schema"]
+
+    assert pending_schema == {"$ref": "#/components/schemas/NotificationPage"}
+    assert schemas["NotificationPage"]["required"] == ["items", "next_cursor"]
+    assert schemas["AssistantContext"]["properties"]["recent_changes"] == {
+        "type": "array",
+        "items": {"$ref": "#/components/schemas/RecentTripChange"},
+    }
+    assert schemas["AssistantContext"]["properties"]["weather"] == {
+        "type": "array",
+        "items": {"$ref": "#/components/schemas/WeatherSnapshot"},
+    }
+    assert {"members", "invitation"} <= set(
+        schemas["NotificationEvent"]["properties"]["deep_link_target"]["enum"]
+    )

@@ -398,9 +398,9 @@
   function membersInviteModalBody(membersPrefillEmail = '') {
     return `
       <div class="members-field">
-        <label for="members-invite-email">Email участника — необязательно</label>
+        <label for="members-invite-email">Email участника</label>
         <input class="members-input" id="members-invite-email" type="email" value="${membersEscape(membersPrefillEmail)}" placeholder="name@example.com" aria-describedby="members-invite-email-hint members-invite-email-error" />
-        <span class="members-field-hint" id="members-invite-email-hint">Email используется только как подпись приглашения. В демонстрационной версии письмо автоматически не отправляется.</span>
+        <span class="members-field-hint" id="members-invite-email-hint">Принять приглашение сможет только пользователь с этим email.</span>
         <span class="members-field-error" id="members-invite-email-error" hidden></span>
       </div>
       <div class="members-field">
@@ -415,11 +415,10 @@
   }
 
   function membersValidateEmail(membersEmail) {
-    if (!membersEmail) return true;
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(membersEmail);
   }
 
-  function membersCreateInvite() {
+  async function membersCreateInvite() {
     if (membersState.generatedInvite) return;
 
     const membersEmailInput = membersRoot.querySelector('#members-invite-email');
@@ -429,7 +428,7 @@
     if (!membersValidateEmail(membersEmail)) {
       membersEmailInput.setAttribute('aria-invalid', 'true');
       membersEmailError.hidden = false;
-      membersEmailError.textContent = 'Введите корректный email или оставьте поле пустым.';
+      membersEmailError.textContent = 'Введите корректный email.';
       membersEmailInput.focus();
       return;
     }
@@ -439,14 +438,31 @@
 
     const membersSelected = membersRoot.querySelector('input[name="members-expiry"]:checked');
     const membersHours = membersSelected ? Number(membersSelected.value) : 168;
-    const membersCreated = new Date(Date.UTC(2026, 6, 17, 9, 30 + membersState.inviteSequence));
-    const membersExpires = new Date(membersCreated.getTime() + membersHours * 60 * 60 * 1000);
+    const membersDays = membersHours / 24;
+    const membersService = window.TravelMembersSync;
+    if (!membersService || typeof membersService.createInvitation !== 'function') {
+      membersToast('Сервис приглашений недоступен.', 'danger');
+      return;
+    }
+    let membersServerInvite;
+    try {
+      membersServerInvite = await membersService.createInvitation({
+        email: membersEmail,
+        role: 'participant',
+        expiresInDays: membersDays,
+      });
+    } catch (membersError) {
+      membersToast('Не удалось создать приглашение: ' + ((membersError && membersError.message) || 'ошибка сервера'), 'danger');
+      return;
+    }
+    const membersCreated = new Date(membersServerInvite.createdAt);
+    const membersExpires = new Date(membersServerInvite.expiresAt);
     const membersCreatedLabel = membersFormatDateTime(membersCreated);
     const membersExpiresLabel = membersFormatDateTime(membersExpires);
-    const membersLink = `https://travel.local/invite/${Math.random().toString(36).slice(2, 8)}-turkey-2026`;
+    const membersLink = membersServerInvite.link;
     const membersInvite = {
-      id: `invite-local-${Date.now()}-${membersState.inviteSequence}`,
-      recipient: membersEmail || 'Получатель не указан',
+      id: membersServerInvite.id,
+      recipient: membersEmail,
       email: membersEmail,
       status: membersStatusWaiting,
       created: membersCreatedLabel,
@@ -454,13 +470,13 @@
       expiresPrefix: 'Истекает',
       active: true,
       link: membersLink,
+      expiresInDays: membersDays,
     };
 
     membersState.inviteSequence += 1;
     membersState.generatedInvite = membersInvite;
     membersState.invites.unshift(membersInvite);
     membersState.inviteFilter = 'all';
-    membersCommitShared();
     membersRender();
 
     const membersTarget = membersRoot.querySelector('#members-generated-invite');

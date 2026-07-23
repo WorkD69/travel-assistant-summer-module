@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import uuid
+from typing import get_args
 
-from app.schemas.models import NotificationEvent
+from app.schemas.models import NotificationEvent, NotificationType
 from app.services.deep_links.service import DeepLinkService
 from app.services.demo import DEMO_KINDS
 from app.services.notifications.dispatcher import (
@@ -31,8 +32,8 @@ def _event(**kw) -> NotificationEvent:
     return NotificationEvent(**base)
 
 
-def test_all_17_types_have_titles():
-    assert len(TYPE_TITLES) == 17
+def test_all_supported_types_have_titles():
+    assert set(get_args(NotificationType)) == set(TYPE_TITLES)
 
 
 async def test_all_demo_kinds_delivered():

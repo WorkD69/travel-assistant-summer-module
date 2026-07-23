@@ -1,10 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "cleanUrls": false,
+  "cleanUrls": true,
+  "trailingSlash": false,
   "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://travel-assistant-api-chi.vercel.app/api/:path*"
-    }
+    { "source": "/", "destination": "/index.html" }
   ]
 }

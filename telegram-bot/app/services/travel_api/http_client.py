@@ -5,6 +5,9 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import re
+import tempfile
 from typing import Any, Optional
 
 import httpx
@@ -144,14 +147,38 @@ class HttpTravelApiClient(TravelApiClient):
     async def get_document_download(
         self, telegram_user_id: int, document_id: str
     ) -> DocumentDownload:
+        # 1) Ask the backend for a short-lived opaque download link.
         data = await self._request(
             "POST", f"/api/bot/documents/{document_id}/temporary-link", telegram_user_id)
-        return DocumentDownload(
-            kind="url",
-            location=data["url"],
-            filename=data.get("filename"),
-            title=data.get("title", "Документ поездки"),
-        )
+        url = data["url"]
+        filename = data.get("filename") or "document"
+        title = data.get("title", "Документ поездки")
+        # 2) Download the bytes and hand the handler a real file, so the bot can
+        #    upload the actual document into the user's Telegram chat (a bare
+        #    localhost link would not be reachable by Telegram servers).
+        try:
+            resp = await self._client.get(url)
+            if resp.status_code >= 400 or not resp.content:
+                raise ApiUnavailableError(detail=f"download HTTP {resp.status_code}")
+            safe = re.sub(r"[^\w.\-]+", "_", filename, flags=re.UNICODE).strip("_") or "document"
+            suffix = ""
+            if "." in safe:
+                suffix = safe[safe.rfind("."):][:16]
+            fd, path = tempfile.mkstemp(prefix="tvl_doc_", suffix=suffix)
+            try:
+                with os.fdopen(fd, "wb") as fh:
+                    fh.write(resp.content)
+            except Exception:
+                os.close(fd)
+                raise
+            return DocumentDownload(
+                kind="file", location=path, filename=filename, title=title,
+            )
+        except (httpx.TimeoutException, httpx.TransportError, ApiUnavailableError):
+            # Fallback: hand back the link if the byte download failed.
+            return DocumentDownload(
+                kind="url", location=url, filename=filename, title=title,
+            )
 
     # ------------------------------------------------------------- сообщения
     async def get_messages(self, telegram_user_id: int, trip_id: str) -> list[OrganizerMessage]:

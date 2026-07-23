@@ -1,23 +1,33 @@
 # Rollback
 
-## Backend/frontend
+Rollback готовится до изменения любого окружения.
 
-- Promote предыдущий READY deployment backend.
-- Promote предыдущий deployment frontend или временно убрать `/api/*` rewrite.
-- Не удалять Neon database во время диагностики; сначала сохранить backup и
-  проверить migration history.
+## Backend и база
 
-## Telegram bot
+1. Зафиксировать deployment ID/image digest текущей версии.
+2. Снять согласованную копию SQLite и checksum.
+3. При ошибке остановить write traffic.
+4. Вернуть предыдущий backend artifact.
+5. Если схема/данные менялись, восстановить полную согласованную копию базы,
+   включая WAL/SHM по правилам SQLite.
+6. Проверить health, login и чтение существующей поездки.
 
-1. Восстановить три bot API variables из свежего backup env.
-2. Вернуть `BOT_DATA_MODE=mock`.
-3. Перезапустить только `travel-assistant-bot.service`.
-4. Проверить один polling PID, отсутствие Telegram 409 и рабочие Groq fallbacks.
+Нельзя «откатывать» production схему случайным `prisma db push`.
 
-SQLite link state сохраняется неизменным до подтверждённого production API.
+## Frontend
 
-## VPN invariant
+Вернуть заранее зафиксированный Vercel deployment/alias, затем проверить login,
+API base, CORS и service-worker cache в новом browser session.
 
-Rollback не включает reboot, x-ui, firewall, routes, DNS или listeners 443/2096.
-После действий сравнить PID/restart count/listeners с baseline. При любом отличии
-остановить дальнейшие изменения и восстановить только bot env/service.
+## Telegram
+
+1. Остановить service.
+2. Убедиться, что старый polling process завершён.
+3. Вернуть backup env без вывода token.
+4. При необходимости вернуть release directory/systemd unit.
+5. Запустить service.
+6. Проверить ровно один polling process, `NRestarts`, отсутствие 409/traceback и
+   фактический backend URL без вывода service token.
+
+Backup нельзя удалять до окончания периода наблюдения.
+

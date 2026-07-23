@@ -24,7 +24,8 @@ from app.services.ai.fallback import FallbackAIProvider
 from app.services.ai.gemini import GeminiAIProvider
 from app.services.ai.groq import GroqAIProvider
 from app.services.ai.mock import MockAIProvider
-from app.services.ai.sanitizer import sanitize_text
+from app.schemas.models import AssistantContext
+from app.services.ai.sanitizer import build_safe_context, sanitize_text
 from tests.helpers import ANNA_TG, link_both, make_env
 
 
@@ -538,6 +539,40 @@ def test_sanitizer_masks_pii():
     assert "4510 123456" not in masked
     assert "anna@example.test" not in masked
     assert "+79161234567" not in masked
+
+
+def test_safe_context_includes_b2_route_weather() -> None:
+    context = AssistantContext.model_validate(
+        {
+            "trip": {
+                "id": "t-weather",
+                "title": "Weather contract",
+                "route": "Moscow - Kazan",
+                "date_start": "2026-07-23",
+                "date_end": "2026-07-24",
+                "status": "active",
+                "role": "organizer",
+                "membership_status": "member",
+            },
+            "weather": [
+                {
+                    "city": "Moscow",
+                    "temperature": 22,
+                    "conditions": "Clear",
+                    "windSpeed": 3,
+                    "updatedAt": "2026-07-23T10:00:00.000Z",
+                    "source": "Open-Meteo",
+                }
+            ],
+        }
+    )
+
+    safe = build_safe_context(context)
+
+    assert "Moscow" in safe
+    assert "22" in safe
+    assert "Clear" in safe
+    assert "Open-Meteo" in safe
 
 
 async def test_history_roundtrip_and_clear():

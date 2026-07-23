@@ -8,7 +8,12 @@ from dataclasses import dataclass
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
-from aiogram.exceptions import TelegramForbiddenError, TelegramNetworkError, TelegramRetryAfter
+from aiogram.exceptions import (
+    TelegramBadRequest,
+    TelegramForbiddenError,
+    TelegramNetworkError,
+    TelegramRetryAfter,
+)
 from aiogram.types import BotCommand, LinkPreviewOptions
 
 from app.config import Settings
@@ -73,6 +78,10 @@ class AiogramSender:
             return SendResult.SENT
         except TelegramForbiddenError:
             return SendResult.BLOCKED
+        except TelegramBadRequest as exc:
+            if "chat not found" in str(exc).lower():
+                return SendResult.BLOCKED
+            raise
         except (TelegramRetryAfter, TelegramNetworkError) as exc:
             raise TransientSendError(str(exc)) from exc
 

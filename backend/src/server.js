@@ -1,12 +1,8 @@
-require('dotenv').config();
-
-const { createApp } = require('./app');
-const { loadConfig } = require('./config');
-const { getPrisma } = require('./db');
-
-const config = loadConfig();
-const app = createApp({ config, prisma: getPrisma() });
+const app = require('./app');
+const config = require('./config');
+const ai = require('./services/ai');
 
 app.listen(config.port, () => {
-  console.log(`Travel Assistant API listening on port ${config.port}`);
+  console.log('Travel-pomoshchnik API: http://localhost:' + config.port);
+  console.log('AI provider key: ' + (ai.hasKey() ? 'connected' : 'NOT set (AI will return a hint about .env)'));
 });

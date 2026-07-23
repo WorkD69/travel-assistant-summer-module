@@ -24,6 +24,17 @@ TYPE_TITLES: dict[str, str] = {
     "violation_confirmed": "⚠️ Подтверждено нарушение",
     "plan_b_published": "🅱️ Опубликован План Б",
     "organizer_message": "💬 Сообщение организатора",
+    "route_changed": "🧭 Маршрут изменён",
+    "dates_changed": "🗓 Даты поездки изменены",
+    "segments_changed": "🔀 Сегменты маршрута изменены",
+    "event_changed": "📌 Событие поездки изменено",
+    "participant_changed": "👥 Состав участников изменён",
+    "document_added": "📄 Добавлен документ",
+    "plan_b_created": "🅱️ Создан Plan B",
+    "plan_b_applied": "✅ Применён Plan B",
+    "risk_detected": "⚠️ Обнаружен риск",
+    "sos_created": "🆘 Получен SOS",
+    "sos_status_changed": "🆘 Статус SOS изменён",
 }
 
 # Тип уведомления → поле настроек. None = отправлять всегда (SOS организатору).
@@ -45,6 +56,17 @@ PREF_KEY_BY_TYPE: dict[str, Optional[str]] = {
     "violation_confirmed": "violations",
     "plan_b_published": "plan_b",
     "organizer_message": "organizer_messages",
+    "route_changed": "departure_changes",
+    "dates_changed": "time_changes",
+    "segments_changed": "transfer_changes",
+    "event_changed": "segment_reminders",
+    "participant_changed": "invitations",
+    "document_added": "new_documents",
+    "plan_b_created": "plan_b",
+    "plan_b_applied": "plan_b",
+    "risk_detected": "delays_cancellations",
+    "sos_created": None,
+    "sos_status_changed": "own_sos",
 }
 
 

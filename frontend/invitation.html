@@ -7,17 +7,26 @@
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="design-tokens.css" />
   <link rel="stylesheet" href="assets/css/app-shell.css" />
-  <link rel="stylesheet" href="assets/css/account-pages.css" />
+  <style>
+    body { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--bg, #f5f5f2); }
+    .invitation-card { width: min(100%, 560px); padding: 32px; border: 1px solid var(--border, #ddd); border-radius: 20px; background: var(--surface, #fff); }
+    .invitation-card h1 { margin-top: 0; }
+    .invitation-meta { color: var(--fg-secondary, #666); line-height: 1.6; }
+    .invitation-actions { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+    .invitation-button { min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--border, #ccc); cursor: pointer; }
+    .invitation-primary { background: var(--accent, #161616); color: #fff; }
+    .invitation-error { color: #a3261f; }
+  </style>
 </head>
-<body class="invitation-surface account-page" data-account-page="invitation" data-app-environment="production">
-  <main id="invitation-root" class="account-root"></main>
-  <script src="features/app-state.js"></script>
-  <script src="assets/js/app-state-bridge.js"></script>
-  <script src="assets/js/app-routes.js"></script>
-  <script src="assets/js/app-shell.js"></script>
-  <script src="assets/js/account-state-adapter.js"></script>
-  <script src="assets/js/account-routes.js"></script>
-  <script src="assets/js/account-pages.js"></script>
-  <script>window.invitationInit(document.getElementById("invitation-root"));</script>
+<body>
+  <main class="invitation-card" aria-live="polite">
+    <p>Тревел-помощник</p>
+    <h1 id="invitation-title">Проверяем приглашение…</h1>
+    <div id="invitation-content" class="invitation-meta"></div>
+    <div id="invitation-actions" class="invitation-actions"></div>
+  </main>
+  <script src="assets/js/auth-storage.js"></script>
+  <script src="assets/js/api-client.js"></script>
+  <script src="assets/js/invitation.js"></script>
 </body>
 </html>

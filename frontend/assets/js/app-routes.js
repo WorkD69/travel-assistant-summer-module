@@ -88,14 +88,18 @@
     },
 
     logout() {
-      if (window.TravelAPI && window.TravelAPI.auth) {
-        window.TravelAPI.auth.logout().catch(function () { /* clear local state regardless */ });
+      const finish = function () {
+        try {
+          const app = window.TravelAppState;
+          if (app && typeof app.logoutSession === "function") app.logoutSession();
+        } catch (error) { /* ignore */ }
+        go("login.html");
+      };
+      if (window.TravelApi && typeof window.TravelApi.logout === "function") {
+        Promise.resolve(window.TravelApi.logout()).catch(function () {}).then(finish);
+      } else {
+        finish();
       }
-      try {
-        const app = window.TravelAppState;
-        if (app && typeof app.logoutSession === "function") app.logoutSession();
-      } catch (error) { /* ignore */ }
-      go("login.html");
     },
 
     // Возврат после авторизации: только безопасные внутренние адреса.

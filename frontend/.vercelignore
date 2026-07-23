@@ -1,0 +1,14 @@
+.env
+.env.*
+cookies.txt
+*.db
+*.log
+node_modules/
+tests/
+docs/
+screenshots/
+dev-preview/
+*.artifact.json
+START_PREVIEW.bat
+start-preview.sh
+

@@ -1,454 +1,281 @@
+// Prisma schema - Travel-pomoshchnik
+// Local: SQLite. For Vercel: change provider to "postgresql" and DATABASE_URL (see README).
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
-}
-
-enum TripStatus {
-  draft
-  active
-  completed
-}
-
-enum ParticipantRole {
-  organizer
-  participant
-  viewer
-}
-
-enum MembershipStatus {
-  active
-  revoked
-}
-
-enum InvitationStatus {
-  pending
-  accepted
-  rejected
-  revoked
-  expired
-}
-
-enum DocumentVisibility {
-  shared
-  personal
-  organizer_only
-}
-
-enum DocumentStatus {
-  pending
-  confirmed
-  revoked
-  deleted
-}
-
-enum OcrStatus {
-  not_requested
-  extracted
-  manual_review
-  failed
-}
-
-enum MonitoringStatus {
-  detected
-  confirmed
-  resolved
-}
-
-enum PlanStatus {
-  candidate
-  selected
-  published
-  archived
-}
-
-enum PlanVisibility {
-  internal
-  published
-}
-
-enum MessageStatus {
-  draft
-  published
-  archived
-}
-
-enum SosStatus {
-  open
-  acknowledged
-  resolved
-  rejected
-}
-
-enum NotificationStatus {
-  pending
-  delivered
-  failed
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id                     String                  @id
-  email                  String                  @unique
-  passwordHash           String
-  name                   String
-  initials               String?
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  ownedTrips             Trip[]                  @relation("TripOwner")
-  participants           Participant[]
-  uploadedDocuments      Document[]              @relation("DocumentOwner")
-  allowedDocuments       Document[]              @relation("DocumentAllowedUser")
-  confirmedSignals       MonitoringSignal[]      @relation("SignalConfirmer")
-  createdPlans           TripPlan[]              @relation("PlanCreator")
-  authoredMessages       Message[]               @relation("MessageAuthor")
-  offlineCopies          OfflineCopy[]
-  assistantMessages      AssistantMessage[]
-  telegramLink           TelegramAccountLink?
-  telegramLinkTokens     TelegramLinkToken[]
-  botState               BotUserState?
-  sosTickets             SosTicket[]             @relation("SosAuthor")
-  notificationPreference NotificationPreference?
-  notificationEvents     NotificationEvent[]     @relation("NotificationRecipient")
-  documentDownloadTokens DocumentDownloadToken[]
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  initials     String?
+  telegram     String?
+  emailContact String?
+  notifyPrefs  String?
+  appearance   String?
+  createdAt    DateTime @default(now())
+
+  ownedTrips    Trip[]             @relation("TripOwner")
+  participants  Participant[]
+  documents     Document[]
+  messages      Message[]
+  assistantMsgs AssistantMessage[]
+  appliedPlans  TripPlan[]
+  tripChanges   TripChange[] @relation("TripChangeActor")
+  acceptedInvitations Invitation[] @relation("InvitationAcceptedBy")
+
+  telegramLink  TelegramLink?
+  linkTokens    TelegramLinkToken[] @relation("UserLinkTokens")
 }
 
 model Trip {
-  id                 String              @id
-  title              String
-  route              String?
-  startDate          DateTime?
-  endDate            DateTime?
-  timezone           String              @default("UTC")
-  type               String              @default("group")
-  status             TripStatus          @default(draft)
-  ownerId            String
-  selectedPlanId     String?             @unique
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  owner              User                @relation("TripOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  selectedPlan       TripPlan?           @relation("SelectedTripPlan", fields: [selectedPlanId], references: [id], onDelete: SetNull)
-  participants       Participant[]
-  invitations        Invitation[]
-  events             TripEvent[]
-  documents          Document[]
-  monitoringSignals  MonitoringSignal[]
-  plans              TripPlan[]          @relation("TripPlans")
-  messages           Message[]
-  offlineCopies      OfflineCopy[]
-  assistantMessages  AssistantMessage[]
-  botStates          BotUserState[]
-  sosTickets         SosTicket[]
-  notificationEvents NotificationEvent[]
+  id        String    @id @default(cuid())
+  title     String
+  route     String?
+  segments  String?
+  startDate DateTime?
+  endDate   DateTime?
+  status    String    @default("active")
+  type      String    @default("group")
+  ownerId   String
+  owner     User      @relation("TripOwner", fields: [ownerId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  @@index([ownerId, status])
-  @@index([startDate, endDate])
+  participants      Participant[]
+  invitations       Invitation[]
+  documents         Document[]
+  messages          Message[]
+  monitoringSignals MonitoringSignal[]
+  offlineCopy       OfflineCopy?
+  assistantMsgs     AssistantMessage[]
+  plans             TripPlan[]
+  changes           TripChange[]
+}
+
+model TripChange {
+  id         String   @id @default(cuid())
+  tripId     String
+  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  actorId    String?
+  actor      User?    @relation("TripChangeActor", fields: [actorId], references: [id])
+  type       String
+  oldValue   String?
+  newValue   String?
+  details    String?
+  createdAt  DateTime @default(now())
+
+  @@index([tripId, createdAt])
+  @@index([type])
 }
 
 model Participant {
-  id          String           @id @default(cuid())
-  tripId      String
-  userId      String
-  role        ParticipantRole  @default(participant)
-  status      MembershipStatus @default(active)
-  displayName String?
-  joinedAt    DateTime         @default(now())
-  revokedAt   DateTime?
-  trip        Trip             @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([tripId, userId])
-  @@index([userId, status])
+  id         String   @id @default(cuid())
+  tripId     String
+  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  name       String
+  initials   String?
+  shortLabel String?
+  role       String   @default("participant")
+  access     String   @default("active")
+  telegram   String   @default("none")
+  joined     DateTime @default(now())
+  tone       String?
 }
 
 model Invitation {
-  id         String           @id @default(cuid())
-  tripId     String
-  email      String
-  role       ParticipantRole  @default(participant)
-  tokenHash  String           @unique
-  status     InvitationStatus @default(pending)
-  expiresAt  DateTime
-  consumedAt DateTime?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-  trip       Trip             @relation(fields: [tripId], references: [id], onDelete: Cascade)
-
-  @@index([tripId, status])
-  @@index([expiresAt])
-}
-
-model TripEvent {
-  id         String    @id @default(cuid())
-  tripId     String
-  documentId String?
-  type       String
-  title      String
-  startsAt   DateTime
-  endsAt     DateTime?
-  status     String    @default("scheduled")
-  departure  String?
-  arrival    String?
-  detail     String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  trip       Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  document   Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
-
-  @@index([tripId, startsAt])
-}
-
-model MonitoringSignal {
-  id                String           @id @default(cuid())
-  tripId            String
-  confirmedByUserId String?
-  type              String
-  label             String
-  detail            String?
-  severity          String           @default("info")
-  segment           String?
-  source            String?
-  status            MonitoringStatus @default(detected)
-  occurredAt        DateTime         @default(now())
-  confirmedAt       DateTime?
-  resolvedAt        DateTime?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  trip              Trip             @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  confirmedBy       User?            @relation("SignalConfirmer", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
-  plans             TripPlan[]
-
-  @@index([tripId, status, occurredAt])
-}
-
-model TripPlan {
-  id              String           @id @default(cuid())
-  tripId          String
-  incidentId      String
-  createdByUserId String?
-  rank            Int
-  strategy        String
-  title           String
-  summary         String?
-  steps           Json
-  pros            String?
-  cons            String?
-  whenToUse       String?
-  status          PlanStatus       @default(candidate)
-  visibility      PlanVisibility   @default(internal)
-  selectedAt      DateTime?
-  publishedAt     DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  trip            Trip             @relation("TripPlans", fields: [tripId], references: [id], onDelete: Cascade)
-  incident        MonitoringSignal @relation(fields: [incidentId], references: [id], onDelete: Cascade)
-  createdBy       User?            @relation("PlanCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  selectedForTrip Trip?            @relation("SelectedTripPlan")
-  messages        Message[]
-
-  @@unique([incidentId, rank])
-  @@index([tripId, status, visibility])
+  id        String    @id @default(cuid())
+  tripId    String
+  trip      Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  email     String
+  role      String    @default("participant")
+  status    String    @default("pending")
+  token     String    @unique @default(cuid())
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+  acceptedAt DateTime?
+  acceptedById String?
+  acceptedBy User? @relation("InvitationAcceptedBy", fields: [acceptedById], references: [id])
 }
 
 model Document {
-  id             String                  @id @default(cuid())
-  tripId         String
-  ownerUserId    String
-  allowedUserId  String?
-  name           String
-  type           String
-  mimeType       String?
-  sizeBytes      Int?
-  visibility     DocumentVisibility      @default(shared)
-  status         DocumentStatus          @default(pending)
-  segment        String?
-  ocrStatus      OcrStatus               @default(not_requested)
-  extractedText  String?                 @db.Text
-  revokedAt      DateTime?
-  deletedAt      DateTime?
-  createdAt      DateTime                @default(now())
-  updatedAt      DateTime                @updatedAt
-  trip           Trip                    @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  owner          User                    @relation("DocumentOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
-  allowedUser    User?                   @relation("DocumentAllowedUser", fields: [allowedUserId], references: [id], onDelete: SetNull)
-  blob           DocumentBlob?
-  downloadTokens DocumentDownloadToken[]
-  events         TripEvent[]
-
-  @@index([tripId, status, visibility])
-  @@index([allowedUserId])
+  id           String    @id @default(cuid())
+  tripId       String
+  trip         Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  name         String
+  type         String?
+  format       String?
+  sizeLabel    String?
+  sizeMb       Float?
+  status       String    @default("review")
+  ocrConfirmed Boolean   @default(false)
+  visibility   String    @default("shared")
+  segment      String?
+  source       String?
+  uploadedById String?
+  uploadedBy   User?     @relation(fields: [uploadedById], references: [id])
+  uploadedAt   DateTime  @default(now())
+  processedAt  DateTime?
+  mimeType     String?
+  ocrStatus    String?
+  ocrText      String?
+  ocrData      String?
+  blob         DocumentBlob?
 }
 
 model DocumentBlob {
   id         String   @id @default(cuid())
   documentId String   @unique
-  bytes      Bytes
-  sha256     String
-  createdAt  DateTime @default(now())
   document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-}
-
-model DocumentDownloadToken {
-  id         String    @id @default(cuid())
-  tokenHash  String    @unique
-  documentId String
-  userId     String
-  expiresAt  DateTime
-  usedAt     DateTime?
-  revokedAt  DateTime?
-  createdAt  DateTime  @default(now())
-  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([expiresAt, revokedAt])
+  data       Bytes
+  createdAt  DateTime @default(now())
 }
 
 model Message {
-  id           String        @id @default(cuid())
-  tripId       String
-  authorUserId String
-  planId       String?
-  title        String?
-  content      String        @db.Text
-  audience     Json?
-  status       MessageStatus @default(draft)
-  publishedAt  DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  trip         Trip          @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  author       User          @relation("MessageAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
-  plan         TripPlan?     @relation(fields: [planId], references: [id], onDelete: SetNull)
+  id          String   @id @default(cuid())
+  tripId      String
+  trip        Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  channel     String   @default("system")
+  kind        String   @default("draft")
+  title       String?
+  body        String?
+  recipients  String?
+  status      String?
+  planBLinked Boolean  @default(false)
+  authorId    String?
+  author      User?    @relation(fields: [authorId], references: [id])
+  createdAt   DateTime @default(now())
+}
 
-  @@index([tripId, status, publishedAt])
+model MonitoringSignal {
+  id        String   @id @default(cuid())
+  tripId    String
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  label     String
+  status    String?
+  severity  String?
+  segment   String?
+  source    String?
+  detail    String?
+  authorId       String?
+  number         String?
+  category       String?
+  idempotencyKey String? @unique
+  createdAt DateTime @default(now())
 }
 
 model OfflineCopy {
-  id        String   @id @default(cuid())
-  tripId    String
-  userId    String
-  payload   Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([tripId, userId])
+  tripId              String    @id
+  trip                Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  status              String    @default("saved")
+  savedAt             DateTime?
+  size                Float?
+  includeRouteMap     Boolean   @default(true)
+  includeObservations Boolean   @default(true)
+  includeDocuments    Boolean   @default(true)
+  selectedDocuments   String?
 }
 
 model AssistantMessage {
   id        String   @id @default(cuid())
   tripId    String
-  userId    String
-  role      String
-  content   String   @db.Text
-  mode      String   @default("dialog")
-  createdAt DateTime @default(now())
   trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([tripId, userId, createdAt])
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  role      String
+  content   String
+  mode      String?
+  createdAt DateTime @default(now())
 }
 
-model TelegramAccountLink {
-  id             String    @id @default(cuid())
-  telegramUserId String    @unique
-  siteUserId     String    @unique
-  linkedAt       DateTime  @default(now())
-  revokedAt      DateTime?
-  siteUser       User      @relation(fields: [siteUserId], references: [id], onDelete: Cascade)
 
-  @@index([revokedAt])
+// ---- Telegram bot integration ----
+
+model TelegramLink {
+  telegramUserId String   @id
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeTripId   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model TelegramLinkToken {
-  id         String    @id @default(cuid())
-  tokenHash  String    @unique
-  siteUserId String
-  expiresAt  DateTime
-  consumedAt DateTime?
-  createdAt  DateTime  @default(now())
-  siteUser   User      @relation(fields: [siteUserId], references: [id], onDelete: Cascade)
-
-  @@index([siteUserId, expiresAt])
+  token     String    @id
+  userId    String
+  user      User      @relation("UserLinkTokens", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
 }
 
-model BotUserState {
-  siteUserId   String   @id
-  activeTripId String?
-  updatedAt    DateTime @updatedAt
-  siteUser     User     @relation(fields: [siteUserId], references: [id], onDelete: Cascade)
-  activeTrip   Trip?    @relation(fields: [activeTripId], references: [id], onDelete: SetNull)
-
-  @@index([activeTripId])
-}
-
-model SosTicket {
+model TelegramNotification {
   id             String    @id @default(cuid())
-  number         String    @unique
-  tripId         String
-  authorUserId   String
-  telegramUserId String?
-  category       String
-  description    String    @db.Text
-  status         SosStatus @default(open)
-  segment        String?
-  idempotencyKey String
-  acknowledgedAt DateTime?
-  resolvedAt     DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  trip           Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  author         User      @relation("SosAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  eventId        String    @unique
+  type           String
+  telegramUserId String
+  tripId         String?
+  tripTitle      String?
+  title          String?
+  whatChanged    String?
+  oldValue       String?
+  newValue       String?
+  sosId          String?
+  deepLinkTarget String    @default("trip")
+  source         String    @default("backend")
+  status         String    @default("pending")
+  attempts       Int       @default(0)
+  lastError      String?
+  occurredAt     DateTime  @default(now())
+  deliveredAt    DateTime?
 
-  @@unique([authorUserId, idempotencyKey])
-  @@index([tripId, status, createdAt])
+  @@index([status])
+  @@index([telegramUserId])
 }
 
-model NotificationPreference {
-  siteUserId          String   @id
-  segmentReminders    Boolean  @default(true)
-  timeChanges         Boolean  @default(true)
-  departureChanges    Boolean  @default(true)
-  delaysCancellations Boolean  @default(true)
-  transferChanges     Boolean  @default(true)
-  hotelChanges        Boolean  @default(true)
-  newDocuments        Boolean  @default(true)
-  invitations         Boolean  @default(true)
-  ownSos              Boolean  @default(true)
-  violations          Boolean  @default(true)
-  planB               Boolean  @default(true)
-  organizerMessages   Boolean  @default(true)
-  quietHoursEnabled   Boolean  @default(false)
-  quietHoursStart     String   @default("23:00")
-  quietHoursEnd       String   @default("08:00")
-  timezone            String   @default("Europe/Moscow")
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  siteUser            User     @relation(fields: [siteUserId], references: [id], onDelete: Cascade)
-}
-
-model NotificationEvent {
-  id                  String             @id @default(cuid())
-  eventId             String             @unique
-  recipientTelegramId String
-  recipientSiteUserId String?
-  tripId              String?
-  type                String
-  payload             Json
-  status              NotificationStatus @default(pending)
-  attempts            Int                @default(0)
-  availableAt         DateTime           @default(now())
-  deliveredAt         DateTime?
-  failedAt            DateTime?
-  lastErrorCode       String?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  recipient           User?              @relation("NotificationRecipient", fields: [recipientSiteUserId], references: [id], onDelete: SetNull)
-  trip                Trip?              @relation(fields: [tripId], references: [id], onDelete: Cascade)
-
-  @@index([status, availableAt, createdAt])
-  @@index([recipientTelegramId, status])
+model TripPlan {
+  id           String   @id @default(cuid())
+  tripId       String
+  trip         Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  title        String
+  strategy     String?
+  revisedRoute String?
+  segments     String?
+  totalDuration String?
+  estimatedCost Float?
+  currency     String?
+  delayComparedToOriginal String?
+  transferCount Int?
+  reliability String?
+  risks        String?
+  assumptions  String?
+  requiredActions String?
+  hotelImpact  String?
+  transferImpact String?
+  activitiesImpact String?
+  isDemoData   Boolean  @default(false)
+  summary      String?
+  steps        String?
+  pros         String?
+  cons         String?
+  whenToUse    String?
+  emailTo      String?
+  emailSubject String?
+  emailBody    String?
+  source       String   @default("ai")
+  status       String   @default("active")
+  appliedById  String?
+  appliedBy    User?    @relation(fields: [appliedById], references: [id])
+  createdAt    DateTime @default(now())
+  appliedAt    DateTime?
 }

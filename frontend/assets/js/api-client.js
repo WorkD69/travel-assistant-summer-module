@@ -1,80 +1,187 @@
-(function () {
+(function(){
   "use strict";
 
-  async function request(path, options) {
-    const opts = Object.assign({}, options || {});
-    opts.headers = Object.assign({ Accept: "application/json" }, opts.headers || {});
-    opts.credentials = "include";
-    if (opts.body && typeof opts.body !== "string" && !(opts.body instanceof FormData)) {
-      opts.headers["Content-Type"] = "application/json";
-      opts.body = JSON.stringify(opts.body);
-    }
-    let response;
-    try {
-      response = await fetch(path.startsWith("/api/") ? path : "/api/" + String(path).replace(/^\/+/, ""), opts);
-    } catch (cause) {
-      const error = new Error("Нет соединения с сервером");
-      error.code = "network_error";
-      error.cause = cause;
-      throw error;
-    }
-    const contentType = response.headers.get("content-type") || "";
-    const payload = contentType.includes("application/json") ? await response.json() : null;
-    if (!response.ok) {
-      const error = new Error(payload && payload.error && payload.error.message_ru || "Не удалось выполнить запрос");
-      error.code = payload && payload.error && payload.error.code || "request_failed";
-      error.status = response.status;
-      throw error;
-    }
-    return payload;
+  function stripTrail(b){
+    while (b.length && b.charAt(b.length - 1) === "/") b = b.slice(0, -1);
+    return b;
   }
 
-  window.TravelAPI = {
-    request,
-    auth: {
-      login(payload) { return request("/api/auth/login", { method: "POST", body: payload }); },
-      register(payload) { return request("/api/auth/register", { method: "POST", body: payload }); },
-      me() { return request("/api/auth/me"); },
-      logout() { return request("/api/auth/logout", { method: "POST", keepalive: true }); }
-    },
-    telegram: {
-      status() { return request("/api/site/integrations/telegram"); },
-      createLink() { return request("/api/site/integrations/telegram/link-token", { method: "POST" }); },
-      disconnect() { return request("/api/site/integrations/telegram", { method: "DELETE" }); }
-    },
-    trips: {
-      list() { return request("/api/site/trips"); },
-      get(id) { return request("/api/site/trips/" + encodeURIComponent(id)); },
-      create(payload) { return request("/api/site/trips", { method: "POST", body: payload }); },
-      update(id, payload) { return request("/api/site/trips/" + encodeURIComponent(id), { method: "PATCH", body: payload }); },
-      remove(id) { return request("/api/site/trips/" + encodeURIComponent(id), { method: "DELETE" }); },
-      telegramLinkToken(id) { return request("/api/site/trips/" + encodeURIComponent(id) + "/telegram-link-token", { method: "POST" }); },
-      createSos(id, payload, idempotencyKey) {
-        return request("/api/site/trips/" + encodeURIComponent(id) + "/sos", {
-          method: "POST", body: payload, headers: { "Idempotency-Key": idempotencyKey }
-        });
-      },
-      confirmSignal(id, signalId) {
-        return request("/api/site/trips/" + encodeURIComponent(id) + "/monitoring/" + encodeURIComponent(signalId) + "/confirm", { method: "POST" });
-      },
-      generatePlans(id, signalId) {
-        return request("/api/site/trips/" + encodeURIComponent(id) + "/monitoring/" + encodeURIComponent(signalId) + "/plans", { method: "POST" });
-      },
-      selectPlan(id, planId) {
-        return request("/api/site/trips/" + encodeURIComponent(id) + "/plans/" + encodeURIComponent(planId) + "/select", { method: "POST" });
-      },
-      publishPlan(id, planId) {
-        return request("/api/site/trips/" + encodeURIComponent(id) + "/plans/" + encodeURIComponent(planId) + "/publish", { method: "POST" });
-      },
-      createMessage(id, payload) {
-        return request("/api/site/trips/" + encodeURIComponent(id) + "/messages", { method: "POST", body: payload });
-      },
-      uploadDocument(id, formData) {
-        return request("/api/site/trips/" + encodeURIComponent(id) + "/documents", { method: "POST", body: formData });
-      },
-      removeDocument(id, documentId) {
-        return request("/api/site/trips/" + encodeURIComponent(id) + "/documents/" + encodeURIComponent(documentId), { method: "DELETE" });
+  // Isolated Version B2 staging backend. The preview must never fall back to
+  // the Version B production service. window.TRAVEL_API_BASE remains available
+  // for explicit test harness overrides before this script loads.
+  var STAGING_BACKEND = "https://travel-assistant-teammate-backend-b2-staging-staging-b2.up.railway.app";
+
+  window.TRAVEL_BUILD = Object.freeze({
+    version: "B2",
+    deployedAt: "2026-07-23",
+    backend: "https://travel-assistant-teammate-backend-b2-staging-staging-b2.up.railway.app",
+    buildId: "version-b2-staging-20260723",
+    sourceCommit: "local-codex-teammate-preview"
+  });
+
+  if (typeof navigator !== "undefined" && "serviceWorker" in navigator && location.protocol === "https:") {
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("/service-worker.js?v=version-b2-staging-20260723").catch(function(){});
+    });
+  }
+  var DEFAULT = STAGING_BACKEND;
+  var BASE = (typeof window.TRAVEL_API_BASE === "string") ? window.TRAVEL_API_BASE : DEFAULT;
+  BASE = stripTrail(BASE);
+
+  var authStorage = window.TravelAuthStorage || {
+    load: function(){ return null; },
+    save: function(){},
+    clear: function(){}
+  };
+  var authToken = authStorage.load();
+
+  function clearAuth(){
+    authToken = null;
+    authStorage.clear();
+  }
+
+  async function req(path, opts){
+    opts = opts || {};
+    var headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
+    if (authToken) headers["Authorization"] = "Bearer " + authToken;
+    var res = await fetch(BASE + path, {
+      method: opts.method || "GET",
+      headers: headers,
+      credentials: "include",
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+    var data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    if (!res.ok){
+      var err = new Error((data && data.error) || ("HTTP " + res.status));
+      err.status = res.status;
+      err.data = data;
+      if (res.status === 401) clearAuth();
+      throw err;
+    }
+    return data;
+  }
+
+  function tp(tripId){ return "/api/trips/" + encodeURIComponent(tripId); }
+
+  var TravelApi = {
+    base: BASE,
+    getToken: function(){ return authToken; },
+    request: req,
+    health: function(){ return req("/api/health"); },
+    me: function(){ return req("/api/auth/me"); },
+    login: async function(email, password, remember){
+      var data = await req("/api/auth/login", { method: "POST", body: { email: email, password: password, remember: !!remember } });
+      if (data && data.token){
+        authToken = data.token;
+        authStorage.save(data.token, !!remember);
       }
+      return data;
+    },
+    register: async function(payload){
+      var data = await req("/api/auth/register", { method: "POST", body: payload });
+      if (data && data.token){
+        authToken = data.token;
+        authStorage.save(data.token, false);
+      }
+      return data;
+    },
+    updateProfile: function(patch){
+      return req("/api/auth/profile", { method: "PATCH", body: patch });
+    },
+    logout: async function(){
+      try {
+        return await req("/api/auth/logout", { method: "POST" });
+      } finally {
+        clearAuth();
+      }
+    },
+    ensureAuth: async function(){
+      return TravelApi.me();
+    },
+
+    // Trips
+    listTrips: function(){ return req("/api/trips"); },
+    createTrip: function(payload){ return req("/api/trips", { method: "POST", body: payload }); },
+    getTrip: function(tripId){ return req(tp(tripId)); },
+    updateTrip: function(tripId, patch){ return req(tp(tripId), { method: "PATCH", body: patch }); },
+    deleteTrip: function(tripId){ return req(tp(tripId), { method: "DELETE" }); },
+
+    // Geo & weather
+    geoSearch: function(q){ return req("/api/geo/search?q=" + encodeURIComponent(q || "")); },
+    weather: function(lat, lon){ return req("/api/weather?lat=" + encodeURIComponent(lat) + "&lon=" + encodeURIComponent(lon)); },
+
+    // Participants
+    listParticipants: function(tripId){ return req(tp(tripId) + "/participants"); },
+    addParticipant: function(tripId, payload){ return req(tp(tripId) + "/participants", { method: "POST", body: payload }); },
+    updateParticipant: function(tripId, pid, patch){ return req(tp(tripId) + "/participants/" + encodeURIComponent(pid), { method: "PATCH", body: patch }); },
+    removeParticipant: function(tripId, pid){ return req(tp(tripId) + "/participants/" + encodeURIComponent(pid), { method: "DELETE" }); },
+
+    // Invitations
+    listInvitations: function(tripId){ return req(tp(tripId) + "/invitations"); },
+    createInvitation: function(tripId, payload){ return req(tp(tripId) + "/invitations", { method: "POST", body: payload }); },
+    revokeInvitation: function(tripId, iid){ return req(tp(tripId) + "/invitations/" + encodeURIComponent(iid), { method: "DELETE" }); },
+    updateInvitation: function(tripId, iid, patch){ return req(tp(tripId) + "/invitations/" + encodeURIComponent(iid), { method: "PATCH", body: patch }); },
+    resolveInvitation: function(token){ return req("/invitations/resolve/" + encodeURIComponent(token)); },
+    acceptInvitation: function(token){ return req("/invitations/" + encodeURIComponent(token) + "/accept", { method: "POST", body: {} }); },
+
+    // Documents
+    listDocuments: function(tripId){ return req(tp(tripId) + "/documents"); },
+    addDocument: function(tripId, payload){ return req(tp(tripId) + "/documents", { method: "POST", body: payload }); },
+    updateDocument: function(tripId, did, patch){ return req(tp(tripId) + "/documents/" + encodeURIComponent(did), { method: "PATCH", body: patch }); },
+    removeDocument: function(tripId, did){ return req(tp(tripId) + "/documents/" + encodeURIComponent(did), { method: "DELETE" }); },
+
+    // Messages
+    listMessages: function(tripId){ return req(tp(tripId) + "/messages"); },
+    addMessage: function(tripId, payload){ return req(tp(tripId) + "/messages", { method: "POST", body: payload }); },
+    updateMessage: function(tripId, mid, patch){ return req(tp(tripId) + "/messages/" + encodeURIComponent(mid), { method: "PATCH", body: patch }); },
+    removeMessage: function(tripId, mid){ return req(tp(tripId) + "/messages/" + encodeURIComponent(mid), { method: "DELETE" }); },
+
+    // Offline copy
+    getOffline: function(tripId){ return req(tp(tripId) + "/offline"); },
+    saveOffline: function(tripId, payload){ return req(tp(tripId) + "/offline", { method: "PUT", body: payload }); },
+
+    // Monitoring + assistant
+    monitoringSignals: function(tripId){ return req(tp(tripId) + "/monitoring"); },
+    createSignal: function(tripId, payload){ return req(tp(tripId) + "/monitoring", { method: "POST", body: payload }); },
+    assistantHistory: function(tripId){ return req(tp(tripId) + "/monitoring/assistant/history"); },
+    assistant: function(tripId, messages, mode){
+      return req(tp(tripId) + "/monitoring/assistant", { method: "POST", body: { messages: messages, mode: mode || "dialog" } });
+    },
+
+    // Applied Plan B
+    getActivePlan: function(tripId){ return req(tp(tripId) + "/monitoring/plan"); },
+    listPlans: function(tripId){ return req(tp(tripId) + "/monitoring/plans"); },
+    applyPlan: function(tripId, plan){ return req(tp(tripId) + "/monitoring/plan", { method: "POST", body: plan }); },
+    updatePlan: function(tripId, planId, patch){ return req(tp(tripId) + "/monitoring/plan/" + encodeURIComponent(planId), { method: "PATCH", body: patch }); },
+    deletePlan: function(tripId, planId){ return req(tp(tripId) + "/monitoring/plan/" + encodeURIComponent(planId), { method: "DELETE" }); },
+
+    // Загрузка файла (multipart) + доступ к файлу
+    uploadDocument: function(tripId, file, meta){
+      var fd = new FormData();
+      fd.append("file", file);
+      if (meta){ Object.keys(meta).forEach(function(k){ if (meta[k] != null) fd.append(k, meta[k]); }); }
+      var headers = {};
+      if (authToken) headers["Authorization"] = "Bearer " + authToken;
+      return fetch(BASE + tp(tripId) + "/documents/upload", { method: "POST", headers: headers, credentials: "include", body: fd }).then(function(res){
+        return res.json().then(function(d){
+          if (!res.ok){ var e = new Error((d && d.error) || ("HTTP " + res.status)); e.status = res.status; throw e; }
+          return d;
+        }, function(){ if (!res.ok) throw new Error("HTTP " + res.status); return {}; });
+      });
+    },
+    // Telegram linking (site side)
+    telegramStatus: function(){ return req("/api/integrations/telegram/status"); },
+    telegramLinkToken: function(){ return req("/api/integrations/telegram/link-token", { method: "POST", body: {} }); },
+    telegramUnlink: function(){ return req("/api/integrations/telegram/link", { method: "DELETE" }); },
+
+    fileUrl: function(tripId, did, download){ return BASE + tp(tripId) + "/documents/" + encodeURIComponent(did) + "/file" + (download ? "?download=1" : ""); },
+    fetchFileBlob: function(tripId, did){
+      var headers = {};
+      if (authToken) headers["Authorization"] = "Bearer " + authToken;
+      return fetch(BASE + tp(tripId) + "/documents/" + encodeURIComponent(did) + "/file", { headers: headers, credentials: "include" }).then(function(res){ if (!res.ok) throw new Error("HTTP " + res.status); return res.blob(); });
     }
   };
+
+  window.TravelApi = TravelApi;
 })();

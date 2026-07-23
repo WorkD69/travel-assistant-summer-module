@@ -139,8 +139,15 @@ Adapter нормализует:
 
 ## Credentials schema
 
-Frontend не хранит пароли или токены. Production-авторизация выполняется через
-относительный `/api/auth/*`, а браузер получает только защищённую HttpOnly cookie.
+Для preview:
+
+```js
+credentials: {
+  "user@example.test": "Password2026!"
+}
+```
+
+В production это место заменяется настоящей backend-авторизацией. Пароли не показываются в UI.
 
 ## Atomic email update
 

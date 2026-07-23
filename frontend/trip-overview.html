@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="assets/css/core-flow-shared.css" />
   <link rel="stylesheet" href="assets/css/trip-monitoring.css" />
   <link rel="stylesheet" href="assets/css/trip-messages.css" />
+  <link rel="stylesheet" href="assets/css/ai-assistant.css" />
   <style>
     /* Переключатель окружения: в production демо-панели скрыты. */
     body[data-app-environment="production"] [data-development-only="true"] {
@@ -2013,7 +2014,7 @@
                   <div>
                     <p class="eyebrow">Ближайшее событие</p>
                     <h2 class="next-event-title">Вылет из Сыктывкара</h2>
-                    <p class="next-event-detail">19 июля 2026 · 08:40 · Сыктывкар (SCW) → Москва (SVO)</p>
+                    <p class="next-event-detail">19 июля 2026 · 08:40 · Сыктывкар (SCW) → Мо��ква (SVO)</p>
                   </div>
                   <div class="countdown">
                     <span class="countdown-value mono" id="countdown-value">—</span>
@@ -2749,7 +2750,7 @@
                   <button class="settings-demo__option" type="button" data-settings-view="stale">Устаревшая копия</button>
                   <button class="settings-demo__option" type="button" data-settings-view="missing">Копия отсутствует</button>
                   <button class="settings-demo__option" type="button" data-settings-view="copyDeleted">Копия удалена</button>
-                  <button class="settings-demo__option" type="button" data-settings-view="revoked">Доступ отозван</button>
+                  <button class="settings-demo__option" type="button" data-settings-view="revoked">��оступ отозван</button>
                   <button class="settings-demo__option" type="button" data-settings-view="error">Ошибка</button>
                   <button class="settings-demo__option" type="button" data-settings-view="loading">Загрузка</button>
                 </div>
@@ -2772,7 +2773,7 @@
               <div>
                 <p class="settings-kicker">Отпуск в Турции</p>
                 <h1 id="settings-page-title">Настройки поездки</h1>
-                <p class="settings-subtitle">Офлайн-копия, завершение и управление поездкой</p>
+                <p class="settings-subtitle">Офлайн-копия, зав��ршение и управление поездкой</p>
               </div>
               <div class="settings-hero__badges" aria-label="Статус и роль">
                 <span class="settings-badge settings-badge--status" id="settings-trip-status-badge">Активная</span>
@@ -3438,8 +3439,6 @@
 
   <script src="features/app-state.js"></script>
   <script src="assets/js/app-state-bridge.js"></script>
-  <script src="assets/js/api-client.js"></script>
-  <script src="assets/js/site-sync.js"></script>
   <script>
     const TAB_LABELS = {
       overview: 'Обзор',
@@ -3985,7 +3984,7 @@
       list.innerHTML = `<div class="upload-state-row"><span><strong>${label}</strong>${detail ? `<br><span class="field-hint">${detail}</span>` : ''}</span><span class="badge ${badge}">${label}</span></div>`;
     }
 
-    async function startMockUpload() {
+    function startMockUpload() {
       if (!docsTripActive()) return;
       if (!pendingUploadFiles.length) {
         renderUploadState('Сначала выберите файл', 'badge-danger', 'Загрузка не началась.');
@@ -4004,7 +4003,7 @@
         return;
       }
       if (docsData.some((doc) => doc.name.toLowerCase() === file.name.toLowerCase()) || scenario === 'duplicate') {
-        renderUploadState('Найден дубликат', 'badge-warning', 'Такой документ уже есть в поездке.');
+        renderUploadState('Найден ду��ликат', 'badge-warning', 'Такой документ уже есть в поездке.');
         return;
       }
       if (scenario === 'processing-error') {
@@ -4012,31 +4011,14 @@
         return;
       }
       const visibility = document.getElementById('upload-visibility').value;
-      let persistedDocument = null;
-      if (typeof File !== 'undefined' && file instanceof File && window.TravelAPI) {
-        const form = new FormData();
-        form.append('file', file);
-        form.append('title', file.name);
-        form.append('type', 'document');
-        form.append('visibility', visibility === 'private' ? 'organizer_only' : 'shared');
-        try {
-          const tripId = window.TravelAppState.getState().trip.id;
-          const response = await window.TravelAPI.trips.uploadDocument(tripId, form);
-          persistedDocument = response.document;
-        } catch (error) {
-          renderUploadState('Ошибка загрузки', 'badge-danger', error && error.message ? error.message : 'Повторите попытку позже.');
-          return;
-        }
-      }
       const newDoc = {
-        id: persistedDocument ? persistedDocument.id : 'uploaded-' + Date.now(),
+        id: 'uploaded-' + Date.now(),
         name: file.name,
         type: 'Другое',
         format: ext === 'jpeg' ? 'JPG' : ext.toUpperCase(),
         size: file.size ? `${Math.max(file.size / 1024, 1).toFixed(0)} КБ` : '760 КБ',
         uploadedAt: 'сейчас',
-        status: persistedDocument ? persistedDocument.status : 'review',
-        serverBacked: Boolean(persistedDocument),
+        status: 'review',
         visibility,
         segment: 'Вся поездка',
         source: 'Загружено организатором',
@@ -4215,18 +4197,8 @@
       openModal('modal-doc-delete');
     }
 
-    async function confirmDeleteDocument() {
+    function confirmDeleteDocument() {
       if (!docsTripActive()) return;
-      const documentToDelete = findDoc(selectedDocumentId);
-      if (documentToDelete && documentToDelete.serverBacked && window.TravelAPI) {
-        try {
-          const tripId = window.TravelAppState.getState().trip.id;
-          await window.TravelAPI.trips.removeDocument(tripId, selectedDocumentId);
-        } catch (error) {
-          toastWarning(error && error.message ? error.message : 'Не удалось удалить документ');
-          return;
-        }
-      }
       docsData = docsData.filter((doc) => doc.id !== selectedDocumentId);
       docsCommitShared();
       closeModal('modal-doc-delete');
@@ -4498,13 +4470,24 @@
   <script src="features/trip-members.js" defer></script>
   <script src="features/trip-settings.js" defer></script>
   <script src="features/integration-controller.js" defer></script>
+  <script src="assets/js/backend-sync.js" defer></script>
+  <script src="assets/js/docs-sync.js" defer></script>
+  <script src="assets/js/members-sync.js" defer></script>
     <div id="coreflow-shared-modal-root"></div>
     <div id="coreflow-shared-toast-root"></div>
+    <script src="assets/js/auth-storage.js"></script>
+    <script src="assets/js/api-client.js"></script>
+    <script src="assets/js/trip-sync.js"></script>
     <script src="assets/js/app-routes.js"></script>
     <script src="assets/js/core-flow-state-adapter.js"></script>
+    <script src="assets/js/coreflow-sync.js"></script>
     <script src="assets/js/trip-monitoring.js"></script>
     <script src="assets/js/trip-messages.js"></script>
     <script src="assets/js/workspace-integration.js"></script>
+    <script src="assets/js/ai-assistant.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="assets/js/weather-map.js"></script>
+    <script src="assets/js/route-timeline.js"></script>
   
   <script>
   // FIX OFF-2: disable SOS in offline

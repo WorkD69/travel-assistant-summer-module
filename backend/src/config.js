@@ -1,116 +1,98 @@
-const REQUIRED_PRODUCTION_KEYS = [
-  'DATABASE_URL',
-  'JWT_SECRET',
-  'TRAVEL_API_SERVICE_TOKEN',
-  'TELEGRAM_BOT_USERNAME',
+require('dotenv').config();
+
+const DEVELOPMENT_ORIGINS = [
+  'http://localhost:8011',
+  'http://127.0.0.1:8011',
 ];
 
-function parseInteger(name, value, fallback, minimum, maximum) {
-  if (value === undefined || value === '') return fallback;
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) {
-    throw new Error(`${name} must be an integer between ${minimum} and ${maximum}`);
-  }
-  return parsed;
-}
-
-function parseOrigins(value) {
-  if (!value) return [];
-  return value
+function parseCorsOrigins(rawValue, isProduction) {
+  const values = String(rawValue || '')
     .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((item) => {
-      let url;
-      try {
-        url = new URL(item);
-      } catch {
-        throw new Error('ALLOWED_ORIGINS contains an invalid URL');
-      }
-      if (!['http:', 'https:'].includes(url.protocol) || url.pathname !== '/') {
-        throw new Error('ALLOWED_ORIGINS must contain HTTP origins without paths');
-      }
-      return url.origin;
-    });
-}
+    .map(function (value) { return value.trim(); })
+    .filter(Boolean);
 
-function parseTelegramBotUsername(value) {
-  const username = String(value || '').trim().replace(/^@/, '');
-  if (username && !/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username)) {
-    throw new Error('TELEGRAM_BOT_USERNAME must be a valid Telegram username');
-  }
-  return username;
-}
-
-function loadConfig(env = process.env) {
-  const nodeEnv = env.NODE_ENV || 'development';
-  const isProduction = nodeEnv === 'production';
-
-  if (isProduction) {
-    const missing = REQUIRED_PRODUCTION_KEYS.filter((key) => !env[key]);
-    if (missing.length) {
-      throw new Error(`Missing required production environment variables: ${missing.join(', ')}`);
+  if (!values.length) {
+    if (isProduction) {
+      throw new Error('FRONTEND_ORIGIN is required in production');
     }
+    return DEVELOPMENT_ORIGINS.slice();
   }
 
-  const invalidSecretNames = [];
-  if (env.JWT_SECRET && env.JWT_SECRET.length < 32) invalidSecretNames.push('JWT_SECRET');
-  if (env.TRAVEL_API_SERVICE_TOKEN && env.TRAVEL_API_SERVICE_TOKEN.length < 32) {
-    invalidSecretNames.push('TRAVEL_API_SERVICE_TOKEN');
-  }
-  if (invalidSecretNames.length) {
-    throw new Error(`${invalidSecretNames.join(', ')} must be at least 32 characters`);
-  }
+  const origins = values.map(function (value) {
+    if (value === '*') {
+      throw new Error('CORS wildcard is not allowed');
+    }
 
-  const allowedOrigins = parseOrigins(env.ALLOWED_ORIGINS);
-  if (isProduction && allowedOrigins.length === 0) {
-    throw new Error('ALLOWED_ORIGINS is required in production');
-  }
+    let parsed;
+    try {
+      parsed = new URL(value);
+    } catch (error) {
+      throw new Error('Invalid FRONTEND_ORIGIN: ' + value);
+    }
 
-  return Object.freeze({
-    nodeEnv,
-    isProduction,
-    port: parseInteger('PORT', env.PORT, 3100, 1, 65535),
-    databaseUrl: env.DATABASE_URL || '',
-    directUrl: env.DIRECT_URL || env.DATABASE_URL || '',
-    jwtSecret: env.JWT_SECRET || '',
-    serviceToken: env.TRAVEL_API_SERVICE_TOKEN || '',
-    allowedOrigins: Object.freeze([...new Set(allowedOrigins)]),
-    sessionTtlSeconds: parseInteger(
-      'SESSION_TTL_SECONDS',
-      env.SESSION_TTL_SECONDS,
-      43_200,
-      300,
-      2_592_000,
-    ),
-    documentTokenTtlSeconds: parseInteger(
-      'DOCUMENT_TOKEN_TTL_SECONDS',
-      env.DOCUMENT_TOKEN_TTL_SECONDS,
-      300,
-      30,
-      3_600,
-    ),
-    linkTokenTtlSeconds: parseInteger(
-      'LINK_TOKEN_TTL_SECONDS',
-      env.LINK_TOKEN_TTL_SECONDS,
-      600,
-      60,
-      3_600,
-    ),
-    telegramBotUsername: parseTelegramBotUsername(env.TELEGRAM_BOT_USERNAME),
-    publicBaseUrl: env.BACKEND_PUBLIC_URL
-      || (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : '')
-      || (env.VERCEL_URL ? `https://${env.VERCEL_URL}` : ''),
-    ai: Object.freeze({
-      baseUrl: env.AI_BASE_URL || 'https://api.groq.com/openai/v1',
-      apiKey: env.AI_API_KEY || '',
-      model: env.AI_MODEL || 'llama-3.3-70b-versatile',
-    }),
+    const hasExtraUrlParts = (
+      parsed.username || parsed.password || parsed.search || parsed.hash ||
+      (parsed.pathname && parsed.pathname !== '/')
+    );
+    if (hasExtraUrlParts) {
+      throw new Error('FRONTEND_ORIGIN must be an origin without path or credentials');
+    }
+
+    const localHostname = (
+      parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '[::1]'
+    );
+    if (isProduction && (parsed.protocol !== 'https:' || localHostname)) {
+      throw new Error('Production FRONTEND_ORIGIN must use HTTPS and cannot be localhost');
+    }
+
+    return parsed.origin;
   });
+
+  return Array.from(new Set(origins));
 }
+
+function isCorsOriginAllowed(origin, allowedOrigins) {
+  if (!origin) return true;
+  try {
+    return allowedOrigins.indexOf(new URL(origin).origin) !== -1;
+  } catch (error) {
+    return false;
+  }
+}
+
+const nodeEnv = process.env.NODE_ENV || 'development';
+const isProd = nodeEnv === 'production';
+const corsOrigins = parseCorsOrigins(process.env.FRONTEND_ORIGIN, isProd);
 
 module.exports = {
-  REQUIRED_PRODUCTION_KEYS,
-  loadConfig,
-  parseTelegramBotUsername,
+  port: process.env.PORT || 3000,
+  jwtSecret: process.env.JWT_SECRET || 'dev-insecure-secret-change-me',
+  nodeEnv: nodeEnv,
+  isProd: isProd,
+  corsOrigins: corsOrigins,
+  frontendOrigin: corsOrigins[0],
+  parseCorsOrigins: parseCorsOrigins,
+  isCorsOriginAllowed: isCorsOriginAllowed,
+  // Universal OpenAI-compatible AI provider config.
+  // Works with Groq, OpenRouter, YandexGPT, GigaChat, OpenAI, etc.
+  ai: {
+    baseUrl: process.env.AI_BASE_URL || 'https://api.groq.com/openai/v1',
+    apiKey: process.env.AI_API_KEY || '',
+    model: process.env.AI_MODEL || 'llama-3.3-70b-versatile',
+  },
+  frontendDir: process.env.FRONTEND_DIR || '',
+  // Telegram bot integration (service-to-service).
+  bot: {
+    // Shared secret the Telegram bot sends as `Authorization: Bearer <token>`.
+    serviceToken: process.env.BOT_SERVICE_TOKEN || '',
+    // Bot username (without @) used to build deep links t.me/<username>?start=link_<token>.
+    username: process.env.TELEGRAM_BOT_USERNAME || '',
+    // Minutes a Telegram account-link token stays valid.
+    linkTokenTtlMinutes: Number(process.env.BOT_LINK_TOKEN_TTL_MINUTES || 10),
+    // Minutes a temporary document download link stays valid.
+    fileLinkTtlMinutes: Number(process.env.BOT_FILE_LINK_TTL_MINUTES || 10),
+  },
+  // Public base URL of this backend, used to build absolute file links for the bot.
+  publicBaseUrl: (process.env.PUBLIC_BASE_URL || ('http://localhost:' + (process.env.PORT || 3000))).replace(/\/$/, ''),
 };

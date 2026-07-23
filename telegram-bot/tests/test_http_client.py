@@ -149,3 +149,59 @@ async def test_sos_uses_idempotency_header_and_is_not_retried() -> None:
 
     assert calls == 1
 
+
+async def test_assistant_context_accepts_typed_recent_changes_from_b2() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/bot/trips/t-1/assistant-context"
+        return httpx.Response(
+            200,
+            json={
+                "trip": {
+                    "id": "t-1",
+                    "title": "Contract trip",
+                    "route": "A - B",
+                    "date_start": "2026-07-23",
+                    "date_end": "2026-07-24",
+                    "timezone": "Europe/Moscow",
+                    "status": "active",
+                    "role": "organizer",
+                    "membership_status": "member",
+                },
+                "events": [],
+                "documents": [],
+                "messages": [],
+                "own_sos": [],
+                "recent_changes": [
+                    {
+                        "id": "change-1",
+                        "type": "route_changed",
+                        "oldValue": "\"A - B\"",
+                        "newValue": "\"A - C\"",
+                        "createdAt": "2026-07-23T10:00:00.000Z",
+                    }
+                ],
+                "weather": [
+                    {
+                        "city": "Moscow",
+                        "temperature": 22,
+                        "conditions": "Clear",
+                        "windSpeed": 3,
+                        "updatedAt": "2026-07-23T10:00:00.000Z",
+                        "source": "Open-Meteo",
+                    }
+                ],
+            },
+        )
+
+    client = make_client(handler)
+    try:
+        context = await client.get_assistant_context(42, "t-1")
+    finally:
+        await client.close()
+
+    assert context.recent_changes[0].type == "route_changed"
+    assert context.recent_changes[0].created_at.isoformat().startswith(
+        "2026-07-23T10:00:00"
+    )
+    assert context.weather[0].temperature == 22
+    assert context.weather[0].source == "Open-Meteo"

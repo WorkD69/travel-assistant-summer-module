@@ -1,0 +1,30 @@
+title = "Travel Assistant B2 secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+targetRules = ["generic-api-key"]
+description = "Public Telegram username in the isolated B2 HTTP contract test."
+condition = "AND"
+regexTarget = "line"
+regexes = ['''travel_assistent10_bot''']
+paths = ['''(^|/)backend/scripts/http-harness\.js$''']
+
+[[allowlists]]
+targetRules = ["generic-api-key"]
+description = "IANA timezone names used by Windows compatibility tests."
+condition = "AND"
+regexTarget = "line"
+regexes = ['''ZoneInfo\("Europe/(Moscow|Istanbul|Berlin)"\)''']
+paths = ['''(^|/)telegram-bot/tests/test_windows_support\.py$''']
+
+[[allowlists]]
+targetRules = ["generic-api-key"]
+description = "Historical fixture contains only public source checksums."
+paths = ['''(^|/)backend/tests/fixtures/canonical-source-manifest\.json$''']
+
+[[allowlists]]
+targetRules = ["generic-api-key"]
+description = "Known historical false positive in a synthetic SOS test commit."
+commits = ["7ad3177d9d4b7ac4889e946ced425d3c14c90c53"]
