@@ -28,7 +28,13 @@
   }
 
   function load() {
-    return safeGet(sessionStorage) || safeGet(localStorage) || null;
+    var sessionToken = safeGet(sessionStorage);
+    var localToken = safeGet(localStorage);
+    if (sessionToken) {
+      if (localToken && localToken !== sessionToken) safeRemove(localStorage);
+      return sessionToken;
+    }
+    return localToken || null;
   }
 
   function save(token, remember) {
@@ -56,4 +62,3 @@
     clear: clear,
   };
 }(window));
-

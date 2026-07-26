@@ -50,6 +50,74 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/* AUTH v0.3: обратная связь по паролю */
+.account-password-feedback {
+  display: grid;
+  gap: 8px;
+  margin-top: -4px;
+}
+
+.account-password-strength {
+  display: grid;
+  gap: 6px;
+}
+
+.account-password-strength-track {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
+.account-password-strength-track::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 8%;
+  border-radius: 999px;
+  background: #94a3b8;
+  transition: width 160ms ease, background-color 160ms ease;
+}
+
+[data-strength-level="weak"] .account-password-strength-track::after {
+  width: 33%;
+  background: #dc2626;
+}
+
+[data-strength-level="medium"] .account-password-strength-track::after {
+  width: 66%;
+  background: #d97706;
+}
+
+[data-strength-level="strong"] .account-password-strength-track::after {
+  width: 100%;
+  background: #16a34a;
+}
+
+.account-password-strength-label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #475569;
+}
+
+.account-password-feedback .account-list li[data-ok="true"] {
+  color: #15803d;
+}
+
+.account-password-feedback .account-list li[data-ok="false"] {
+  color: #64748b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-password-strength-track::after {
+    transition: none;
+  }
+}
+
 body.account-page {
   margin: 0;
 }

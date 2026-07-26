@@ -9,6 +9,10 @@
 </head>
 <body class="account-preview-surface account-page" data-app-environment="development">
   <main id="account-preview-root" class="account-preview-shell" data-od-id="account-pages-preview"></main>
+  <script
+    src="../assets/js/password-policy.js"
+    onload="document.documentElement.dataset.passwordPolicyLoaded = String(Boolean(window.TravelPasswordPolicy))"
+  ></script>
   <script src="account-state-adapter.js"></script>
   <script>
     window.AccountRoutesConfig = {

@@ -86,28 +86,63 @@
     }
   }
 
-  function passwordChecks(password) {
-    const value = String(password || "");
-    const hasLetters = /[A-Za-zА-Яа-яЁё]/.test(value);
-    const hasNumber = /\d/.test(value);
+  // Единый источник правил — browser-зеркало обязательной backend-политики.
+  function policy() {
+    return window.TravelPasswordPolicy || null;
+  }
+
+  function evaluatePassword(password, identity) {
+    const api = policy();
+    if (api) return api.evaluatePassword(password, identity);
     return {
-      length: value.length >= 8,
-      letters: hasLetters,
-      number: hasNumber,
-      complex: value.length >= 8 && hasLetters && hasNumber,
-      valid: value.length >= 8 && hasLetters && hasNumber
+      ok: false,
+      errors: [{
+        field: "password",
+        code: "policy_unavailable",
+        message: "Не удалось загрузить проверку пароля. Обновите страницу"
+      }],
+      checks: { length: false, notCommon: false, notSimilar: false },
+      score: 0,
+      level: "unavailable",
+      label: "Проверка недоступна"
     };
   }
 
-  function passwordRulesHtml(value) {
-    const checks = passwordChecks(value);
+  function passwordChecks(password, identity) {
+    const result = evaluatePassword(password, identity);
+    return {
+      length: result.checks.length,
+      notCommon: result.checks.notCommon,
+      notSimilar: result.checks.notSimilar,
+      level: result.level,
+      label: result.label,
+      valid: result.ok,
+      errors: result.errors
+    };
+  }
+
+  function passwordRulesHtml(value, options) {
+    const opts = options || {};
+    const checks = passwordChecks(value, opts.identity);
+    const typed = String(value || "").length > 0;
+    const confirm = opts.confirm;
+    const matchKnown = typed && confirm !== undefined;
+    const matches = matchKnown && String(confirm) === String(value);
+    const available = checks.level !== "unavailable";
     return `
-      <ul class="account-list" data-password-rules>
-        <li data-ok="${checks.length}">Не менее 8 символов</li>
-        <li data-ok="${checks.letters}">Есть буквы</li>
-        <li data-ok="${checks.number}">Есть цифра</li>
-        <li data-ok="${checks.complex}">Пароль не выглядит слишком простым</li>
-      </ul>
+      <div class="account-password-feedback" data-password-rules data-policy-available="${available}">
+        <div class="account-password-strength" data-strength-level="${typed && available ? checks.level : "none"}">
+          <div class="account-password-strength-track" aria-hidden="true"><span></span></div>
+          <p class="account-password-strength-label" role="status" aria-live="polite" data-password-strength>
+            Надёжность: ${typed && available ? esc(checks.label) : available ? "пока не оценена" : "проверка недоступна"}
+          </p>
+        </div>
+        <ul class="account-list" aria-live="polite">
+          <li data-ok="${available && checks.length}">Не менее 8 символов</li>
+          <li data-ok="${available && typed && checks.notCommon}">Пароль не является слишком распространённым</li>
+          ${opts.withMatch === false ? "" : `<li data-ok="${available && matches}">Пароли совпадают</li>`}
+        </ul>
+      </div>
     `;
   }
 
@@ -273,9 +308,10 @@
         </div>
         ${passwordField("login-password", "Пароль", "current-password")}
         <div class="account-row account-auth-links-row">
-          <label class="account-check"><input id="login-remember" name="remember" type="checkbox" /> Запомнить меня</label>
-          <button class="account-link account-link-button" type="button" data-route="recovery">Забыли пароль?</button>
+          <label class="account-check"><input id="login-remember" name="remember" type="checkbox" aria-describedby="login-remember-hint" /> Оставаться в системе</label>
+          <span class="account-meta" data-recovery-unavailable aria-disabled="true">Восстановление пароля пока недоступно</span>
         </div>
+        <p class="account-meta" id="login-remember-hint">Сохраняется только сессия входа, пароль не сохраняется никогда.</p>
         <button class="account-button account-button-primary account-button-block" type="submit" data-loading-label="Загрузка">Войти</button>
         <p class="account-help">Нет аккаунта? <button class="account-link account-link-button" type="button" data-route="register">Зарегистрироваться</button></p>
         <p class="account-meta">Продолжая, Вы принимаете пользовательское соглашение и политику конфиденциальности.</p>
@@ -306,20 +342,16 @@
         </div>
         ${field("register-email", "Email", "email", "email", values.email || "", "name@example.com")}
         <div class="account-grid-2">
-          ${passwordField("register-password", "Пароль", "new-password")}
-          ${passwordField("register-password-confirm", "Подтверждение пароля", "new-password")}
+          ${passwordField("register-password", "Пароль", "new-password", { describedBy: "register-password-rules" })}
+          ${passwordField("register-password-confirm", "Повторите пароль", "new-password")}
         </div>
-        ${passwordRulesHtml(ctx.registerPassword || "")}
-        <div class="account-consents" data-od-id="register-consents">
-          <div class="account-consent-item">
-            <label class="account-check"><input id="register-terms" type="checkbox" /> <span>Принимаю условия сервиса</span></label>
-            <span class="account-error" id="register-terms-error" data-error-for="register-terms" aria-live="polite"></span>
-          </div>
-          <div class="account-consent-item">
-            <label class="account-check"><input id="register-data" type="checkbox" /> <span>Согласен на обработку данных аккаунта</span></label>
-            <span class="account-error" id="register-data-error" data-error-for="register-data" aria-live="polite"></span>
-          </div>
+        <div id="register-password-rules">
+          ${passwordRulesHtml(ctx.registerPassword || "", {
+            confirm: ctx.registerPasswordConfirm,
+            identity: { email: values.email || "", name: [values.firstName, values.lastName].filter(Boolean).join(" ") }
+          })}
         </div>
+        <p class="account-meta" data-od-id="register-private-notice">Приватная тестовая версия. Пока не загружайте чувствительные документы.</p>
         <button class="account-button account-button-primary account-button-block" type="submit" data-loading-label="Загрузка">Создать аккаунт</button>
         <p class="account-help">Уже есть аккаунт? <button class="account-link account-link-button" type="button" data-route="login">Войти</button></p>
       </form>
@@ -344,20 +376,34 @@
     `;
   }
 
-  function passwordField(id, label, autocomplete) {
+  function passwordField(id, label, autocomplete, options) {
+    const opts = options || {};
+    const describedBy = opts.describedBy ? ` aria-describedby="${opts.describedBy}"` : "";
     return `
       <div class="account-field">
         <label for="${id}">${label}</label>
         <div class="account-password-shell">
-          <input class="account-input" id="${id}" type="password" autocomplete="${autocomplete}" aria-invalid="false" />
-          <button class="account-button account-button-ghost account-password-toggle" type="button" data-toggle-password="${id}" aria-label="Показать пароль">Показать</button>
+          <input class="account-input" id="${id}" name="${id}" type="password" autocomplete="${autocomplete}" maxlength="128" spellcheck="false" aria-invalid="false"${describedBy} />
+          <button class="account-button account-button-ghost account-password-toggle" type="button" data-toggle-password="${id}" aria-controls="${id}" aria-pressed="false" aria-label="Показать пароль">Показать</button>
         </div>
         <span class="account-error" id="${id}-error" data-error-for="${id}" aria-live="polite"></span>
       </div>
     `;
   }
 
-  function recoveryTemplate(ctx) {
+  // Настоящего email-flow восстановления пока нет: не имитируем отправку.
+  function recoveryTemplate() {
+    return authLayout("Восстановление пароля", `
+      <div class="account-state" data-od-id="recovery-unavailable">
+        <span class="account-status">Недоступно</span>
+        <h1>Восстановление пароля пока недоступно</h1>
+        <p>Отправка писем ещё не подключена, поэтому сценарий отключён, чтобы не создавать ложного впечатления работающей функции.</p>
+        <button class="account-button account-button-primary" type="button" data-route="login">Вернуться ко входу</button>
+      </div>
+    `);
+  }
+
+  function legacyRecoveryTemplate(ctx) {
     const params = new URLSearchParams(window.location.search);
     const token = ctx.recoveryToken || params.get("token") || "";
     const invalidDirectReset = ctx.recoveryStep === 3 && token && !ctx.adapter.validateRecoveryToken(token).ok;
@@ -1021,7 +1067,10 @@
       const input = qs(ctx.root, `#${toggle.dataset.togglePassword}`);
       if (input) {
         input.type = input.type === "password" ? "text" : "password";
-        toggle.textContent = input.type === "password" ? "Показать" : "Скрыть";
+        const shown = input.type === "text";
+        toggle.textContent = shown ? "Скрыть" : "Показать";
+        toggle.setAttribute("aria-pressed", shown ? "true" : "false");
+        toggle.setAttribute("aria-label", shown ? "Скрыть пароль" : "Показать пароль");
       }
       return;
     }
@@ -1198,8 +1247,84 @@
     }[code] || "Действие недоступно";
   }
 
+  function setFormBusy(ctx, formId, busy) {
+    const form = qs(ctx.root, `#${formId}`);
+    if (!form) return;
+    const submit = form.querySelector("button[type='submit']");
+    form.setAttribute("aria-busy", busy ? "true" : "false");
+    if (!submit) return;
+    if (busy) {
+      if (!submit.dataset.idleLabel) submit.dataset.idleLabel = submit.textContent;
+      submit.disabled = true;
+      submit.setAttribute("aria-disabled", "true");
+      submit.textContent = submit.dataset.loadingLabel || "Загрузка";
+    } else {
+      submit.disabled = false;
+      submit.setAttribute("aria-disabled", "false");
+      if (submit.dataset.idleLabel) submit.textContent = submit.dataset.idleLabel;
+    }
+  }
+
+  function punctuate(message) {
+    const value = String(message || "").trim();
+    if (!value || /[.!?…]$/.test(value)) return value;
+    return `${value}.`;
+  }
+
+  function registrationFieldId(field) {
+    if (field === "email") return "register-email";
+    if (field === "name") return "register-first-name";
+    if (field === "password") return "register-password";
+    return "";
+  }
+
+  function applyRegistrationBackendErrors(ctx, error) {
+    const payload = error && error.data && typeof error.data === "object"
+      ? error.data
+      : {};
+    const details = Array.isArray(payload.errors) ? payload.errors : [];
+    const fieldTargets = [];
+    const generalMessages = [];
+
+    details.forEach((item) => {
+      if (!item || !item.message) return;
+      const inputId = registrationFieldId(item.field);
+      if (inputId) {
+        fieldTargets.push(setFieldError(ctx.root, inputId, punctuate(item.message)));
+      } else {
+        generalMessages.push(punctuate(item.message));
+      }
+    });
+
+    if (fieldTargets.filter(Boolean).length) {
+      focusFirst(fieldTargets);
+    }
+    if (generalMessages.length) {
+      toast(ctx, generalMessages.join(" "), "error");
+    }
+    if (details.length) return true;
+
+    const legacyMessage = punctuate(payload.error);
+    if (error && error.status === 409) {
+      focusFirst([
+        setFieldError(
+          ctx.root,
+          "register-email",
+          legacyMessage || "Email уже занят."
+        )
+      ]);
+      return true;
+    }
+    toast(ctx, legacyMessage || "Не удалось создать аккаунт.", "error");
+    return true;
+  }
+
   function handleSubmit(event, ctx) {
     const form = event.target;
+    if (ctx.authPending && (form.id === "login-form" || form.id === "register-form")) {
+      event.preventDefault();
+      return;
+    }
     if (form.id === "login-form") handleLoginSubmit(event, ctx);
     if (form.id === "register-form") handleRegisterSubmit(event, ctx);
     if (form.id === "recovery-form") handleRecoverySubmit(event, ctx);
@@ -1242,8 +1367,11 @@
       focusFirst([setFieldError(ctx.root, "login-password", "Ошибка системы. Попробуйте позже.")]);
       return;
     }
+    // Галочка управляет только хранилищем сессии, пароль не сохраняется.
     const remember = qs(ctx.root, "#login-remember").checked;
     let result;
+    ctx.authPending = true;
+    setFormBusy(ctx, "login-form", true);
     try {
       if (!window.TravelApi) throw new Error("API unavailable");
       const data = await window.TravelApi.login(email, password, remember);
@@ -1253,6 +1381,9 @@
         ok: false,
         code: error && error.status === 404 ? "not_found" : "invalid_credentials"
       };
+    } finally {
+      ctx.authPending = false;
+      setFormBusy(ctx, "login-form", false);
     }
     if (!result.ok) {
       const message = result.code === "not_found" || ctx.loginScenario === "notfound" ? "Аккаунт не найден." : "Неверный email или пароль.";
@@ -1273,14 +1404,38 @@
     const confirm = qs(ctx.root, "#register-password-confirm").value;
     ctx.registerValues = { firstName, lastName, email };
     ctx.registerPassword = password;
+    ctx.registerPasswordConfirm = confirm;
+    const policyApi = policy();
+    const normalizedEmail = policyApi
+      ? policyApi.normalizeEmail(email)
+      : { ok: emailPattern.test(email), value: email.toLowerCase(), error: null };
+    const passwordResult = evaluatePassword(password, {
+      email: normalizedEmail.value || email,
+      name: [firstName, lastName].filter(Boolean).join(" ")
+    });
     const errors = [];
     if (!firstName) errors.push(setFieldError(ctx.root, "register-first-name", "Введите имя."));
     if (!lastName) errors.push(setFieldError(ctx.root, "register-last-name", "Введите фамилию."));
-    if (!emailPattern.test(email)) errors.push(setFieldError(ctx.root, "register-email", "Введите корректный email."));
-    if (!passwordChecks(password).valid) errors.push(setFieldError(ctx.root, "register-password", "Пароль не соответствует требованиям."));
+    if (!normalizedEmail.ok) {
+      errors.push(setFieldError(
+        ctx.root,
+        "register-email",
+        normalizedEmail.error
+          ? punctuate(normalizedEmail.error.message)
+          : "Введите корректный email."
+      ));
+    }
+    if (!passwordResult.ok) {
+      errors.push(setFieldError(
+        ctx.root,
+        "register-password",
+        passwordResult.errors[0].code === "policy_unavailable"
+          ? passwordResult.errors[0].message
+          : punctuate(passwordResult.errors[0].message)
+      ));
+    }
     if (password !== confirm) errors.push(setFieldError(ctx.root, "register-password-confirm", "Пароли не совпадают."));
-    if (!qs(ctx.root, "#register-terms").checked) errors.push(setFieldError(ctx.root, "register-terms", "Нужно принять условия."));
-    if (!qs(ctx.root, "#register-data").checked) errors.push(setFieldError(ctx.root, "register-data", "Нужно подтвердить обработку данных."));
+    refreshRegisterRules(ctx);
     if (errors.filter(Boolean).length) {
       focusFirst(errors);
       return;
@@ -1290,6 +1445,9 @@
       return;
     }
     let result;
+    let backendError = null;
+    ctx.authPending = true;
+    setFormBusy(ctx, "register-form", true);
     try {
       if (ctx.registerScenario === "emailTaken") {
         result = { ok: false, code: "email_taken" };
@@ -1297,19 +1455,29 @@
         if (!window.TravelApi) throw new Error("API unavailable");
         const data = await window.TravelApi.register({
           name: [firstName, lastName].filter(Boolean).join(" "),
-          email: email,
+          email: normalizedEmail.value || email,
           password: password
         });
         result = ctx.adapter.adoptBackendUser(data && data.user, false);
       }
     } catch (error) {
+      backendError = error;
       result = {
         ok: false,
         code: error && error.status === 409 ? "email_taken" : "backend_error"
       };
+    } finally {
+      ctx.authPending = false;
+      setFormBusy(ctx, "register-form", false);
     }
     if (!result.ok) {
-      focusFirst([setFieldError(ctx.root, result.code === "email_taken" ? "register-email" : "register-password", result.code === "email_taken" ? "Email уже занят." : "Не удалось создать аккаунт.")]);
+      if (backendError) {
+        applyRegistrationBackendErrors(ctx, backendError);
+      } else if (result.code === "email_taken") {
+        focusFirst([setFieldError(ctx.root, "register-email", "Email уже занят.")]);
+      } else {
+        toast(ctx, "Не удалось создать аккаунт.", "error");
+      }
       return;
     }
     ctx.registerSuccess = true;
@@ -1459,15 +1627,35 @@
     }
   }
 
+  function refreshRegisterRules(ctx) {
+    const rules = qs(ctx.root, "[data-password-rules]");
+    if (!rules) return;
+    const emailInput = qs(ctx.root, "#register-email");
+    const firstInput = qs(ctx.root, "#register-first-name");
+    const lastInput = qs(ctx.root, "#register-last-name");
+    rules.outerHTML = passwordRulesHtml(ctx.registerPassword || "", {
+      confirm: ctx.registerPasswordConfirm || "",
+      identity: {
+        email: emailInput ? emailInput.value : "",
+        name: [firstInput && firstInput.value, lastInput && lastInput.value]
+          .filter(Boolean)
+          .join(" ")
+      }
+    });
+  }
+
   function handleInput(event, ctx) {
-    if (event.target.id === "register-password") {
-      ctx.registerPassword = event.target.value;
-      const rules = qs(ctx.root, "[data-password-rules]");
-      if (rules) rules.outerHTML = passwordRulesHtml(event.target.value);
+    if (event.target.id === "register-password" || event.target.id === "register-password-confirm") {
+      if (event.target.id === "register-password") {
+        ctx.registerPassword = event.target.value;
+      } else {
+        ctx.registerPasswordConfirm = event.target.value;
+      }
+      refreshRegisterRules(ctx);
     }
     if (event.target.id === "recovery-new-password" || event.target.id === "profile-new-password") {
       const rules = qs(ctx.root, "[data-password-rules]");
-      if (rules) rules.outerHTML = passwordRulesHtml(event.target.value);
+      if (rules) rules.outerHTML = passwordRulesHtml(event.target.value, { withMatch: false });
     }
     if (event.target.id === "profile-avatar-file") {
       handleAvatarFile(event, ctx);

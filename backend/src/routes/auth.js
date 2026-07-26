@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const prisma = require('../db');
 const config = require('../config');
 const { requireAuth, signToken } = require('../middleware/auth');
+const passwordPolicy = require('../services/passwordPolicy');
 
 const router = express.Router();
 
@@ -32,15 +33,53 @@ function initialsFrom(name) {
   return String(name || '').trim().charAt(0).toUpperCase();
 }
 
+// Backend всегда повторяет проверку браузера и не доверяет клиентской валидации.
+function validateRegistration(body) {
+  const source = body || {};
+  const errors = [];
+  const emailResult = passwordPolicy.normalizeEmail(source.email);
+  if (!emailResult.ok) errors.push(emailResult.error);
+  const nameResult = passwordPolicy.normalizeName(source.name);
+  if (!nameResult.ok) errors.push(nameResult.error);
+  const rawPassword =
+    source.password == null ? '' : String(source.password);
+  if (!rawPassword) {
+    errors.push({
+      field: 'password',
+      code: 'required',
+      message: 'Укажите пароль',
+    });
+  } else {
+    const passwordResult = passwordPolicy.evaluatePassword(rawPassword, {
+      email: emailResult.value,
+      name: nameResult.value,
+    });
+    if (!passwordResult.ok) errors.push(...passwordResult.errors);
+  }
+  return {
+    errors,
+    email: emailResult.value,
+    name: nameResult.value,
+    password: rawPassword,
+  };
+}
+
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name } = req.body || {};
-    if (!email || !password || !name) return res.status(400).json({ error: 'Укажите имя, e-mail и пароль' });
-    const exists = await prisma.user.findUnique({ where: { email: String(email).toLowerCase() } });
+    const validation = validateRegistration(req.body);
+    if (validation.errors.length) {
+      return res.status(400).json({
+        error: validation.errors[0].message,
+        errors: validation.errors,
+      });
+    }
+    const email = validation.email;
+    const name = validation.name;
+    const exists = await prisma.user.findUnique({ where: { email } });
     if (exists) return res.status(409).json({ error: 'Пользователь с таким e-mail уже существует' });
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(validation.password, 10);
     const user = await prisma.user.create({
-      data: { email: String(email).toLowerCase(), passwordHash, name, initials: initialsFrom(name) },
+      data: { email, passwordHash, name, initials: initialsFrom(name) },
     });
     const token = signToken(user, false);
     setAuthCookie(res, token, false);
@@ -53,9 +92,12 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    const { email, password, remember } = req.body || {};
-    if (!email || !password) return res.status(400).json({ error: 'Укажите e-mail и пароль' });
-    const user = await prisma.user.findUnique({ where: { email: String(email).toLowerCase() } });
+    const body = req.body || {};
+    const emailResult = passwordPolicy.normalizeEmail(body.email);
+    const password = body.password == null ? '' : String(body.password);
+    const remember = body.remember;
+    if (!emailResult.ok || !password) return res.status(400).json({ error: 'Укажите e-mail и пароль' });
+    const user = await prisma.user.findUnique({ where: { email: emailResult.value } });
     if (!user) return res.status(401).json({ error: 'Неверный e-mail или пароль' });
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'Неверный e-mail или пароль' });
