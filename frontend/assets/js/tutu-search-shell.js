@@ -29,9 +29,9 @@
       <section class="tutu-native-hero" aria-labelledby="tutu-native-heading">
         <div class="tutu-native-container">
           <div class="tutu-promo" aria-label="Специальное предложение">
-            <span class="tutu-promo-plane" aria-hidden="true">✈</span>
+            <span class="tutu-promo-plane" aria-hidden="true"><svg viewBox="0 0 48 28"><path d="M4 18 21 14 14 5l5-2 11 8 9-2c3-1 5 0 6 2s-1 4-4 5l-9 2-5 12-5 1 2-11-17 4-3-6Z"/></svg></span>
             <strong>Выгодные авиабилеты</strong>
-            <span>Кешбэк до 7% на летние направления</span>
+            <span class="tutu-promo-ticket" aria-hidden="true">%</span>
           </div>
 
           <h1 id="tutu-native-heading">Путешествуйте выгодно</h1>
@@ -86,14 +86,16 @@
             <span class="tutu-destination-hints"><button type="button" data-tutu-fill="destination" data-value="Санкт-Петербург">Санкт-Петербург</button><button type="button" data-tutu-fill="destination" data-value="Москва">Москва</button></span>
             <span class="tutu-date-hints"><button type="button" data-tutu-fill="outbound" data-value="Сегодня">Сегодня</button><button type="button" data-tutu-fill="outbound" data-value="Завтра">Завтра</button></span>
             <span class="tutu-return-hints"><button type="button" data-tutu-fill="return" data-value="Завтра">Завтра</button><button type="button" data-tutu-fill="return" data-value="Послезавтра">Послезавтра</button></span>
+            <label class="tutu-hotel-toggle"><span>Искать отели в новой вкладке</span><input type="checkbox" /><i aria-hidden="true"></i></label>
           </div>
         </div>
       </section>
       <section class="tutu-native-deal" aria-label="Предложение дня">
         <div class="tutu-native-deal-inner">
-          <div><h2>Турбоскидки до 35% каждый день</h2><p>Подберите выгодное путешествие в знакомом интерфейсе.</p><button type="button">Получить скидку</button></div>
-          <div class="tutu-native-deal-art" aria-hidden="true"><span>35%</span><b>ТУРБО<br />СКИДКИ</b></div>
+          <div><h2>Уронили цены на авиабилеты</h2><p>Ищите выгодные перелёты в Анталью, Батуми, Сухум и другие города</p><button type="button">Найти билеты</button></div>
+          <div class="tutu-native-deal-art" aria-hidden="true"><span>МОЩНАЯ</span><b>РАСПРОДАЖА<br />БИЛЕТОВ НА МОРЕ</b></div>
         </div>
+        <div class="tutu-native-deal-proof"><h2>Это выгодно!</h2><p>Цены ниже средних за последние 10 дней.</p></div>
       </section>`;
   }
 

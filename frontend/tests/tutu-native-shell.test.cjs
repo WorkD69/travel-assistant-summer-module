@@ -121,10 +121,21 @@ test('all transport artwork is local SVG with stable viewBox geometry', () => {
     const svg = read(relativePath);
 
     assert.match(svg, /<svg\b/);
-    assert.match(svg, /viewBox="0 0 24 24"|viewBox="0 0 120 48"/);
+    assert.match(svg, /viewBox="0 0 24 24"|viewBox="0 0 128 48"/);
     assert.doesNotMatch(svg, /(?:href|src)="https?:\/\//);
     assert.doesNotMatch(svg, /<script\b/i);
   }
+});
+
+test('header uses the exact two-tone official inline Tutu logo geometry', () => {
+  const logo = read('assets/icons/tutu-native/logo.svg');
+
+  assert.match(logo, /viewBox="0 0 128 48"/);
+  assert.equal((logo.match(/<path\b/g) || []).length, 2);
+  assert.match(logo, /fill="#eff0ff"/i);
+  assert.match(logo, /fill="#6f5df6"/i);
+  assert.match(logo, /M11\.54 40\.752c2\.112 1\.152 4\.48 1\.728/);
+  assert.match(logo, /M72\.47 40\.992c1\.855\.992 3\.951 1\.488/);
 });
 
 test('search shell exposes the required accessible controls and one submit path', () => {
@@ -208,6 +219,17 @@ test('search shell defines all eight modes without captured icon fonts', () => {
   assert.doesNotMatch(source, /TutuMIcons|TutuSIcons|\.eot\b/);
 });
 
+test('desktop shell exposes live quick suggestions and a local hotel toggle', () => {
+  const source = read('assets/js/tutu-search-shell.js');
+
+  assert.match(source, /class="tutu-destination-hints"/);
+  assert.match(source, /Искать отели в новой вкладке/);
+  assert.match(source, /class="tutu-hotel-toggle"/);
+  assert.match(source, /type="checkbox"/);
+  assert.match(source, /class="tutu-native-deal-proof"/);
+  assert.match(source, /Это выгодно!/);
+});
+
 test('transport selector uses radio semantics for its single active mode', () => {
   const source = read('assets/js/tutu-search-shell.js');
 
@@ -262,4 +284,36 @@ test('tablet search columns may shrink before the mobile breakpoint', () => {
   assert.match(css, /grid-template-columns:\s*minmax\(0,\s*2\.35fr\)\s+minmax\(0,\s*1\.95fr\)\s+minmax\(120px,\s*\.8fr\)\s+174px/);
   assert.match(css, /@media\s*\(max-width:\s*820px\)/);
   assert.match(css, /\.tutu-mode\[data-tutu-mode="jarvel"\] \.tutu-mode-badge\s*\{[^}]*right:\s*0;[^}]*left:\s*auto;/s);
+});
+
+test('desktop route geometry reserves an independent live-size swap column', () => {
+  const css = read('assets/css/tutu-native-shell.css');
+
+  assert.match(css, /\.tutu-search-form\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*468fr\)\s+minmax\(0,\s*393fr\)\s+minmax\(0,\s*153fr\)\s+187px/s);
+  assert.match(css, /\.tutu-route-group\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+56px\s+minmax\(0,\s*1fr\)/s);
+  assert.match(css, /\.tutu-swap\s*\{[^}]*position:\s*relative;[^}]*width:\s*56px;[^}]*height:\s*56px/s);
+  assert.doesNotMatch(css, /\.tutu-search-hints > span:nth-child\(2\)\s*\{\s*display:\s*none;/s);
+});
+
+test('desktop vertical rhythm centers empty labels and keeps the first deal within the live fold', () => {
+  const css = read('assets/css/tutu-native-shell.css');
+
+  assert.match(css, /\.app-header\.tutu-app-header\s*\{[^}]*height:\s*62px/s);
+  assert.match(css, /\.tutu-native-container\s*\{[^}]*min-height:\s*443px;[^}]*padding:\s*23px 0 36px/s);
+  assert.match(css, /\.tutu-search-form\s*\{[^}]*margin-top:\s*16px/s);
+  assert.match(css, /\.tutu-search-field > span\s*\{[^}]*position:\s*absolute;[^}]*top:\s*50%;[^}]*left:\s*16px;[^}]*transform:\s*translateY\(-50%\)/s);
+  assert.match(css, /\.tutu-native-deal-inner\s*\{[^}]*height:\s*158px/s);
+  assert.match(css, /\.tutu-native-deal button\s*\{[^}]*min-height:\s*32px/s);
+  assert.match(css, /\.tutu-native-deal h2\s*\{[^}]*line-height:\s*1\.2/s);
+  assert.match(css, /\.tutu-native-deal p\s*\{[^}]*line-height:\s*1\.2/s);
+});
+
+test('mobile lower section overlaps the hero with the live card height and swap offset', () => {
+  const css = read('assets/css/tutu-native-shell.css');
+  const mobile = css.slice(css.indexOf('@media (max-width: 640px)'));
+
+  assert.match(mobile, /\.tutu-swap\s*\{[^}]*right:\s*20px;[^}]*width:\s*42px;/s);
+  assert.match(mobile, /\.tutu-swap svg\s*\{[^}]*transform:\s*rotate\(90deg\)/s);
+  assert.match(mobile, /\.tutu-native-deal\s*\{[^}]*margin-top:\s*-24px;/s);
+  assert.match(mobile, /\.tutu-native-deal-inner\s*\{[^}]*height:\s*119px;/s);
 });

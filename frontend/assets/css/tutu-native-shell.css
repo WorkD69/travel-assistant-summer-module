@@ -27,7 +27,7 @@
   position: relative;
   top: auto;
   width: min(100%, calc(var(--tutu-container) + 64px));
-  height: 64px;
+  height: 62px;
   margin: 0 auto;
   padding: 0 32px;
   gap: 24px;
@@ -44,8 +44,8 @@
 
 .tutu-native-surface #app-shell-header .tutu-brand-logo {
   display: block;
-  width: 120px;
-  height: 48px;
+  width: 127px;
+  height: 46px;
   object-fit: contain;
 }
 
@@ -142,9 +142,9 @@
 
 .tutu-native-surface .tutu-native-container {
   width: min(calc(100% - 64px), var(--tutu-container));
-  min-height: 447px;
+  min-height: 443px;
   margin: 0 auto;
-  padding: 21px 0 36px;
+  padding: 23px 0 36px;
   box-sizing: border-box;
 }
 
@@ -170,8 +170,36 @@
 }
 
 .tutu-native-surface .tutu-promo-plane {
-  font-size: 25px;
-  transform: rotate(-8deg);
+  display: grid;
+  place-items: center;
+  width: 70px;
+  height: 32px;
+  margin-left: -24px;
+  transform: rotate(-6deg);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, .35), transparent 65%);
+}
+
+.tutu-native-surface .tutu-promo-plane svg {
+  width: 54px;
+  height: 30px;
+  fill: #f7f7ff;
+  filter: drop-shadow(0 2px 1px rgba(41, 26, 127, .25));
+}
+
+.tutu-native-surface .tutu-promo-ticket {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 28px;
+  margin-left: 3px;
+  transform: rotate(-6deg);
+  border: 2px solid rgba(255, 255, 255, .7);
+  border-radius: 4px;
+  background: linear-gradient(135deg, #f9a63b, #ffcc48);
+  color: #fff;
+  font-size: 19px;
+  font-weight: 800;
 }
 
 .tutu-native-surface .tutu-native-container > h1 {
@@ -302,10 +330,10 @@
 .tutu-native-surface .tutu-search-form {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(360px, 2.35fr) minmax(320px, 1.95fr) minmax(145px, .8fr) 186px;
+  grid-template-columns: minmax(0, 468fr) minmax(0, 393fr) minmax(0, 153fr) 187px;
   width: 100%;
   height: var(--tutu-search-height);
-  margin-top: 14px;
+  margin-top: 16px;
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 1px 0 rgba(0, 0, 0, .05);
@@ -319,7 +347,7 @@
 }
 
 .tutu-native-surface .tutu-route-group {
-  grid-template-columns: 1.08fr .92fr;
+  grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
 }
 
 .tutu-native-surface .tutu-date-group {
@@ -350,15 +378,23 @@
 }
 
 .tutu-native-surface .tutu-search-field > span {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  transform: translateY(-50%);
   color: #858899;
   font-size: 16px;
-  line-height: 1.1;
-  transition: transform .15s ease, font-size .15s ease;
+  line-height: 20px;
+  pointer-events: none;
+  transition: top .15s ease, transform .15s ease, font-size .15s ease;
 }
 
 .tutu-native-surface .tutu-search-field:focus-within > span,
 .tutu-native-surface .tutu-search-field:has(input:not(:placeholder-shown)) > span {
+  top: 8px;
+  transform: none;
   font-size: 11px;
+  line-height: 13px;
 }
 
 .tutu-native-surface .tutu-search-field:focus-within {
@@ -369,8 +405,9 @@
 .tutu-native-surface .tutu-search-field input {
   width: 100%;
   min-width: 0;
-  height: 23px;
-  padding: 0;
+  height: 56px;
+  padding: 18px 0 0;
+  box-sizing: border-box;
   border: 0;
   outline: 0;
   background: transparent;
@@ -378,6 +415,7 @@
   font: inherit;
   font-size: 15px;
   font-weight: 600;
+  line-height: 20px;
 }
 
 .tutu-native-surface .tutu-field-passengers > span {
@@ -385,18 +423,18 @@
 }
 
 .tutu-native-surface .tutu-swap {
-  position: absolute;
-  top: 9px;
-  left: 54%;
+  position: relative;
+  top: 0;
+  left: 0;
   z-index: 3;
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 56px;
+  height: 56px;
   padding: 0;
-  transform: translateX(-50%);
+  transform: none;
   border: 0;
-  border-radius: 9px;
+  border-radius: 0;
   background: #fff;
   color: #8b8f9d;
   cursor: pointer;
@@ -451,7 +489,7 @@
 
 .tutu-native-surface .tutu-search-hints {
   display: grid;
-  grid-template-columns: minmax(360px, 2.35fr) minmax(320px, 1.95fr) minmax(145px, .8fr) 186px;
+  grid-template-columns: minmax(0, 206fr) 56px minmax(0, 206fr) minmax(0, 196.5fr) minmax(0, 196.5fr) minmax(0, 153fr) 187px;
   align-items: start;
   min-height: 29px;
   overflow: hidden;
@@ -465,12 +503,21 @@
   padding-top: 6px;
 }
 
-.tutu-native-surface .tutu-search-hints > span:nth-child(1) {
+.tutu-native-surface .tutu-origin-hints {
+  grid-column: 1;
   padding-left: 4px;
 }
 
-.tutu-native-surface .tutu-search-hints > span:nth-child(2) {
-  display: none;
+.tutu-native-surface .tutu-destination-hints {
+  grid-column: 3;
+}
+
+.tutu-native-surface .tutu-date-hints {
+  grid-column: 4;
+}
+
+.tutu-native-surface .tutu-return-hints {
+  grid-column: 5;
 }
 
 .tutu-native-surface .tutu-search-hints button {
@@ -489,6 +536,64 @@
   cursor: pointer;
 }
 
+.tutu-native-surface .tutu-hotel-toggle {
+  grid-column: 6 / 8;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  height: 29px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tutu-native-surface .tutu-hotel-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.tutu-native-surface .tutu-hotel-toggle i {
+  position: relative;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: #d9d9e3;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08);
+}
+
+.tutu-native-surface .tutu-hotel-toggle i::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .2);
+  transition: transform .16s ease;
+}
+
+.tutu-native-surface .tutu-hotel-toggle input:checked + i {
+  background: var(--tutu-violet);
+}
+
+.tutu-native-surface .tutu-hotel-toggle input:checked + i::after {
+  transform: translateX(16px);
+}
+
+.tutu-native-surface .tutu-hotel-toggle input:focus-visible + i {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
 .tutu-native-surface .tutu-native-deal {
   min-height: 230px;
   padding: 32px;
@@ -500,8 +605,9 @@
 
 .tutu-native-surface .tutu-native-deal-inner {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  width: min(100%, 1160px);
+  grid-template-columns: 51fr 49fr;
+  width: 100%;
+  height: 158px;
   min-height: 158px;
   margin: 0 auto;
   overflow: hidden;
@@ -510,21 +616,24 @@
 }
 
 .tutu-native-surface .tutu-native-deal-inner > div:first-child {
-  padding: 28px;
+  padding: 32px 28px 28px;
+  box-sizing: border-box;
 }
 
 .tutu-native-surface .tutu-native-deal h2 {
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   font-size: 24px;
+  line-height: 1.2;
 }
 
 .tutu-native-surface .tutu-native-deal p {
-  margin: 0 0 18px;
+  margin: 0 0 12px;
   color: #696d7f;
+  line-height: 1.2;
 }
 
 .tutu-native-surface .tutu-native-deal button {
-  min-height: 46px;
+  min-height: 32px;
   padding: 0 20px;
   border: 0;
   border-radius: 12px;
@@ -539,9 +648,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 28px;
+  flex-direction: column;
+  gap: 2px;
   overflow: hidden;
-  background: linear-gradient(135deg, #a46bff, #6e5df6 48%, #ff663d);
+  background: linear-gradient(135deg, #a56bff 0%, #7b68ff 45%, #27aee4 100%);
   color: #fff;
   transform: skewX(-10deg) scale(1.04);
 }
@@ -567,13 +677,22 @@
 }
 
 .tutu-native-surface .tutu-native-deal-art span {
-  font-size: 56px;
+  padding: 1px 10px 3px;
+  transform: skewX(4deg) rotate(-4deg);
+  background: #ff5038;
+  font-size: 34px;
   font-weight: 800;
+  line-height: .9;
 }
 
 .tutu-native-surface .tutu-native-deal-art b {
-  font-size: 30px;
-  line-height: .9;
+  font-size: 24px;
+  line-height: .86;
+  text-align: center;
+}
+
+.tutu-native-surface .tutu-native-deal-proof {
+  display: none;
 }
 
 .tutu-native-surface #home-root {
@@ -599,9 +718,20 @@
     display: none;
   }
 
-  .tutu-native-surface .tutu-search-form,
-  .tutu-native-surface .tutu-search-hints {
+  .tutu-native-surface .tutu-search-form {
     grid-template-columns: minmax(0, 2.35fr) minmax(0, 1.95fr) minmax(120px, .8fr) 174px;
+  }
+
+  .tutu-native-surface .tutu-search-hints {
+    grid-template-columns: minmax(0, 1.175fr) 48px minmax(0, 1.175fr) minmax(0, .975fr) minmax(0, .975fr) minmax(120px, .8fr) 174px;
+  }
+
+  .tutu-native-surface .tutu-route-group {
+    grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr);
+  }
+
+  .tutu-native-surface .tutu-swap {
+    width: 48px;
   }
 }
 
@@ -660,17 +790,29 @@
   .tutu-native-surface .tutu-promo {
     height: 32px;
     padding: 0 9px;
-    gap: 5px;
+    gap: 4px;
     border-radius: 8px;
     font-size: 8px;
   }
 
   .tutu-native-surface .tutu-promo strong {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .tutu-native-surface .tutu-promo-plane {
-    font-size: 18px;
+    width: 66px;
+    margin-left: -15px;
+  }
+
+  .tutu-native-surface .tutu-promo-plane svg {
+    width: 51px;
+  }
+
+  .tutu-native-surface .tutu-promo-ticket {
+    width: 42px;
+    height: 26px;
+    margin-left: 0;
+    font-size: 17px;
   }
 
   .tutu-native-surface .tutu-native-container > h1 {
@@ -794,13 +936,18 @@
   }
 
   .tutu-native-surface .tutu-swap {
+    position: absolute;
     top: 34px;
-    right: 18px;
+    right: 20px;
     left: auto;
-    width: 40px;
+    width: 42px;
     height: 40px;
     transform: none;
     border: 1px solid #dddde5;
+  }
+
+  .tutu-native-surface .tutu-swap svg {
+    transform: rotate(90deg);
   }
 
   .tutu-native-surface .tutu-search-submit {
@@ -820,12 +967,14 @@
 
   .tutu-native-surface .tutu-native-deal {
     min-height: 244px;
+    margin-top: -24px;
     padding: 15px 16px 28px;
     border-radius: 28px 28px 0 0;
   }
 
   .tutu-native-surface .tutu-native-deal-inner {
     grid-template-columns: 1.1fr .9fr;
+    height: 119px;
     min-height: 119px;
     border-radius: 16px;
   }
@@ -856,10 +1005,28 @@
   }
 
   .tutu-native-surface .tutu-native-deal-art span {
-    font-size: 31px;
+    padding: 1px 5px 2px;
+    font-size: 19px;
   }
 
   .tutu-native-surface .tutu-native-deal-art b {
+    font-size: 13px;
+  }
+
+  .tutu-native-surface .tutu-native-deal-proof {
+    display: block;
+    margin-top: 32px;
+  }
+
+  .tutu-native-surface .tutu-native-deal-proof h2 {
+    margin: 0 0 6px;
+    font-size: 23px;
+  }
+
+  .tutu-native-surface .tutu-native-deal-proof p {
+    display: block;
+    margin: 0;
+    color: #181c2d;
     font-size: 14px;
   }
 }
