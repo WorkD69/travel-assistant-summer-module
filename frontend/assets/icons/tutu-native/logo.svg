@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 48" role="img" aria-label="tutu">
+  <g fill="#fff">
+    <path d="M2 8h10V2h10v6h8v9h-8v12c0 5 2 7 6 7h3v9h-6c-9 0-13-5-13-15V17H2V8Z"/>
+    <path d="M34 8h10v21c0 5 2 8 7 8 5 0 7-3 7-8V8h10v37H58v-5c-3 4-7 6-12 6-8 0-12-6-12-16V8Z"/>
+    <path d="M70 8h8V2h10v6h8v9h-8v12c0 5 2 7 6 7h3v9h-6c-9 0-13-5-13-15V17h-8V8Z"/>
+    <path d="M98 8h10v21c0 5 1 8 5 8 3 0 5-2 5-6V8h10v22c0 11-6 16-15 16-10 0-15-6-15-16V8Z" transform="translate(-8)"/>
+  </g>
+</svg>
