@@ -16,7 +16,9 @@
 
   function isExplicitDemoPreview() {
     try {
-      return new URLSearchParams(window.location.search).get("preview") === "legacy-fixtures";
+      const environment = document.body && document.body.getAttribute("data-app-environment");
+      return environment !== "production" &&
+        new URLSearchParams(window.location.search).get("preview") === "legacy-fixtures";
     } catch (error) {
       return false;
     }

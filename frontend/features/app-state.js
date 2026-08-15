@@ -43,7 +43,8 @@
 
   function appReadPreviewMode() {
     try {
-      return new URLSearchParams(window.location.search).get('preview') === 'legacy-fixtures';
+      return appReadEnvironment() !== 'production' &&
+        new URLSearchParams(window.location.search).get('preview') === 'legacy-fixtures';
     } catch (error) {
       return false;
     }
