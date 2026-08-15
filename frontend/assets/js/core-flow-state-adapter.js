@@ -59,7 +59,9 @@
 
   function coreFlowIsExplicitDemoPreview() {
     try {
-      return new URLSearchParams(window.location.search).get("preview") === "legacy-fixtures";
+      const environment = document.body && document.body.getAttribute("data-app-environment");
+      return environment !== "production" &&
+        new URLSearchParams(window.location.search).get("preview") === "legacy-fixtures";
     } catch (error) {
       return false;
     }
@@ -118,11 +120,11 @@
     return {
       uiScenario: "normal",
       scenario: "normal",
-      accessState: "granted",
+      accessState: "revoked",
       networkState: "online",
       environment: "development",
-      role: "participant",
-      currentUser: { id: "", name: "", role: "participant", label: "" },
+      role: "",
+      currentUser: { id: "", name: "", role: "", label: "" },
       trip: { id: "", title: "", status: "" },
       participants: [],
       telegramConnected: false,

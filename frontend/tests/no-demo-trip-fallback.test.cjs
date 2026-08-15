@@ -8,10 +8,16 @@ function source(relativePath) {
   return fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
 }
 
-function loadAppState(search) {
+function loadAppState(search, environment) {
   const context = {
     URLSearchParams,
-    document: { body: { getAttribute() { return null; } } },
+    document: {
+      body: {
+        getAttribute(name) {
+          return name === 'data-app-environment' ? (environment || null) : null;
+        },
+      },
+    },
     window: { location: { search: search || '' }, console: { error() {} } },
   };
   vm.runInNewContext(source('features/app-state.js'), context);
@@ -58,6 +64,14 @@ test('normal browser boot does not seed the legacy demo catalog', () => {
   );
 });
 
+test('legacy fixture preview is disabled in production and remains available in development', () => {
+  const productionPreview = loadAppState('?preview=legacy-fixtures', 'production');
+  const developmentPreview = loadAppState('?preview=legacy-fixtures', 'development');
+
+  assert.equal(productionPreview.trip.id, '');
+  assert.equal(developmentPreview.trip.id, 'trip-turkey-2026');
+});
+
 test('Trip-scoped sync stops before authentication or backend calls when no Trip ID resolves', () => {
   const sourceCode = source('assets/js/coreflow-sync.js');
 
@@ -76,5 +90,6 @@ test('core-flow adapter keeps its legacy fixture state behind an explicit previe
 
   assert.match(coreFlowAdapter, /function\s+coreFlowIsExplicitDemoPreview\s*\(/);
   assert.match(coreFlowAdapter, /function\s+coreFlowProductionState\s*\(/);
+  assert.match(coreFlowAdapter, /function\s+coreFlowProductionState\s*\(\)\s*\{[\s\S]*?accessState:\s*"revoked"[\s\S]*?role:\s*""/);
   assert.match(coreFlowAdapter, /coreFlowIsExplicitDemoPreview\(\)\s*\?\s*coreFlowDefaultState\(\)\s*:\s*coreFlowProductionState\(\)/);
 });
