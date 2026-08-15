@@ -57,6 +57,14 @@
     return { type: "all-participants", participantIds: [], providerType: null };
   }
 
+  function coreFlowIsExplicitDemoPreview() {
+    try {
+      return new URLSearchParams(window.location.search).get("preview") === "legacy-fixtures";
+    } catch (error) {
+      return false;
+    }
+  }
+
   function coreFlowDefaultState() {
     return {
       uiScenario: "normal",
@@ -106,6 +114,38 @@
     };
   }
 
+  function coreFlowProductionState() {
+    return {
+      uiScenario: "normal",
+      scenario: "normal",
+      accessState: "granted",
+      networkState: "online",
+      environment: "development",
+      role: "participant",
+      currentUser: { id: "", name: "", role: "participant", label: "" },
+      trip: { id: "", title: "", status: "" },
+      participants: [],
+      telegramConnected: false,
+      lastUpdated: "",
+      sourceStatus: "",
+      selectedSignalId: "",
+      violationConfirmed: false,
+      planBVisible: false,
+      selectedPlanBId: "",
+      selectedMessageId: "",
+      mobileMessageMode: "list",
+      signals: [],
+      messages: [],
+      history: [],
+      segments: [],
+      planBOptions: []
+    };
+  }
+
+  function coreFlowInitialState() {
+    return coreFlowIsExplicitDemoPreview() ? coreFlowDefaultState() : coreFlowProductionState();
+  }
+
   window.coreFlowDemoDefaults = function coreFlowDemoDefaultsExport() {
     const coreFlowDemo = coreFlowDefaultState();
     coreFlowDemo.segments = coreFlowClone(coreFlowSegments);
@@ -118,7 +158,7 @@
     const coreFlowTravelState = window.TravelAppState || null;
     const coreFlowSubscribers = new Set();
     const coreFlowTimers = new Set();
-    let coreFlowState = coreFlowDefaultState();
+    let coreFlowState = coreFlowInitialState();
     let coreFlowSosHandler = null;
 
     function coreFlowSelectedSignal() {
@@ -126,11 +166,13 @@
     }
 
     function coreFlowActivePlanOptions() {
-      return Array.isArray(coreFlowState.planBOptions) && coreFlowState.planBOptions.length ? coreFlowState.planBOptions : coreFlowPlanBOptions;
+      if (Array.isArray(coreFlowState.planBOptions) && coreFlowState.planBOptions.length) return coreFlowState.planBOptions;
+      return coreFlowIsExplicitDemoPreview() ? coreFlowPlanBOptions : [];
     }
 
     function coreFlowActiveSegments() {
-      return Array.isArray(coreFlowState.segments) && coreFlowState.segments.length ? coreFlowState.segments : coreFlowSegments;
+      if (Array.isArray(coreFlowState.segments) && coreFlowState.segments.length) return coreFlowState.segments;
+      return coreFlowIsExplicitDemoPreview() ? coreFlowSegments : [];
     }
 
     function coreFlowAffectedSegmentIds() {
@@ -157,7 +199,7 @@
 
     if (coreFlowTravelState && typeof coreFlowTravelState.getState === "function") {
       const coreFlowExternal = coreFlowTravelState.getState() || {};
-      coreFlowState = Object.assign(coreFlowDefaultState(), coreFlowExternal.coreFlow || {});
+      coreFlowState = Object.assign(coreFlowInitialState(), coreFlowExternal.coreFlow || {});
       coreFlowSyncExternalState(coreFlowExternal, true);
     } else {
       window.CoreFlowPreviewState = coreFlowState;
@@ -299,14 +341,14 @@
       if (coreFlowScenario === "noAccess") coreFlowState.accessState = "revoked";
       if (coreFlowScenario === "completed") coreFlowState.trip.status = "completed";
       if (coreFlowScenario === "noAccess" || coreFlowScenario === "offline") coreFlowCloseSharedUi();
-      if (["review", "sos"].includes(coreFlowScenario) && !coreFlowState.signals.length) {
+      if (coreFlowIsExplicitDemoPreview() && ["review", "sos"].includes(coreFlowScenario) && !coreFlowState.signals.length) {
         coreFlowState.signals = coreFlowDefaultState().signals;
         coreFlowState.selectedSignalId = "signal-anna-1";
       }
       if (["violation", "planBReady", "planBSelected", "draftCreated", "messageSent"].includes(coreFlowScenario)) {
         coreFlowState.violationConfirmed = true;
         coreFlowState.planBVisible = true;
-        if (!coreFlowState.signals.length) coreFlowState.signals = coreFlowDefaultState().signals;
+        if (coreFlowIsExplicitDemoPreview() && !coreFlowState.signals.length) coreFlowState.signals = coreFlowDefaultState().signals;
       }
       if (["planBSelected", "draftCreated", "messageSent"].includes(coreFlowScenario)) {
         coreFlowState.selectedPlanBId = coreFlowState.selectedPlanBId || "plan-b";
@@ -321,7 +363,7 @@
     }
 
     function coreFlowResetDemoData() {
-      coreFlowState = coreFlowDefaultState();
+      coreFlowState = coreFlowInitialState();
       coreFlowCloseSharedUi({ skipFocus: true });
       if (coreFlowToastRoot) coreFlowToastRoot.innerHTML = "";
       if (!coreFlowTravelState) window.CoreFlowPreviewState = coreFlowState;

@@ -30,7 +30,7 @@
     var s = (store && store.getState) ? store.getState() : null;
     if (s && s.activeTripId) return s.activeTripId;
     if (s && s.trip && s.trip.id) return s.trip.id;
-    return "trip-turkey-2026";
+    return null;
   }
 
   /* ==================== Plan B ==================== */
@@ -158,6 +158,7 @@
     var a = api();
     if (!a) return;
     var id = getTripId();
+    if (!id) return;
     data.tripId = id;
     var run = function(){
       a.getActivePlan(id).then(function(r){ data.plan = (r && r.plan) ? r.plan : null; renderPlanCard(); }).catch(function(){});

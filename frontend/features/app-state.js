@@ -41,6 +41,14 @@
     return appEnvironment === 'production' ? 'production' : 'development';
   }
 
+  function appReadPreviewMode() {
+    try {
+      return new URLSearchParams(window.location.search).get('preview') === 'legacy-fixtures';
+    } catch (error) {
+      return false;
+    }
+  }
+
   var appInitialState = {
     trip: {
       id: 'trip-turkey-2026',
@@ -84,7 +92,19 @@
     environment: 'development' // фактическое значение берётся из body[data-app-environment]
   };
 
-  var appState = appClone(appInitialState);
+  function appProductionInitialState() {
+    return {
+      trip: { id: '', title: '', route: '', startDate: '', endDate: '', status: '' },
+      currentUser: { id: '', name: '', currentTripRole: '' },
+      participants: [],
+      invitations: [],
+      documents: [],
+      offlineCopy: { status: '', savedAt: '', size: 0, includeRouteMap: false, includeObservations: false, includeDocuments: false, selectedDocuments: [] },
+      environment: appReadEnvironment()
+    };
+  }
+
+  var appState = appClone(appReadPreviewMode() ? appInitialState : appProductionInitialState());
   appState.environment = appReadEnvironment();
 
   var appListeners = [];
@@ -151,7 +171,7 @@
 
     resetDemoData: function appResetDemoData() {
       var appEnvironment = appState.environment;
-      appState = appClone(appInitialState);
+      appState = appClone(appReadPreviewMode() ? appInitialState : appProductionInitialState());
       appState.environment = appEnvironment;
       appNotify(Object.keys(appState), { reset: true });
       return appState;
