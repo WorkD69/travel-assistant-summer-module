@@ -6,6 +6,7 @@ const { requireAuth } = require('../middleware/auth');
 const ocr = require('../services/ocr');
 const tripChanges = require('../services/tripChanges');
 const config = require('../config');
+const { isLinkedActiveParticipant, canReadDocument } = require('../services/tripAccess');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -101,9 +102,23 @@ async function loadAccessibleTrip(userId, tripId) {
   const trip = await prisma.trip.findUnique({ where: { id: tripId }, include: { participants: true } });
   if (!trip) return { error: 404 };
   const isOwner = trip.ownerId === userId;
-  const isParticipant = (trip.participants || []).some(function (p) { return p.userId === userId; });
+  const isParticipant = (trip.participants || []).some(function (p) {
+    return isLinkedActiveParticipant(p, userId);
+  });
   if (!isOwner && !isParticipant) return { error: 403 };
   return { trip: trip, isOwner: isOwner };
+}
+
+function canReadTripDocument(req, doc) {
+  const participant = (req.trip.participants || []).find(function (entry) {
+    return isLinkedActiveParticipant(entry, req.user.id);
+  });
+  const isOrganizer = req.isOwner || !!(participant && participant.role === 'organizer');
+  return canReadDocument(doc, {
+    isOwner: req.isOwner,
+    role: isOrganizer ? 'organizer' : 'participant',
+    isActiveParticipant: !!participant,
+  });
 }
 
 function accessError(res, code) {
@@ -126,10 +141,15 @@ router.get('/trips', requireAuth, async (req, res) => {
   try {
     const trips = await prisma.trip.findMany({
       where: { OR: [{ ownerId: req.user.id }, { participants: { some: { userId: req.user.id } } }] },
-      include: { _count: { select: { participants: true, documents: true, monitoringSignals: true } } },
+      include: { participants: true, _count: { select: { participants: true, documents: true, monitoringSignals: true } } },
       orderBy: { createdAt: 'desc' },
     });
-    res.json({ trips: trips.map(function (t) { return tripSummary(t, req.user.id); }) });
+    const accessibleTrips = trips.filter(function (trip) {
+      return trip.ownerId === req.user.id || (trip.participants || []).some(function (participant) {
+        return isLinkedActiveParticipant(participant, req.user.id);
+      });
+    });
+    res.json({ trips: accessibleTrips.map(function (t) { return tripSummary(t, req.user.id); }) });
   } catch (e) { console.error(e); res.status(500).json({ error: 'Не удалось загрузить поездки' }); }
 });
 
@@ -362,7 +382,9 @@ router.patch('/trips/:tripId/invitations/:iid', requireAuth, ensureTripAccess, a
     const b = req.body || {};
     const data = {};
     ['email', 'role', 'status', 'active'].forEach(function (k) { if (b[k] !== undefined) data[k] = b[k]; });
-    const inv = await prisma.invitation.update({ where: { id: req.params.iid }, data: data });
+    const existing = await prisma.invitation.findFirst({ where: { id: req.params.iid, tripId: req.params.tripId } });
+    if (!existing) return res.status(404).json({ error: 'Приглашение не найдено' });
+    const inv = await prisma.invitation.update({ where: { id: existing.id }, data: data });
     res.json({ invitation: invitationPayload(inv) });
   } catch (e) { console.error(e); res.status(500).json({ error: 'Не удалось обновить приглашение' }); }
 });
@@ -478,7 +500,8 @@ router.post('/invitations/:token/accept', requireAuth, async (req, res) => {
 // ---- Documents ----
 router.get('/trips/:tripId/documents', requireAuth, ensureTripAccess, async (req, res) => {
   const documents = await prisma.document.findMany({ where: { tripId: req.params.tripId }, orderBy: { uploadedAt: 'desc' }, include: { blob: { select: { id: true } } } });
-  res.json({ documents: documents.map(function (d) { return publicDoc(d, !!d.blob); }) });
+  const visibleDocuments = documents.filter(function (doc) { return canReadTripDocument(req, doc); });
+  res.json({ documents: visibleDocuments.map(function (d) { return publicDoc(d, !!d.blob); }) });
 });
 
 // \u0420\u0435\u0430\u043b\u044c\u043d\u0430\u044f \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0430 \u0444\u0430\u0439\u043b\u0430 (multipart, \u043f\u043e\u043b\u0435 "file") + \u043e\u0444\u043b\u0430\u0439\u043d OCR.
@@ -531,6 +554,7 @@ router.get('/trips/:tripId/documents/:did/file', requireAuth, ensureTripAccess, 
   try {
     const doc = await prisma.document.findUnique({ where: { id: req.params.did }, include: { blob: true } });
     if (!doc || doc.tripId !== req.params.tripId) return res.status(404).json({ error: '\u0414\u043e\u043a\u0443\u043c\u0435\u043d\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d' });
+    if (!canReadTripDocument(req, doc)) return res.status(403).json({ error: '\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430 \u043a \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0443' });
     if (!doc.blob || !doc.blob.data) return res.status(404).json({ error: '\u0424\u0430\u0439\u043b \u043d\u0435 \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d' });
     const buf = Buffer.from(doc.blob.data);
     res.setHeader('Content-Type', doc.mimeType || 'application/octet-stream');
@@ -583,14 +607,18 @@ router.patch('/trips/:tripId/documents/:did', requireAuth, ensureTripAccess, asy
     if (b.sizeMb !== undefined) data.sizeMb = Number(b.sizeMb);
     if (b.ocrConfirmed !== undefined) data.ocrConfirmed = !!b.ocrConfirmed;
     if (b.status === 'confirmed') data.processedAt = new Date();
-    const doc = await prisma.document.update({ where: { id: req.params.did }, data: data });
+    const existing = await prisma.document.findFirst({ where: { id: req.params.did, tripId: req.params.tripId } });
+    if (!existing) return res.status(404).json({ error: 'Документ не найден' });
+    const doc = await prisma.document.update({ where: { id: existing.id }, data: data });
     res.json({ document: doc });
   } catch (e) { console.error(e); res.status(500).json({ error: 'Не удалось обновить документ' }); }
 });
 
 router.delete('/trips/:tripId/documents/:did', requireAuth, ensureTripAccess, async (req, res) => {
   try {
-    await prisma.document.delete({ where: { id: req.params.did } });
+    const existing = await prisma.document.findFirst({ where: { id: req.params.did, tripId: req.params.tripId } });
+    if (!existing) return res.status(404).json({ error: 'Документ не найден' });
+    await prisma.document.delete({ where: { id: existing.id } });
     res.json({ ok: true });
   } catch (e) { console.error(e); res.status(500).json({ error: 'Не удалось удалить документ' }); }
 });
@@ -670,7 +698,9 @@ router.patch('/trips/:tripId/messages/:mid', requireAuth, ensureTripAccess, asyn
 
 router.delete('/trips/:tripId/messages/:mid', requireAuth, ensureTripAccess, async (req, res) => {
   try {
-    await prisma.message.delete({ where: { id: req.params.mid } });
+    const existing = await prisma.message.findFirst({ where: { id: req.params.mid, tripId: req.params.tripId } });
+    if (!existing) return res.status(404).json({ error: 'Сообщение не найдено' });
+    await prisma.message.delete({ where: { id: existing.id } });
     res.json({ ok: true });
   } catch (e) { console.error(e); res.status(500).json({ error: 'Не удалось удалить сообщение' }); }
 });

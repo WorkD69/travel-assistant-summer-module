@@ -5,6 +5,7 @@ const assistant = require('../services/assistant');
 const config = require('../config');
 const tripChanges = require('../services/tripChanges');
 const { validateSelectedPlan } = require('../services/planValidation');
+const { isLinkedActiveParticipant } = require('../services/tripAccess');
 
 const router = express.Router();
 
@@ -29,7 +30,7 @@ async function tripAccess(tripId, userId) {
   if (!trip) return { error: 404 };
   const isOwner = trip.ownerId === userId;
   const isParticipant = (trip.participants || []).some(function (participant) {
-    return participant.userId === userId && participant.access !== 'revoked';
+    return isLinkedActiveParticipant(participant, userId);
   });
   if (!isOwner && !isParticipant) return { error: 403 };
   return { trip: trip, isOwner: isOwner };

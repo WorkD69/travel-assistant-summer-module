@@ -3,6 +3,7 @@
 // the bot polls GET /api/bot/notifications/pending and delivers them.
 // Every call is best-effort and never throws into the caller's request flow.
 const prisma = require('../db');
+const { isLinkedActiveParticipant } = require('./tripAccess');
 
 const NOTIF_DEFAULTS = {
   segment_reminders: true,
@@ -58,7 +59,7 @@ async function linkedMembers(db, tripId) {
   const userIds = new Set();
   if (trip.ownerId) userIds.add(trip.ownerId);
   (trip.participants || []).forEach(function (p) {
-    if (p.userId && p.access !== 'revoked') userIds.add(p.userId);
+    if (isLinkedActiveParticipant(p, p.userId)) userIds.add(p.userId);
   });
   if (!userIds.size) return [];
   const links = await db.telegramLink.findMany({
