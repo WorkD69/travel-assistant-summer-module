@@ -8,7 +8,7 @@ function source(relativePath) {
   return fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
 }
 
-function loadAppState(search, environment) {
+function loadAppState(search, environment, hostname) {
   const context = {
     URLSearchParams,
     document: {
@@ -18,7 +18,10 @@ function loadAppState(search, environment) {
         },
       },
     },
-    window: { location: { search: search || '' }, console: { error() {} } },
+    window: {
+      location: { search: search || '', hostname: hostname || 'preview.example.test' },
+      console: { error() {} },
+    },
   };
   vm.runInNewContext(source('features/app-state.js'), context);
   return context.window.TravelAppState.getState();
@@ -47,7 +50,7 @@ test('normal browser boot does not seed the legacy demo catalog', () => {
   const appState = source('features/app-state.js');
   const bridge = source('assets/js/app-state-bridge.js');
   const normalState = loadAppState('');
-  const previewState = loadAppState('?preview=legacy-fixtures');
+  const previewState = loadAppState('?preview=legacy-fixtures', 'development');
 
   assert.equal(normalState.trip.id, '');
   assert.equal(Array.isArray(normalState.participants) && normalState.participants.length, 0);
@@ -64,12 +67,18 @@ test('normal browser boot does not seed the legacy demo catalog', () => {
   );
 });
 
-test('legacy fixture preview is disabled in production and remains available in development', () => {
-  const productionPreview = loadAppState('?preview=legacy-fixtures', 'production');
+test('legacy fixture preview uses an explicit fail-closed development/test allowlist', () => {
   const developmentPreview = loadAppState('?preview=legacy-fixtures', 'development');
+  const testPreview = loadAppState('?preview=legacy-fixtures', 'test');
+  const productionPreview = loadAppState('?preview=legacy-fixtures', 'production');
+  const missingEnvironmentPreview = loadAppState('?preview=legacy-fixtures', null, 'preview.example.test');
+  const unknownEnvironmentPreview = loadAppState('?preview=legacy-fixtures', 'staging');
 
-  assert.equal(productionPreview.trip.id, '');
   assert.equal(developmentPreview.trip.id, 'trip-turkey-2026');
+  assert.equal(testPreview.trip.id, 'trip-turkey-2026');
+  assert.equal(productionPreview.trip.id, '');
+  assert.equal(missingEnvironmentPreview.trip.id, '');
+  assert.equal(unknownEnvironmentPreview.trip.id, '');
 });
 
 test('Trip-scoped sync stops before authentication or backend calls when no Trip ID resolves', () => {

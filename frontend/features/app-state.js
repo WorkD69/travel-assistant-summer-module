@@ -43,7 +43,10 @@
 
   function appReadPreviewMode() {
     try {
-      return appReadEnvironment() !== 'production' &&
+      var appBody = document.body;
+      var appEnvironment = appBody ? appBody.getAttribute('data-app-environment') : null;
+      var previewAllowed = appEnvironment === 'development' || appEnvironment === 'test';
+      return previewAllowed &&
         new URLSearchParams(window.location.search).get('preview') === 'legacy-fixtures';
     } catch (error) {
       return false;

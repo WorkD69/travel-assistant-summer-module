@@ -60,7 +60,8 @@
   function coreFlowIsExplicitDemoPreview() {
     try {
       const environment = document.body && document.body.getAttribute("data-app-environment");
-      return environment !== "production" &&
+      const previewAllowed = environment === "development" || environment === "test";
+      return previewAllowed &&
         new URLSearchParams(window.location.search).get("preview") === "legacy-fixtures";
     } catch (error) {
       return false;
