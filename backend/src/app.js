@@ -36,6 +36,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api', require('./routes/monitoring'));
 app.use('/api', require('./routes/geo'));
 app.use('/api', require('./routes/trips'));
+app.use('/api/tutu', require('./routes/tutu'));
 // Telegram bot bridge (its routes use absolute /api/bot and /api/integrations paths).
 app.use(require('./routes/bot'));
 
