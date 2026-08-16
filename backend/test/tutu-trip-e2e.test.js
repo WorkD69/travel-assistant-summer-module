@@ -85,7 +85,7 @@ test('demo-success is idempotent and canonical GET rereads the same transport fa
       providerContext: { offerId: 'offer-1', transport: 'avia', checkoutRef: {}, checkoutUrl: null, searchResultsUrl: null },
     };
     const selectionToken = tokens.signSelection(userId, selection);
-    const purchaseHeaders = Object.assign({}, headers, { 'idempotency-key': 'e2e-purchase-attempt-0001' });
+    const purchaseHeaders = Object.assign({}, headers, { 'idempotency-key': 'test-idempotency-0003' });
 
     const created = await request(baseUrl, '/api/tutu/demo-purchase-success', { selectionToken: selectionToken }, purchaseHeaders);
     const replay = await request(baseUrl, '/api/tutu/demo-purchase-success', { selectionToken: selectionToken }, purchaseHeaders);
