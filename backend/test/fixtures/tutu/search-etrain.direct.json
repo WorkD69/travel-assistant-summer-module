@@ -1,0 +1,25 @@
+{
+  "offers": [{
+    "offer_id": "fixture-etrain-direct",
+    "transport": "etrain",
+    "price": { "amount": 668, "currency": "RUB" },
+    "duration_min": 176,
+    "segments_count": 1,
+    "legs": [{
+      "label": "outbound",
+      "segments": [{
+        "from": "Москва Ленинградская",
+        "to": "Тверь",
+        "departure_at": "2026-08-20T17:27:00+03:00",
+        "arrival_at": "2026-08-20T20:23:00+03:00",
+        "carrier": null,
+        "voyage_no": "6714"
+      }]
+    }],
+    "checkout_ref": {
+      "transport": "etrain",
+      "train_number": "6714",
+      "departure_at": "2026-08-20T17:27:00+03:00"
+    }
+  }]
+}

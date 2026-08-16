@@ -1,0 +1,90 @@
+{
+  "capturedAt": "2026-08-16T11:33:54Z",
+  "server": { "name": "tutu-mcp-server", "version": "0.38.0" },
+  "protocolEra": "legacy",
+  "tools": [
+    {
+      "name": "search_avia",
+      "required": [],
+      "properties": [
+        "origin", "destination", "departure_date", "from_city", "to_city", "return_date",
+        "adults", "children", "infants", "service_class", "page", "page_size", "sort",
+        "price_max", "direct_only", "carriers", "flight_numbers", "view"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "name": "search_rail",
+      "required": [],
+      "properties": [
+        "origin", "destination", "departure_date", "from_city", "to_city", "passengers",
+        "page", "page_size", "sort", "price_max", "direct_only", "carriers",
+        "train_numbers", "seat_categories", "view"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "name": "search_bus",
+      "required": [],
+      "properties": [
+        "origin", "destination", "departure_date", "from_city", "to_city", "adults",
+        "children", "page", "page_size", "sort", "price_max", "direct_only", "carriers", "view"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "name": "search_etrain",
+      "required": [],
+      "properties": [
+        "origin", "destination", "departure_date", "from_city", "to_city", "page",
+        "page_size", "sort", "price_max", "direct_only", "carriers", "view"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "name": "search_multitransport",
+      "required": [],
+      "properties": [
+        "origin", "destination", "departure_date", "from_city", "to_city", "adults",
+        "modes", "optimize_for", "page", "page_size", "price_max", "direct_only", "carriers", "view"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "name": "get_offer_details",
+      "required": ["product_type"],
+      "properties": [
+        "product_type", "offer_id", "hotel_id", "hotel_geo_id", "details_ref", "check_in",
+        "check_out", "adults", "children_ages", "review_limit", "review_offset", "review_sort",
+        "review_order", "review_topics", "view"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "name": "create_checkout_link",
+      "required": [],
+      "properties": [
+        "product_type", "transport", "search_results_url", "departure_geo_city_id",
+        "arrival_geo_city_id", "service_class", "passengers_full", "passengers_child",
+        "passengers_infant", "departure_avia_id", "arrival_avia_id", "passengers_adult",
+        "is_round_trip", "return_departure_at", "offer_hash", "departure_city_id",
+        "arrival_city_id", "departure_station_code", "arrival_station_code", "departure_etrain_id",
+        "arrival_etrain_id", "train_number", "city_from", "city_to", "departure_id", "arrival_id",
+        "departure_stop_id", "arrival_stop_id", "departure_stop_name", "arrival_stop_name",
+        "passengers", "departure_geo_point_id", "arrival_geo_point_id", "segment_hash",
+        "car_number", "seat_numbers", "fare_type", "gender_type", "search_id", "result_id",
+        "card_id", "seat_count", "hotel_alias", "offer_pack_hash", "hotel_geo_id", "check_in",
+        "check_out", "adults", "children_ages", "fallback_url", "departure_at"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "annotations": {
+    "allCapturedTools": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    }
+  }
+}
