@@ -1,0 +1,1041 @@
+/* Tutu-native Home shell. Every visual override is scoped to the opted-in page. */
+.tutu-native-surface {
+  --tutu-blue: #100b7a;
+  --tutu-blue-deep: #0d0870;
+  --tutu-violet: #6f5df6;
+  --tutu-violet-hover: #5f4bea;
+  --tutu-lavender: #7c6cff;
+  --tutu-white: #fff;
+  --tutu-text: #1f2233;
+  --tutu-muted: #777b8e;
+  --tutu-search-height: 56px;
+  --tutu-container: 1200px;
+  margin: 0;
+  overflow-x: clip;
+  background: var(--tutu-blue);
+  color: var(--tutu-white);
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+.tutu-native-surface #app-shell-header {
+  position: relative;
+  z-index: 90;
+  background: var(--tutu-blue);
+}
+
+.tutu-native-surface #app-shell-header .app-header.tutu-app-header {
+  position: relative;
+  top: auto;
+  width: min(100%, calc(var(--tutu-container) + 64px));
+  height: 62px;
+  margin: 0 auto;
+  padding: 0 32px;
+  gap: 24px;
+  background: transparent;
+  border: 0;
+  box-sizing: border-box;
+}
+
+.tutu-native-surface #app-shell-header .tutu-brand {
+  min-height: 48px;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.tutu-native-surface #app-shell-header .tutu-brand-logo {
+  display: block;
+  width: 127px;
+  height: 46px;
+  object-fit: contain;
+}
+
+.tutu-native-surface #app-shell-header .tutu-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 31px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.tutu-native-surface #app-shell-header .tutu-header-nav a {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  opacity: .94;
+}
+
+.tutu-native-surface #app-shell-header .header-actions {
+  margin-left: 0;
+  gap: 7px;
+}
+
+.tutu-native-surface #app-shell-header .btn-icon {
+  width: auto;
+  min-width: 42px;
+  height: 40px;
+  color: #fff;
+  border-radius: 9px;
+}
+
+.tutu-native-surface #app-shell-header .tutu-favorite {
+  gap: 6px;
+  padding: 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tutu-native-surface #app-shell-header .tutu-login {
+  gap: 7px;
+  padding: 0 13px;
+  background: rgba(124, 108, 255, .88);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.tutu-native-surface #app-shell-header .tutu-menu-toggle {
+  width: 38px;
+  min-width: 38px;
+}
+
+.tutu-native-surface #app-shell-header .tutu-header-icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tutu-native-surface #app-shell-header .tutu-favorite .tutu-header-icon {
+  fill: currentColor;
+  stroke: none;
+}
+
+.tutu-native-surface #app-shell-header .dropdown-menu {
+  color: var(--tutu-text);
+  background: #fff;
+  border-color: #e3e4ea;
+}
+
+.tutu-native-surface #app-shell-header .dropdown-item {
+  color: var(--tutu-text);
+}
+
+.tutu-native-surface #app-shell-header .dropdown-item:hover {
+  background: #f2f1ff;
+}
+
+.tutu-native-surface #app-shell-header .dropdown-item.danger {
+  color: #c73b52;
+}
+
+.tutu-native-surface #tutu-search-root {
+  width: 100%;
+}
+
+.tutu-native-surface .tutu-native-hero {
+  background: linear-gradient(180deg, var(--tutu-blue) 0%, var(--tutu-blue-deep) 100%);
+}
+
+.tutu-native-surface .tutu-native-container {
+  width: min(calc(100% - 64px), var(--tutu-container));
+  min-height: 443px;
+  margin: 0 auto;
+  padding: 23px 0 36px;
+  box-sizing: border-box;
+}
+
+.tutu-native-surface .tutu-promo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  height: 32px;
+  padding: 0 18px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #7262fa 0%, #8a79ff 50%, #7262fa 100%);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.tutu-native-surface .tutu-promo strong {
+  font-size: 20px;
+  letter-spacing: .015em;
+}
+
+.tutu-native-surface .tutu-promo-plane {
+  display: grid;
+  place-items: center;
+  width: 70px;
+  height: 32px;
+  margin-left: -24px;
+  transform: rotate(-6deg);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, .35), transparent 65%);
+}
+
+.tutu-native-surface .tutu-promo-plane svg {
+  width: 54px;
+  height: 30px;
+  fill: #f7f7ff;
+  filter: drop-shadow(0 2px 1px rgba(41, 26, 127, .25));
+}
+
+.tutu-native-surface .tutu-promo-ticket {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 28px;
+  margin-left: 3px;
+  transform: rotate(-6deg);
+  border: 2px solid rgba(255, 255, 255, .7);
+  border-radius: 4px;
+  background: linear-gradient(135deg, #f9a63b, #ffcc48);
+  color: #fff;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.tutu-native-surface .tutu-native-container > h1 {
+  margin: 34px 0 12px;
+  color: #fff;
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -.022em;
+}
+
+.tutu-native-surface .tutu-stats {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.tutu-native-surface .tutu-stats > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .07);
+  color: rgba(255, 255, 255, .9);
+  font-size: 15px;
+}
+
+.tutu-native-surface .tutu-stats svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tutu-native-surface .tutu-rating b {
+  color: #fff;
+  letter-spacing: 1px;
+}
+
+.tutu-native-surface .tutu-modes {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  align-items: end;
+  gap: 4px;
+  margin-top: 36px;
+}
+
+.tutu-native-surface .tutu-mode {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  height: 90px;
+  padding: 0 2px 3px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tutu-native-surface .tutu-mode-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+}
+
+.tutu-native-surface .tutu-mode-icon img {
+  width: 34px;
+  height: 34px;
+  display: block;
+}
+
+.tutu-native-surface .tutu-mode.is-active .tutu-mode-icon {
+  background: var(--tutu-violet);
+}
+
+.tutu-native-surface .tutu-mode-label {
+  max-width: 100%;
+  overflow: hidden;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tutu-native-surface .tutu-mode.is-active .tutu-mode-label {
+  color: #9488ff;
+}
+
+.tutu-native-surface .tutu-mode-badge {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  z-index: 2;
+  padding: 3px 6px;
+  transform: translateX(-8%);
+  border-radius: 5px;
+  background: #f0a428;
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tutu-native-surface .tutu-mode[data-tutu-mode="jarvel"] .tutu-mode-badge {
+  right: 0;
+  left: auto;
+  transform: none;
+  background: #df5ca6;
+}
+
+.tutu-native-surface .tutu-search-form {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 468fr) minmax(0, 393fr) minmax(0, 153fr) 187px;
+  width: 100%;
+  height: var(--tutu-search-height);
+  margin-top: 16px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .05);
+}
+
+.tutu-native-surface .tutu-route-group,
+.tutu-native-surface .tutu-date-group {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+
+.tutu-native-surface .tutu-route-group {
+  grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
+}
+
+.tutu-native-surface .tutu-date-group {
+  grid-template-columns: 1fr 1fr;
+}
+
+.tutu-native-surface .tutu-search-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  height: var(--tutu-search-height);
+  padding: 0 16px;
+  box-sizing: border-box;
+  color: var(--tutu-text);
+  cursor: text;
+}
+
+.tutu-native-surface .tutu-search-field::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 1px;
+  height: 100%;
+  background: #d8d9e1;
+}
+
+.tutu-native-surface .tutu-search-field > span {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  transform: translateY(-50%);
+  color: #858899;
+  font-size: 16px;
+  line-height: 20px;
+  pointer-events: none;
+  transition: top .15s ease, transform .15s ease, font-size .15s ease;
+}
+
+.tutu-native-surface .tutu-search-field:focus-within > span,
+.tutu-native-surface .tutu-search-field:has(input:not(:placeholder-shown)) > span {
+  top: 8px;
+  transform: none;
+  font-size: 11px;
+  line-height: 13px;
+}
+
+.tutu-native-surface .tutu-search-field:focus-within {
+  z-index: 4;
+  box-shadow: inset 0 0 0 2px var(--tutu-violet);
+}
+
+.tutu-native-surface .tutu-search-field input {
+  width: 100%;
+  min-width: 0;
+  height: 56px;
+  padding: 18px 0 0;
+  box-sizing: border-box;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--tutu-text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.tutu-native-surface .tutu-field-passengers > span {
+  font-size: 11px;
+}
+
+.tutu-native-surface .tutu-swap {
+  position: relative;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  transform: none;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  color: #8b8f9d;
+  cursor: pointer;
+}
+
+.tutu-native-surface .tutu-swap svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tutu-native-surface .tutu-search-submit {
+  min-width: 0;
+  height: var(--tutu-search-height);
+  padding: 0 15px;
+  border: 0;
+  border-radius: 0 12px 12px 0;
+  background: var(--tutu-violet);
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tutu-native-surface .tutu-search-submit:hover {
+  background: var(--tutu-violet-hover);
+}
+
+.tutu-native-surface .tutu-search-status {
+  position: absolute;
+  top: calc(100% + 30px);
+  left: 0;
+  z-index: 2;
+  margin: 0;
+  color: #fff;
+  font-size: 13px;
+}
+
+.tutu-native-surface .tutu-search-field input[aria-invalid="true"] {
+  color: #b90028;
+}
+
+.tutu-native-surface .tutu-search-field:has(input[aria-invalid="true"]) {
+  box-shadow: inset 0 0 0 2px #d83a5e;
+}
+
+.tutu-native-surface .tutu-search-hints {
+  display: grid;
+  grid-template-columns: minmax(0, 206fr) 56px minmax(0, 206fr) minmax(0, 196.5fr) minmax(0, 196.5fr) minmax(0, 153fr) 187px;
+  align-items: start;
+  min-height: 29px;
+  overflow: hidden;
+}
+
+.tutu-native-surface .tutu-search-hints > span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding-top: 6px;
+}
+
+.tutu-native-surface .tutu-origin-hints {
+  grid-column: 1;
+  padding-left: 4px;
+}
+
+.tutu-native-surface .tutu-destination-hints {
+  grid-column: 3;
+}
+
+.tutu-native-surface .tutu-date-hints {
+  grid-column: 4;
+}
+
+.tutu-native-surface .tutu-return-hints {
+  grid-column: 5;
+}
+
+.tutu-native-surface .tutu-search-hints button {
+  max-width: 150px;
+  overflow: hidden;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, .07);
+  color: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tutu-native-surface .tutu-hotel-toggle {
+  grid-column: 6 / 8;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  height: 29px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tutu-native-surface .tutu-hotel-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.tutu-native-surface .tutu-hotel-toggle i {
+  position: relative;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: #d9d9e3;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08);
+}
+
+.tutu-native-surface .tutu-hotel-toggle i::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .2);
+  transition: transform .16s ease;
+}
+
+.tutu-native-surface .tutu-hotel-toggle input:checked + i {
+  background: var(--tutu-violet);
+}
+
+.tutu-native-surface .tutu-hotel-toggle input:checked + i::after {
+  transform: translateX(16px);
+}
+
+.tutu-native-surface .tutu-hotel-toggle input:focus-visible + i {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+.tutu-native-surface .tutu-native-deal {
+  min-height: 230px;
+  padding: 32px;
+  border-radius: 32px 32px 0 0;
+  background: #f7f7fa;
+  color: var(--tutu-text);
+  box-sizing: border-box;
+}
+
+.tutu-native-surface .tutu-native-deal-inner {
+  display: grid;
+  grid-template-columns: 51fr 49fr;
+  width: 100%;
+  height: 158px;
+  min-height: 158px;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 22px;
+  background: #fff;
+}
+
+.tutu-native-surface .tutu-native-deal-inner > div:first-child {
+  padding: 32px 28px 28px;
+  box-sizing: border-box;
+}
+
+.tutu-native-surface .tutu-native-deal h2 {
+  margin: 0 0 4px;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.tutu-native-surface .tutu-native-deal p {
+  margin: 0 0 12px;
+  color: #696d7f;
+  line-height: 1.2;
+}
+
+.tutu-native-surface .tutu-native-deal button {
+  min-height: 32px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--tutu-violet);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+}
+
+.tutu-native-surface .tutu-native-deal-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #a56bff 0%, #7b68ff 45%, #27aee4 100%);
+  color: #fff;
+  transform: skewX(-10deg) scale(1.04);
+}
+
+.tutu-native-surface .tutu-native-deal-art::before,
+.tutu-native-surface .tutu-native-deal-art::after {
+  content: "";
+  position: absolute;
+  width: 170px;
+  height: 170px;
+  border: 18px solid rgba(255, 255, 255, .18);
+  border-radius: 50%;
+}
+
+.tutu-native-surface .tutu-native-deal-art::before { left: -45px; top: 40px; }
+.tutu-native-surface .tutu-native-deal-art::after { right: -35px; top: -70px; }
+
+.tutu-native-surface .tutu-native-deal-art span,
+.tutu-native-surface .tutu-native-deal-art b {
+  position: relative;
+  z-index: 1;
+  transform: skewX(10deg);
+}
+
+.tutu-native-surface .tutu-native-deal-art span {
+  padding: 1px 10px 3px;
+  transform: skewX(4deg) rotate(-4deg);
+  background: #ff5038;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: .9;
+}
+
+.tutu-native-surface .tutu-native-deal-art b {
+  font-size: 24px;
+  line-height: .86;
+  text-align: center;
+}
+
+.tutu-native-surface .tutu-native-deal-proof {
+  display: none;
+}
+
+.tutu-native-surface #home-root {
+  background: var(--bg);
+}
+
+.tutu-native-surface #home-root > .tp-page-head {
+  margin-top: 0;
+  padding-top: 32px;
+}
+
+.tutu-native-surface :is(.tutu-mode, .tutu-swap, .tutu-search-submit, .tutu-search-hints button, #app-shell-header a, #app-shell-header button):focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+@media (max-width: 1040px) {
+  .tutu-native-surface #app-shell-header .tutu-header-nav {
+    gap: 16px;
+  }
+
+  .tutu-native-surface #app-shell-header .tutu-header-nav a:nth-last-child(-n+2) {
+    display: none;
+  }
+
+  .tutu-native-surface .tutu-search-form {
+    grid-template-columns: minmax(0, 2.35fr) minmax(0, 1.95fr) minmax(120px, .8fr) 174px;
+  }
+
+  .tutu-native-surface .tutu-search-hints {
+    grid-template-columns: minmax(0, 1.175fr) 48px minmax(0, 1.175fr) minmax(0, .975fr) minmax(0, .975fr) minmax(120px, .8fr) 174px;
+  }
+
+  .tutu-native-surface .tutu-route-group {
+    grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr);
+  }
+
+  .tutu-native-surface .tutu-swap {
+    width: 48px;
+  }
+}
+
+@media (max-width: 820px) {
+  .tutu-native-surface #app-shell-header .tutu-header-nav,
+  .tutu-native-surface #app-shell-header .tutu-favorite span {
+    display: none;
+  }
+
+  .tutu-native-surface #app-shell-header .header-actions {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .tutu-native-surface .tutu-native-container:has(.tutu-search-status:not(:empty)) {
+    min-height: 590px;
+  }
+
+  .tutu-native-surface #app-shell-header .app-header.tutu-app-header {
+    height: 54px;
+    padding: 0 16px;
+    gap: 8px;
+  }
+
+  .tutu-native-surface #app-shell-header .tutu-brand-logo {
+    width: 80px;
+    height: 36px;
+  }
+
+  .tutu-native-surface #app-shell-header .tutu-favorite {
+    display: inline-grid;
+    width: 42px;
+    min-width: 42px;
+    padding: 0;
+    border-radius: 50%;
+    background: rgba(124, 108, 255, .25);
+  }
+
+  .tutu-native-surface #app-shell-header .tutu-login {
+    height: 36px;
+    padding: 0 10px;
+  }
+
+  .tutu-native-surface #app-shell-header .tutu-menu-toggle {
+    width: 32px;
+    min-width: 32px;
+  }
+
+  .tutu-native-surface .tutu-native-container {
+    width: calc(100% - 32px);
+    min-height: 546px;
+    padding: 0 0 16px;
+  }
+
+  .tutu-native-surface .tutu-promo {
+    height: 32px;
+    padding: 0 9px;
+    gap: 4px;
+    border-radius: 8px;
+    font-size: 8px;
+  }
+
+  .tutu-native-surface .tutu-promo strong {
+    font-size: 13px;
+  }
+
+  .tutu-native-surface .tutu-promo-plane {
+    width: 66px;
+    margin-left: -15px;
+  }
+
+  .tutu-native-surface .tutu-promo-plane svg {
+    width: 51px;
+  }
+
+  .tutu-native-surface .tutu-promo-ticket {
+    width: 42px;
+    height: 26px;
+    margin-left: 0;
+    font-size: 17px;
+  }
+
+  .tutu-native-surface .tutu-native-container > h1 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .tutu-native-surface .tutu-stats {
+    gap: 4px;
+    margin-top: 19px;
+    margin-right: -16px;
+  }
+
+  .tutu-native-surface .tutu-stats > span {
+    flex: 0 0 auto;
+    height: 26px;
+    padding: 0 7px;
+    font-size: 12px;
+  }
+
+  .tutu-native-surface .tutu-stats > span:nth-child(3) {
+    display: none;
+  }
+
+  .tutu-native-surface .tutu-stats > span:nth-child(2) {
+    max-width: 174px;
+    overflow: hidden;
+  }
+
+  .tutu-native-surface .tutu-modes {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    row-gap: 7px;
+    margin-top: 25px;
+  }
+
+  .tutu-native-surface .tutu-mode {
+    height: 61px;
+    gap: 4px;
+    padding-bottom: 0;
+  }
+
+  .tutu-native-surface .tutu-mode-icon {
+    width: 39px;
+    height: 39px;
+  }
+
+  .tutu-native-surface .tutu-mode-icon img {
+    width: 26px;
+    height: 26px;
+  }
+
+  .tutu-native-surface .tutu-mode-label {
+    font-size: 11px;
+  }
+
+  .tutu-native-surface .tutu-mode-badge {
+    top: -4px;
+    font-size: 9px;
+    transform: translateX(-20%);
+  }
+
+  .tutu-native-surface .tutu-mode[data-tutu-mode="jarvel"] .tutu-mode-badge {
+    right: 0;
+    left: auto;
+    transform: none;
+  }
+
+  .tutu-native-surface .tutu-search-form {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 110px 56px 56px 56px;
+    gap: 10px;
+    height: auto;
+    margin-top: 14px;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .tutu-native-surface .tutu-route-group {
+    grid-template-columns: 1fr;
+    grid-template-rows: 55px 55px;
+    border-radius: 12px;
+    background: #fff;
+    overflow: visible;
+  }
+
+  .tutu-native-surface .tutu-date-group {
+    grid-template-columns: 1fr 1fr;
+    border-radius: 12px;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .tutu-native-surface .tutu-search-field {
+    height: 56px;
+    padding: 0 16px;
+  }
+
+  .tutu-native-surface .tutu-route-group .tutu-search-field::after {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 1px;
+  }
+
+  .tutu-native-surface .tutu-route-group .tutu-field-destination::after,
+  .tutu-native-surface .tutu-date-group .tutu-field-date:last-child::after,
+  .tutu-native-surface .tutu-field-passengers::after {
+    display: none;
+  }
+
+  .tutu-native-surface .tutu-field-passengers {
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .tutu-native-surface .tutu-swap {
+    position: absolute;
+    top: 34px;
+    right: 20px;
+    left: auto;
+    width: 42px;
+    height: 40px;
+    transform: none;
+    border: 1px solid #dddde5;
+  }
+
+  .tutu-native-surface .tutu-swap svg {
+    transform: rotate(90deg);
+  }
+
+  .tutu-native-surface .tutu-search-submit {
+    width: 100%;
+    border-radius: 12px;
+    font-size: 16px;
+  }
+
+  .tutu-native-surface .tutu-search-status {
+    top: calc(100% + 5px);
+    font-size: 12px;
+  }
+
+  .tutu-native-surface .tutu-search-hints {
+    display: none;
+  }
+
+  .tutu-native-surface .tutu-native-deal {
+    min-height: 244px;
+    margin-top: -24px;
+    padding: 15px 16px 28px;
+    border-radius: 28px 28px 0 0;
+  }
+
+  .tutu-native-surface .tutu-native-deal-inner {
+    grid-template-columns: 1.1fr .9fr;
+    height: 119px;
+    min-height: 119px;
+    border-radius: 16px;
+  }
+
+  .tutu-native-surface .tutu-native-deal-inner > div:first-child {
+    padding: 17px 8px 12px 14px;
+  }
+
+  .tutu-native-surface .tutu-native-deal h2 {
+    margin-bottom: 5px;
+    font-size: 14px;
+    line-height: 1.1;
+  }
+
+  .tutu-native-surface .tutu-native-deal p {
+    display: none;
+  }
+
+  .tutu-native-surface .tutu-native-deal button {
+    min-height: 28px;
+    padding: 0 9px;
+    border-radius: 6px;
+    font-size: 11px;
+  }
+
+  .tutu-native-surface .tutu-native-deal-art {
+    gap: 5px;
+  }
+
+  .tutu-native-surface .tutu-native-deal-art span {
+    padding: 1px 5px 2px;
+    font-size: 19px;
+  }
+
+  .tutu-native-surface .tutu-native-deal-art b {
+    font-size: 13px;
+  }
+
+  .tutu-native-surface .tutu-native-deal-proof {
+    display: block;
+    margin-top: 32px;
+  }
+
+  .tutu-native-surface .tutu-native-deal-proof h2 {
+    margin: 0 0 6px;
+    font-size: 23px;
+  }
+
+  .tutu-native-surface .tutu-native-deal-proof p {
+    display: block;
+    margin: 0;
+    color: #181c2d;
+    font-size: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutu-native-surface *,
+  .tutu-native-surface *::before,
+  .tutu-native-surface *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}

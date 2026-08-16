@@ -56,7 +56,47 @@
     rootEl.setAttribute("data-font-scale", appearance.fontScale || "normal");
   }
 
+  function tutuHeaderHtml(options, state) {
+    const user = getShellUser(state);
+    const name = displayName(user);
+    return (
+      '<header class="app-header tutu-app-header">' +
+        '<a class="brand tutu-brand" href="home.html" data-shell-action="home" aria-label="Тревел-помощник — на Главную">' +
+          '<img class="tutu-brand-logo" src="assets/icons/tutu-native/logo.svg" alt="tutu" />' +
+        '</a>' +
+        '<nav class="tutu-header-nav" aria-label="Основная навигация">' +
+          '<a href="home.html">Это выгодно!</a>' +
+          '<a href="home.html">Автопутешествия</a>' +
+          '<a href="history.html" data-shell-action="go-history">Маршруты</a>' +
+          '<a href="profile.html" data-shell-action="go-profile">Справочная</a>' +
+          '<a href="home.html">Путеводитель</a>' +
+        '</nav>' +
+        '<div class="header-actions">' +
+          '<button type="button" class="btn-icon tutu-favorite" data-shell-action="notifications" aria-label="Избранное">' +
+            '<svg class="tutu-header-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-8-4.8-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.2-8 11-8 11Z"/></svg><span>Избранное</span>' +
+          '</button>' +
+          '<div class="dropdown">' +
+            '<button type="button" class="btn-icon tutu-login" data-shell-action="user-menu" aria-haspopup="true" aria-expanded="false" aria-label="Меню пользователя: ' + escapeHtml(name) + '">' +
+              '<svg class="tutu-header-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3M13 3h7v18h-7"/></svg><span>Войти</span>' +
+            '</button>' +
+            '<button type="button" class="btn-icon tutu-menu-toggle" data-shell-action="user-menu" aria-haspopup="true" aria-expanded="false" aria-label="Открыть меню пользователя">' +
+              '<svg class="tutu-header-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>' +
+            '</button>' +
+            '<div class="dropdown-menu" data-shell-menu role="menu" aria-label="Меню пользователя">' +
+              '<button type="button" class="dropdown-item" role="menuitem" data-shell-action="go-home">Главная</button>' +
+              '<button type="button" class="dropdown-item" role="menuitem" data-shell-action="go-history">История поездок</button>' +
+              '<button type="button" class="dropdown-item" role="menuitem" data-shell-action="go-profile">Профиль</button>' +
+              '<hr class="dropdown-divider" />' +
+              '<button type="button" class="dropdown-item danger" role="menuitem" data-shell-action="logout">Выйти</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</header>'
+    );
+  }
+
   function headerHtml(options, state) {
+    if (options.variant === "tutu") return tutuHeaderHtml(options, state);
     const user = getShellUser(state);
     const name = displayName(user);
     const avatar = user.avatarDataUrl
@@ -94,13 +134,11 @@
 
   function closeMenu(mount, restoreFocus) {
     const menu = mount.querySelector("[data-shell-menu]");
-    const trigger = mount.querySelector('[data-shell-action="user-menu"]');
+    const triggers = Array.from(mount.querySelectorAll('[data-shell-action="user-menu"]'));
     if (menu && menu.classList.contains("open")) {
       menu.classList.remove("open");
-      if (trigger) {
-        trigger.setAttribute("aria-expanded", "false");
-        if (restoreFocus) trigger.focus();
-      }
+      triggers.forEach((trigger) => trigger.setAttribute("aria-expanded", "false"));
+      if (restoreFocus && triggers[0]) triggers[0].focus();
     }
   }
 
@@ -163,8 +201,10 @@
         event.preventDefault();
         window.AppRoutes.goToHome();
       } else if (action === "go-history") {
+        event.preventDefault();
         window.AppRoutes.goToHistory();
       } else if (action === "go-profile") {
+        event.preventDefault();
         window.AppRoutes.goToProfile();
       } else if (action === "logout") {
         window.AppRoutes.logout();
@@ -173,7 +213,9 @@
       } else if (action === "user-menu") {
         const menu = mount.querySelector("[data-shell-menu]");
         const isOpen = menu.classList.toggle("open");
-        target.setAttribute("aria-expanded", String(isOpen));
+        mount.querySelectorAll('[data-shell-action="user-menu"]').forEach((trigger) => {
+          trigger.setAttribute("aria-expanded", String(isOpen));
+        });
         if (isOpen) {
           const first = menu.querySelector(".dropdown-item");
           if (first) first.focus();

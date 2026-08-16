@@ -8,8 +8,10 @@
   <link rel="stylesheet" href="design-tokens.css" />
   <link rel="stylesheet" href="assets/css/app-shell.css" />
   <link rel="stylesheet" href="assets/css/trip-pages.css" />
+  <link rel="stylesheet" href="assets/css/tutu-native-shell.css" />
 </head>
-<body class="home-surface" data-app-environment="production">
+<body class="home-surface tutu-native-surface" data-app-environment="production">
+  <div id="tutu-search-root"></div>
   <main id="home-root" class="tp-root"></main>
   <script src="features/app-state.js"></script>
   <script src="assets/js/app-state-bridge.js"></script>
@@ -20,9 +22,11 @@
   <script src="assets/js/auth-storage.js"></script>
   <script src="assets/js/api-client.js"></script>
   <script src="assets/js/home-sync.js"></script>
+  <script src="assets/js/tutu-search-shell.js"></script>
   <script>
-    if (window.appShellInit({ section: "Главная" })) {
+    if (window.appShellInit({ section: "Главная", variant: "tutu" })) {
       window.tripPagesHomeInit(document.getElementById("home-root"), window.TripPagesAdapter, window.TripPagesRoutes);
+      window.tutuSearchShellInit(document.getElementById("tutu-search-root"));
     }
   </script>
 </body>
