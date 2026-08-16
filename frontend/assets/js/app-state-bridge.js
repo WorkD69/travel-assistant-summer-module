@@ -14,17 +14,6 @@
   const nowIso = () => new Date().toISOString();
   const toArray = (value) => Array.isArray(value) ? value : (value && typeof value === "object" ? Object.values(value) : []);
 
-  function isExplicitDemoPreview() {
-    try {
-      const environment = document.body && document.body.getAttribute("data-app-environment");
-      const previewAllowed = environment === "development" || environment === "test";
-      return previewAllowed &&
-        new URLSearchParams(window.location.search).get("preview") === "legacy-fixtures";
-    } catch (error) {
-      return false;
-    }
-  }
-
   const origGetState = app.getState.bind(app);
   const origSetState = app.setState.bind(app);
   const origSubscribe = app.subscribe.bind(app);
@@ -836,10 +825,8 @@
       try { localStorage.removeItem(STORAGE_KEY); } catch (error) { /* ignore */ }
       try { sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch (error) { /* ignore */ }
       const result = origReset();
-      if (isExplicitDemoPreview()) {
-        origSetState(sanitizePartial(seedExtension()), { source: "app-state-bridge", action: "reseed" });
-        schedulePersist();
-      }
+      origSetState(sanitizePartial(seedExtension()), { source: "app-state-bridge", action: "reseed" });
+      schedulePersist();
       return result;
     };
   }
@@ -1040,7 +1027,7 @@
 
   /* ── boot ── */
 
-  const stored = isExplicitDemoPreview() ? readStored() : null;
+  const stored = readStored();
   if (stored) {
     const seeded = seedExtension();
     const restored = Object.assign({}, seeded, stored, {
@@ -1049,23 +1036,8 @@
       accountPages: Object.assign({}, seeded.accountPages || {}, stored.accountPages || {})
     });
     origSetState(sanitizePartial(restored), { source: "app-state-bridge", action: "restore" });
-  } else if (isExplicitDemoPreview()) {
-    origSetState(sanitizePartial(seedExtension()), { source: "app-state-bridge", action: "seed-preview" });
   } else {
-    origSetState(sanitizePartial({
-      trips: [],
-      homeInvitations: [],
-      completedTrips: [],
-      tripDrafts: [],
-      activeTripId: "",
-      invitationsByTripId: {},
-      coreFlowByTripId: {},
-      offlineCopyByTripId: {},
-      networkState: "online",
-      accessState: "granted",
-      users: {},
-      accountPages: { session: { isAuthenticated: false, userId: "", email: "", remember: false, lastLoginAt: "" } }
-    }), { source: "app-state-bridge", action: "normal-boot" });
+    origSetState(sanitizePartial(seedExtension()), { source: "app-state-bridge", action: "seed" });
   }
 
   // Обогащаем базовую поездку данными каталога, чтобы обе схемы были согласованы.

@@ -23,7 +23,7 @@
     var s = (store() && store().getState) ? store().getState() : null;
     if (s && s.activeTripId) return s.activeTripId;
     if (s && s.trip && s.trip.id) return s.trip.id;
-    return null;
+    return "trip-turkey-2026";
   }
 
   function withAuth(fn){
@@ -144,7 +144,6 @@
     var a = api();
     if (!a) return;
     var id = getTripId();
-    if (!id) return;
     withAuth(function(){
       var jobs = [];
       jobs.push(a.monitoringSignals ? a.monitoringSignals(id).then(function(r){ return (r && r.signals) ? r.signals : []; }).catch(function(){ return null; }) : Promise.resolve(null));
@@ -163,7 +162,6 @@
   function pushSignal(sig){
     var a = api(); if (!a || !a.createSignal) return;
     var id = getTripId();
-    if (!id) return;
     withAuth(function(){
       a.createSignal(id, mapSignalOut(sig)).then(function(){
         document.dispatchEvent(new CustomEvent("travel:data-changed"));
@@ -174,7 +172,6 @@
   function pushMessageSave(msg){
     var a = api(); if (!a) return;
     var id = getTripId();
-    if (!id) return;
     withAuth(function(){
       if (isLocalId(msg.id)){
         if (a.addMessage) a.addMessage(id, mapMessageOut(msg)).then(function(){ document.dispatchEvent(new CustomEvent("travel:data-changed")); }).catch(function(){});
@@ -186,7 +183,6 @@
   function pushMessageSend(msg){
     var a = api(); if (!a) return;
     var id = getTripId();
-    if (!id) return;
     withAuth(function(){
       if (isLocalId(msg.id)){
         if (a.addMessage) a.addMessage(id, mapMessageOut(msg, "Отправлено")).then(function(){ document.dispatchEvent(new CustomEvent("travel:data-changed")); }).catch(function(){});

@@ -22,7 +22,7 @@
     var s = store() && store().getState ? store().getState() : null;
     if (s && s.activeTripId) return s.activeTripId;
     if (s && s.trip && s.trip.id) return s.trip.id;
-    return null;
+    return "trip-turkey-2026";
   }
 
   function withAuth(fn){
@@ -130,7 +130,6 @@
     var a = api();
     if (!a || !a.listParticipants) return;
     var id = getTripId();
-    if (!id) return;
     withAuth(function(){
       Promise.all([
         a.listParticipants(id).catch(function(){ return { participants: [] }; }),
@@ -158,7 +157,6 @@
     var a = api();
     if (!a) return;
     var tid = getTripId();
-    if (!tid) return;
     var parts = (state.participants || []);
     var invites = (state.invitations || []);
     var pById = indexById(parts);
@@ -246,10 +244,8 @@
   function createInvitation(payload) {
     var a = api();
     if (!a || !a.createInvitation) return Promise.reject(new Error("Сервис приглашений недоступен"));
-    var tripId = getTripId();
-    if (!tripId) return Promise.reject(new Error("Сначала выберите поездку"));
     return Promise.resolve(a.ensureAuth ? a.ensureAuth() : null)
-      .then(function(){ return a.createInvitation(tripId, payload); })
+      .then(function(){ return a.createInvitation(getTripId(), payload); })
       .then(function(result){ refresh(); return result && result.invitation ? result.invitation : result; });
   }
 
