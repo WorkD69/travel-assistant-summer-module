@@ -58,8 +58,8 @@ test('SearchRequestV1 normalizes a provider-independent one-way request', () => 
   assert.deepEqual(SEARCH_MODES, ['flight', 'train', 'bus', 'etrain', 'mixed']);
 });
 
-test('SearchRequestV1 accepts a return date and rejects provider-specific fields', () => {
-  const request = validateSearchRequestV1({
+test('SearchRequestV1 rejects round-trip searches with a stable V1 error code', () => {
+  const roundTrip = {
     schemaVersion: '1',
     mode: 'flight',
     origin: 'Москва',
@@ -67,10 +67,26 @@ test('SearchRequestV1 accepts a return date and rejects provider-specific fields
     departureDate: '2026-08-20',
     returnDate: '2026-08-27',
     passengers: { adults: 1, children: 0, infants: 0 },
+  };
+
+  assert.throws(() => validateSearchRequestV1(roundTrip), function (error) {
+    return error && error.code === 'TUTU_ROUND_TRIP_UNSUPPORTED';
+  });
+});
+
+test('SearchRequestV1 rejects provider-specific fields', () => {
+  const oneWay = validateSearchRequestV1({
+    schemaVersion: '1',
+    mode: 'flight',
+    origin: 'Москва',
+    destination: 'Сочи',
+    departureDate: '2026-08-20',
+    returnDate: null,
+    passengers: { adults: 1, children: 0, infants: 0 },
   });
 
-  assert.equal(request.returnDate, '2026-08-27');
-  assert.throws(() => validateSearchRequestV1(Object.assign({}, request, {
+  assert.equal(oneWay.returnDate, null);
+  assert.throws(() => validateSearchRequestV1(Object.assign({}, oneWay, {
     search_avia_page_size: 30,
   })), /unknown field/i);
 });

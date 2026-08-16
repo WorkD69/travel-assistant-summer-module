@@ -5,13 +5,23 @@ const SEGMENT_MODES = Object.freeze(['flight', 'train', 'bus', 'etrain']);
 const PRICE_KINDS = Object.freeze(['total', 'from', 'unknown']);
 const AVAILABILITY_STATUSES = Object.freeze(['available', 'limited', 'sold_out']);
 const TRANSPORT_SEGMENT_SEMANTICS =
-  'TransportSegment is one continuous scheduled travel leg on one concrete service/vehicle. ' +
+  'TransportSegment is one continuous scheduled travel leg on one concrete service/vehicle ' +
+  'inside one one-way journey. ' +
   'An intermediate stop on the same service does not create another segment.';
+
+// Round-trip packages require explicit journey boundaries. A future V1.1/V2 may
+// add journeys[], but V1 must not flatten or split a priced provider package.
 
 function contractError(message) {
   const error = new Error(message);
   error.code = 'TRANSPORT_CONTRACT_INVALID';
   error.status = 400;
+  return error;
+}
+
+function roundTripUnsupportedError() {
+  const error = contractError('SearchRequestV1 returnDate is unsupported by the one-way-only V1 contract');
+  error.code = 'TUTU_ROUND_TRIP_UNSUPPORTED';
   return error;
 }
 
@@ -77,12 +87,8 @@ function validateSearchRequestV1(input) {
     throw contractError('SearchRequestV1 origin and destination must be different');
   }
   const departureDate = dateOnly(request.departureDate, 'SearchRequestV1 departureDate');
-  const returnDate = request.returnDate == null
-    ? null
-    : dateOnly(request.returnDate, 'SearchRequestV1 returnDate');
-  if (returnDate && returnDate < departureDate) {
-    throw contractError('SearchRequestV1 returnDate cannot precede departureDate');
-  }
+  if (request.returnDate != null) throw roundTripUnsupportedError();
+  const returnDate = null;
 
   const passengers = object(request.passengers, 'SearchRequestV1 passengers');
   exactFields(passengers, ['adults', 'children', 'infants'], 'SearchRequestV1 passengers');
