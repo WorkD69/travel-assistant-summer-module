@@ -107,6 +107,14 @@
     updateTrip: function(tripId, patch){ return req(tp(tripId), { method: "PATCH", body: patch }); },
     deleteTrip: function(tripId){ return req(tp(tripId), { method: "DELETE" }); },
 
+    // Tutu Transport Contract V1
+    tutuSearch: function(request){
+      return req("/api/tutu/search", { method: "POST", body: request });
+    },
+    tutuCheckoutLink: function(selectionToken){
+      return req("/api/tutu/checkout-link", { method: "POST", body: { selectionToken: selectionToken } });
+    },
+
     // Geo & weather
     geoSearch: function(q){ return req("/api/geo/search?q=" + encodeURIComponent(q || "")); },
     weather: function(lat, lon){ return req("/api/weather?lat=" + encodeURIComponent(lat) + "&lon=" + encodeURIComponent(lon)); },

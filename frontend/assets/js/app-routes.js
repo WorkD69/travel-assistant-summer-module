@@ -12,6 +12,7 @@
     "invitation.html",
     "profile.html",
     "home.html",
+    "search-results.html",
     "history.html",
     "trip-wizard.html",
     "trip-overview.html"
@@ -68,6 +69,11 @@
 
     goToHome() { go("home.html"); },
     goToHistory() { go("history.html"); },
+
+    goToSearchResults(request) {
+      const query = window.TutuSearchAdapter.requestToQuery(request);
+      go("search-results.html?" + query);
+    },
 
     goToProfile(section) {
       go(appendQuery("profile.html", { section: section || "" }));

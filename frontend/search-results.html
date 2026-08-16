@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Результаты поиска · Тревел-помощник</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="design-tokens.css" />
+  <link rel="stylesheet" href="assets/css/app-shell.css" />
+  <link rel="stylesheet" href="assets/css/tutu-native-shell.css" />
+  <link rel="stylesheet" href="assets/css/tutu-search-results.css" />
+</head>
+<body class="tutu-native-surface tutu-results-surface" data-app-environment="production">
+  <div id="tutu-search-results-root"></div>
+  <script src="features/app-state.js"></script>
+  <script src="assets/js/app-state-bridge.js"></script>
+  <script src="assets/js/auth-storage.js"></script>
+  <script src="assets/js/api-client.js"></script>
+  <script src="assets/js/app-routes.js"></script>
+  <script src="assets/js/app-shell.js"></script>
+  <script src="assets/js/tutu-search-adapter.js"></script>
+  <script src="assets/js/tutu-search-results.js"></script>
+  <script>
+    if (window.appShellInit({ section: "Результаты поиска", variant: "tutu" })) {
+      window.tutuSearchResultsInit(document.getElementById("tutu-search-results-root"));
+    }
+  </script>
+</body>
+</html>
