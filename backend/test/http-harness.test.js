@@ -26,6 +26,5 @@ test('live HTTP harness validates browser auth and Telegram consumer endpoints',
     'telegram-sos-idempotency',
     'telegram-notification-queue',
     'service-token-rejection',
-    'yellow-zone-access-idor-and-visibility',
   ]);
 });

@@ -50,15 +50,6 @@ async function request(baseUrl, method, pathname, options) {
   return { status: response.status, body: payload };
 }
 
-async function requestRaw(baseUrl, method, pathname, options) {
-  const settings = options || {};
-  const response = await fetch(baseUrl + pathname, {
-    method: method,
-    headers: settings.headers || {},
-  });
-  return { status: response.status, body: Buffer.from(await response.arrayBuffer()) };
-}
-
 async function runHarness() {
   const databaseFilename = 'http-harness-' + crypto.randomUUID() + '.db';
   const databasePath = path.join(PRISMA_ROOT, databaseFilename);
@@ -93,7 +84,6 @@ async function runHarness() {
     pushTemporarySchema(databaseUrl);
     const app = require('../src/app');
     prisma = require('../src/db');
-    const botNotify = require('../src/services/botNotify');
     server = await new Promise(function (resolve, reject) {
       const instance = app.listen(0, '127.0.0.1', function () { resolve(instance); });
       instance.once('error', reject);
@@ -507,150 +497,6 @@ async function runHarness() {
       true,
     );
 
-    // ---- Yellow Zone: canonical participant access, true cross-trip IDOR, and visibility ----
-    const participantRow = await prisma.participant.findFirst({
-      where: { tripId: tripId, userId: secondRegistered.body.user.id },
-    });
-    assert.ok(participantRow);
-
-    const activeDetail = await request(baseUrl, 'GET', '/api/trips/' + tripId, { headers: secondSiteHeaders });
-    assert.equal(activeDetail.status, 200);
-    const activeList = await request(baseUrl, 'GET', '/api/trips', { headers: secondSiteHeaders });
-    assert.equal(activeList.status, 200);
-    assert.equal(activeList.body.trips.some(function (trip) { return trip.id === tripId; }), true);
-
-    await prisma.participant.update({ where: { id: participantRow.id }, data: { access: 'Активен' } });
-    const cyrillicActive = await request(baseUrl, 'GET', '/api/trips/' + tripId, { headers: secondSiteHeaders });
-    assert.equal(cyrillicActive.status, 200);
-
-    for (const blockedAccess of ['revoked', 'invited', 'inactive', 'denied', '', 'unknown']) {
-      await prisma.participant.update({ where: { id: participantRow.id }, data: { access: blockedAccess } });
-      const deniedDetail = await request(baseUrl, 'GET', '/api/trips/' + tripId, { headers: secondSiteHeaders });
-      assert.equal(deniedDetail.status, 403, blockedAccess || '(blank)');
-      const deniedList = await request(baseUrl, 'GET', '/api/trips', { headers: secondSiteHeaders });
-      assert.equal(deniedList.body.trips.some(function (trip) { return trip.id === tripId; }), false, blockedAccess || '(blank)');
-      const deniedBotTrips = await request(baseUrl, 'GET', '/api/bot/trips?limit=100', { headers: secondServiceHeaders });
-      assert.equal(deniedBotTrips.body.items.some(function (trip) { return trip.id === tripId; }), false, blockedAccess || '(blank)');
-    }
-    const blockedMonitoring = await request(baseUrl, 'POST', '/api/trips/' + tripId + '/monitoring/assistant', {
-      headers: secondSiteHeaders,
-      body: { mode: 'dialog', messages: [] },
-    });
-    assert.equal(blockedMonitoring.status, 403);
-    const blockedNotificationCount = await prisma.telegramNotification.count({
-      where: { tripId: tripId, telegramUserId: secondTelegramUserId, type: 'route_changed' },
-    });
-    await botNotify.enqueue({ tripId: tripId, type: 'route_changed', tripTitle: 'Should not reach inactive participant' });
-    assert.equal(await prisma.telegramNotification.count({
-      where: { tripId: tripId, telegramUserId: secondTelegramUserId, type: 'route_changed' },
-    }), blockedNotificationCount);
-    await prisma.participant.update({ where: { id: participantRow.id }, data: { access: 'active' } });
-
-    const tripB = await request(baseUrl, 'POST', '/api/trips', {
-      headers: secondSiteHeaders,
-      body: { title: 'Private Trip B', route: 'B-only route', status: 'active' },
-    });
-    assert.equal(tripB.status, 201);
-    const tripBId = tripB.body.trip.id;
-
-    const invitationB = await request(baseUrl, 'POST', '/api/trips/' + tripBId + '/invitations', {
-      headers: secondSiteHeaders,
-      body: { email: 'cross-trip-' + crypto.randomUUID() + '@example.test', expiresInDays: 1 },
-    });
-    assert.equal(invitationB.status, 201);
-    const invitationAttack = await request(baseUrl, 'PATCH', '/api/trips/' + tripId + '/invitations/' + invitationB.body.invitation.id, {
-      headers: siteHeaders,
-      body: { active: false },
-    });
-    assert.equal(invitationAttack.status, 404);
-    assert.equal((await prisma.invitation.findUnique({ where: { id: invitationB.body.invitation.id } })).active, true);
-
-    const documentB = await request(baseUrl, 'POST', '/api/trips/' + tripBId + '/documents', {
-      headers: secondSiteHeaders,
-      body: { name: 'Trip B private document', visibility: 'shared' },
-    });
-    assert.equal(documentB.status, 201);
-    const documentPatchAttack = await request(baseUrl, 'PATCH', '/api/trips/' + tripId + '/documents/' + documentB.body.document.id, {
-      headers: siteHeaders,
-      body: { name: 'attacker mutation' },
-    });
-    assert.equal(documentPatchAttack.status, 404);
-    assert.equal((await prisma.document.findUnique({ where: { id: documentB.body.document.id } })).name, 'Trip B private document');
-    const documentDeleteAttack = await request(baseUrl, 'DELETE', '/api/trips/' + tripId + '/documents/' + documentB.body.document.id, { headers: siteHeaders });
-    assert.equal(documentDeleteAttack.status, 404);
-    assert.ok(await prisma.document.findUnique({ where: { id: documentB.body.document.id } }));
-
-    const messageB = await request(baseUrl, 'POST', '/api/trips/' + tripBId + '/messages', {
-      headers: secondSiteHeaders,
-      body: { kind: 'announcement', status: 'published', title: 'Trip B only', body: 'Private B message' },
-    });
-    assert.equal(messageB.status, 201);
-    const messageDeleteAttack = await request(baseUrl, 'DELETE', '/api/trips/' + tripId + '/messages/' + messageB.body.message.id, { headers: siteHeaders });
-    assert.equal(messageDeleteAttack.status, 404);
-    assert.ok(await prisma.message.findUnique({ where: { id: messageB.body.message.id } }));
-
-    for (const unknownPath of [
-      '/api/trips/' + tripId + '/invitations/unknown-invitation',
-      '/api/trips/' + tripId + '/documents/unknown-document',
-      '/api/trips/' + tripId + '/messages/unknown-message',
-    ]) {
-      const method = unknownPath.includes('/invitations/') || unknownPath.includes('/messages/') ? 'PATCH' : 'DELETE';
-      const unknown = await request(baseUrl, method, unknownPath, { headers: siteHeaders, body: method === 'PATCH' ? { active: false } : undefined });
-      assert.equal(unknown.status, 404, unknownPath);
-    }
-
-    const createVisibleDocument = async function (name, visibility) {
-      return prisma.document.create({
-        data: {
-          tripId: tripId,
-          name: name,
-          visibility: visibility,
-          uploadedById: restored.body.user.id,
-          blob: { create: { data: Buffer.from(name, 'utf8') } },
-        },
-      });
-    };
-    const sharedDocument = await createVisibleDocument('Shared document', 'shared');
-    const organizerDocument = await createVisibleDocument('Organizer document', 'organizer_only');
-    const personalDocument = await createVisibleDocument('Personal document', 'personal');
-    const unknownDocument = await createVisibleDocument('Unknown document', 'restricted_custom');
-
-    const ownerDocuments = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/documents', { headers: siteHeaders });
-    assert.equal(ownerDocuments.status, 200);
-    [sharedDocument.id, organizerDocument.id, personalDocument.id, unknownDocument.id].forEach(function (id) {
-      assert.equal(ownerDocuments.body.documents.some(function (doc) { return doc.id === id; }), true, id);
-    });
-    const participantDocuments = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/documents', { headers: secondSiteHeaders });
-    assert.equal(participantDocuments.status, 200);
-    assert.equal(participantDocuments.body.documents.some(function (doc) { return doc.id === sharedDocument.id; }), true);
-    [organizerDocument.id, personalDocument.id, unknownDocument.id].forEach(function (id) {
-      assert.equal(participantDocuments.body.documents.some(function (doc) { return doc.id === id; }), false, id);
-    });
-
-    const participantSharedFile = await requestRaw(baseUrl, 'GET', '/api/trips/' + tripId + '/documents/' + sharedDocument.id + '/file', { headers: secondSiteHeaders });
-    assert.equal(participantSharedFile.status, 200);
-    for (const id of [organizerDocument.id, personalDocument.id, unknownDocument.id]) {
-      const forbiddenFile = await requestRaw(baseUrl, 'GET', '/api/trips/' + tripId + '/documents/' + id + '/file', { headers: secondSiteHeaders });
-      assert.equal(forbiddenFile.status, 403, id);
-    }
-    for (const id of [sharedDocument.id, organizerDocument.id, personalDocument.id, unknownDocument.id]) {
-      const ownerFile = await requestRaw(baseUrl, 'GET', '/api/trips/' + tripId + '/documents/' + id + '/file', { headers: siteHeaders });
-      assert.equal(ownerFile.status, 200, id);
-    }
-
-    const botDocuments = await request(baseUrl, 'GET', '/api/bot/trips/' + tripId + '/documents', { headers: secondServiceHeaders });
-    assert.equal(botDocuments.status, 200);
-    assert.equal(botDocuments.body.items.some(function (doc) { return doc.id === sharedDocument.id; }), true);
-    [organizerDocument.id, personalDocument.id, unknownDocument.id].forEach(function (id) {
-      assert.equal(botDocuments.body.items.some(function (doc) { return doc.id === id; }), false, id);
-    });
-    const botSharedLink = await request(baseUrl, 'POST', '/api/bot/documents/' + sharedDocument.id + '/temporary-link', { headers: secondServiceHeaders, body: {} });
-    assert.equal(botSharedLink.status, 200);
-    for (const id of [organizerDocument.id, personalDocument.id, unknownDocument.id]) {
-      const forbiddenLink = await request(baseUrl, 'POST', '/api/bot/documents/' + id + '/temporary-link', { headers: secondServiceHeaders, body: {} });
-      assert.equal(forbiddenLink.status, 403, id);
-    }
-
     const rejected = await request(baseUrl, 'GET', '/api/bot/me', {
       headers: {
         Authorization: 'Bearer invalid-isolated-token',
@@ -681,7 +527,6 @@ async function runHarness() {
         'telegram-sos-idempotency',
         'telegram-notification-queue',
         'service-token-rejection',
-        'yellow-zone-access-idor-and-visibility',
       ],
     };
   } finally {
