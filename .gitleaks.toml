@@ -28,3 +28,18 @@ paths = ['''(^|/)backend/tests/fixtures/canonical-source-manifest\.json$''']
 targetRules = ["generic-api-key"]
 description = "Known historical false positive in a synthetic SOS test commit."
 commits = ["7ad3177d9d4b7ac4889e946ced425d3c14c90c53"]
+
+[[allowlists]]
+targetRules = ["generic-api-key"]
+description = "Known synthetic Tutu/TripFactory test fixtures in replay history."
+condition = "AND"
+commits = [
+  "eb906cdae8a9f17bf1ea07a1fb6ae82d248aa6ac",
+  "d207fd4664a4491a3547493196f09e68eea15ec6",
+  "6ba179884fba4d717b1bc1a4de0f988bab640547",
+]
+paths = [
+  '''^backend/test/trip-factory\.test\.js$''',
+  '''^backend/test/tutu-routes\.test\.js$''',
+  '''^backend/test/tutu-trip-e2e\.test\.js$''',
+]
