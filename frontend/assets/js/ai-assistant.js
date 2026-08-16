@@ -13,8 +13,8 @@
   function getTripId(){
     try {
       var p = new URLSearchParams(location.search);
-      return p.get("tripId") || p.get("trip") || null;
-    } catch (e) { return null; }
+      return p.get("tripId") || p.get("trip") || "trip-turkey-2026";
+    } catch (e) { return "trip-turkey-2026"; }
   }
 
   function esc(s){
@@ -157,7 +157,7 @@
 
   async function applyPlanByKey(key, btn){
     var plan = planRegistry[key];
-    if (!plan || !tripId || !window.TravelApi) return;
+    if (!plan || !window.TravelApi) return;
     if (typeof window.confirm === "function" && !window.confirm("Применить Plan B и заменить текущий маршрут поездки?")) return;
     btn.disabled = true;
     var old = btn.textContent;
@@ -211,7 +211,7 @@
   }
 
   async function loadActivePlan(){
-    if (!activeWrap || !tripId || !window.TravelApi) return;
+    if (!activeWrap || !window.TravelApi) return;
     try {
       var r = await window.TravelApi.getActivePlan(tripId);
       renderActivePlan(r && r.plan);
@@ -220,7 +220,6 @@
   }
 
   async function onActiveClick(e){
-    if (!tripId) return;
     var t = e.target;
     var copyBtn = t && t.closest ? t.closest(".ai-email__copy") : null;
     if (copyBtn){ copyEmail(copyBtn); return; }
@@ -253,7 +252,7 @@
   function hideLoading(){ if (loadingEl){ loadingEl.remove(); loadingEl = null; } }
 
   async function send(mode){
-    if (busy || !tripId) return;
+    if (busy) return;
     var text = (els.input.value || "").trim();
     if (!text){ els.input.focus(); return; }
     els.input.value = "";
@@ -314,11 +313,6 @@
     });
     els.log.addEventListener("click", onLogClick);
 
-    if (!tripId){
-      setStatus("Сначала выберите поездку", "wait");
-      setBusy(true);
-      return;
-    }
     if (!window.TravelApi){ setStatus("API недоступен", "err"); return; }
     try {
       await window.TravelApi.ensureAuth();

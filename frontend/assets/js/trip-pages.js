@@ -285,14 +285,13 @@
     const draft = app.drafts.find((item) => item.id === draftId);
     if (draft) return { mode: "create", draftId, step: draft.step, maxStep: draft.step, data: clone(draft.data), segments: clone(draft.segments), editingSegment: null, dirty: false, successTrip: null };
     const mode = params.get("mode") === "edit" ? "edit" : "create";
-    const requestedTripId = params.get("tripId") || params.get("trip") || "";
-    const trip = mode === "edit" && requestedTripId ? app.trips.find((item) => item.id === requestedTripId) : null;
+    const trip = mode === "edit" ? app.trips.find((item) => item.id === ((params.get("tripId") || params.get("trip")) || "trip-turkey-2026")) : null;
     const data = trip ? tripToWizardData(trip) : adapter.seedWizardData("");
     const segments = trip?.segments?.length ? clone(trip.segments) : [];
-    const blockedReason = mode === "edit" && (!requestedTripId || !trip || trip.role !== "Организатор" || trip.status === "completed")
-      ? (!requestedTripId ? "Выберите поездку для редактирования." : !trip ? "Поездка не найдена." : trip.status === "completed" ? "Завершённую поездку нельзя редактировать." : "Участник не может редактировать чужую поездку.")
+    const blockedReason = mode === "edit" && (!trip || trip.role !== "Организатор" || trip.status === "completed")
+      ? (!trip ? "Поездка не найдена." : trip.status === "completed" ? "Завершённую поездку нельзя редактировать." : "Участник не может редактировать чужую поездку.")
       : "";
-    return { mode, tripId: trip ? trip.id : "", draftId: null, step: 0, maxStep: 0, data, segments, editingSegment: null, dirty: false, successTrip: null, blockedReason };
+    return { mode, tripId: trip?.id || "trip-turkey-2026", draftId: null, step: 0, maxStep: 0, data, segments, editingSegment: null, dirty: false, successTrip: null, blockedReason };
   }
 
   function renderWizard(root) {
