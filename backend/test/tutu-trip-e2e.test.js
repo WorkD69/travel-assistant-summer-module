@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const test = require('node:test');
@@ -51,7 +52,7 @@ function option(id) {
 
 test('demo-success is idempotent and canonical GET rereads the same transport facts', async () => {
   const filename = 'tutu-trip-e2e-' + crypto.randomUUID() + '.db';
-  const databasePath = path.join('/private/tmp', filename);
+  const databasePath = path.join(os.tmpdir(), filename);
   const databaseUrl = 'file:' + databasePath;
   const jwtSecret = crypto.randomBytes(48).toString('base64url');
   process.env.DATABASE_URL = databaseUrl;
