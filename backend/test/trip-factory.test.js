@@ -49,7 +49,7 @@ function fakePrisma() {
 }
 
 const user = { id: 'user-1', name: 'Иван Иванов', initials: 'ИИ', telegram: null };
-const key = 'test-idempotency-0001';
+const key = 'fixture-000000000000';
 
 test('maps a selected TransportOptionV1 to the existing canonical Trip model', async () => {
   const fake = fakePrisma();

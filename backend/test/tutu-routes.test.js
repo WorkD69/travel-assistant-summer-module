@@ -172,14 +172,14 @@ test('POST /demo-purchase-success creates or replays a canonical Trip through Tr
     for (const expected of [[201, true], [200, false]]) {
       const response = await fetch(baseUrl + '/api/tutu/demo-purchase-success', {
         method: 'POST',
-        headers: { 'content-type': 'application/json', 'idempotency-key': 'test-idempotency-0002' },
+        headers: { 'content-type': 'application/json', 'idempotency-key': 'fixture-000000000000' },
         body: JSON.stringify({ selectionToken: token }),
       });
       assert.equal(response.status, expected[0]);
       assert.deepEqual(await response.json(), { tripId: 'tutu_trip_1', created: expected[1] });
     }
     assert.equal(calls[0].user.id, 'user-1');
-    assert.equal(calls[0].idempotencyKey, 'test-idempotency-0002');
+    assert.equal(calls[0].idempotencyKey, 'fixture-000000000000');
     assert.deepEqual(calls[0].option, parsedSelection.option);
   });
 });
