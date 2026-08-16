@@ -15,7 +15,7 @@
 
 
 > **Baseline status:** this is a reviewable integration baseline. It must not be merged into `main` automatically.
-> 
+>
 
 
 ## Approved inputs and provenance
@@ -53,7 +53,7 @@ The Yellow security baseline retains `backend/src/services/tripAccess.js` and th
 
 
 > `backend/src/routes/monitoring.js` and `backend/src/services/botNotify.js` use shared fail-closed access predicates. Future Plan B work must preserve that alignment and must not restore fail-open authorization predicates.
-> 
+>
 
 
 ## Frozen Tutu-native Home/Search baseline
@@ -139,13 +139,8 @@ Future work must retain the frozen Green, Yellow, and Tutu-native Home/Search se
 
 
 1. [PR #9 — approved Green integration](https://github.com/WorkD69/travel-assistant-summer-module/pull/9)
-2. 
+2.
 2. [PR #10 — approved Yellow Security integration](https://github.com/WorkD69/travel-assistant-summer-module/pull/10)
-3. 
+3.
 3. [PR #11 — approved Tutu-native Home/Search integration](https://github.com/WorkD69/travel-assistant-summer-module/pull/11)
-4. 
-
-
-
-
-
+4.
