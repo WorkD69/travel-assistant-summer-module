@@ -1,0 +1,45 @@
+{
+  "offers": [{
+    "offer_id": "fixture-rail-connection",
+    "transport": "railway",
+    "price": { "amount": 5978.14, "currency": "RUB" },
+    "duration_min": 480,
+    "segments_count": 3,
+    "legs": [{
+      "label": "outbound",
+      "segments": [
+        {
+          "from": "Москва",
+          "to": "Клин",
+          "departure_at": "2026-08-20T10:00:00+03:00",
+          "arrival_at": "2026-08-20T11:00:00+03:00",
+          "carrier": "ФПК",
+          "voyage_no": "001А"
+        },
+        {
+          "from": "Клин",
+          "to": "Тверь",
+          "departure_at": "2026-08-20T11:02:00+03:00",
+          "arrival_at": "2026-08-20T12:00:00+03:00",
+          "carrier": "ФПК",
+          "voyage_no": "001А"
+        },
+        {
+          "from": "Тверь",
+          "to": "Санкт-Петербург",
+          "departure_at": "2026-08-20T13:00:00+03:00",
+          "arrival_at": "2026-08-20T18:00:00+03:00",
+          "carrier": "ФПК",
+          "voyage_no": "003А"
+        }
+      ]
+    }],
+    "checkout_ref": {
+      "transport": "railway",
+      "offer_hash": "fixture-rail-hash",
+      "train_number": "001А",
+      "departure_at": "2026-08-20T10:00:00+03:00"
+    },
+    "fares": { "count": 2, "price_from": 5978.14, "currency": "RUB" }
+  }]
+}

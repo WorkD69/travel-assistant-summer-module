@@ -1,0 +1,25 @@
+{
+  "variants": [{
+    "offer_id": "fixture-multi-bus",
+    "transport": "bus",
+    "price": { "amount": 1777, "currency": "RUB" },
+    "duration_min": 590,
+    "segments_count": 1,
+    "legs": [{
+      "label": "outbound",
+      "segments": [{
+        "from": "Москва",
+        "to": "Санкт-Петербург",
+        "departure_at": "2026-08-20T13:30:00+03:00",
+        "arrival_at": "2026-08-20T23:20:00+03:00",
+        "carrier": "Fixture Bus",
+        "voyage_no": null
+      }]
+    }],
+    "checkout_ref": {
+      "transport": "bus",
+      "offer_hash": "fixture-multi-hash",
+      "departure_at": "2026-08-20T13:30:00+03:00"
+    }
+  }]
+}
