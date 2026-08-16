@@ -1,0 +1,39 @@
+{
+  "offers": [{
+    "offer_id": "fixture-round-trip-package",
+    "transport": "avia",
+    "price": { "amount": 12000, "currency": "RUB" },
+    "duration_min": 180,
+    "segments_count": 2,
+    "legs": [
+      {
+        "label": "outbound",
+        "segments": [{
+          "from": "Москва",
+          "to": "Сочи",
+          "departure_at": "2026-08-20T10:00:00+03:00",
+          "arrival_at": "2026-08-20T13:00:00+03:00",
+          "carrier": "Fixture Air",
+          "voyage_no": "FA-100"
+        }]
+      },
+      {
+        "label": "return",
+        "segments": [{
+          "from": "Сочи",
+          "to": "Москва",
+          "departure_at": "2026-08-27T10:00:00+03:00",
+          "arrival_at": "2026-08-27T13:00:00+03:00",
+          "carrier": "Fixture Air",
+          "voyage_no": "FA-101"
+        }]
+      }
+    ],
+    "checkout_ref": {
+      "transport": "avia",
+      "is_round_trip": true,
+      "offer_hash": "fixture-round-trip-package-hash",
+      "return_departure_at": "2026-08-27T10:00:00+03:00"
+    }
+  }]
+}

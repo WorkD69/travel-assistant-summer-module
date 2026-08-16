@@ -1,0 +1,26 @@
+{
+  "offers": [{
+    "offer_id": "fixture-bus-direct",
+    "transport": "bus",
+    "price": { "amount": 690, "currency": "RUB" },
+    "duration_min": 115,
+    "segments_count": 1,
+    "legs": [{
+      "label": "outbound",
+      "segments": [{
+        "from": "Москва — Северные Ворота",
+        "to": "Тверь",
+        "departure_at": "2026-08-20T08:00:00+03:00",
+        "arrival_at": "2026-08-20T09:55:00+03:00",
+        "carrier": "Автолидер",
+        "voyage_no": null
+      }]
+    }],
+    "checkout_ref": {
+      "transport": "bus",
+      "offer_hash": "fixture-bus-hash",
+      "departure_at": "2026-08-20T08:00:00+03:00",
+      "passengers": 1
+    }
+  }]
+}
