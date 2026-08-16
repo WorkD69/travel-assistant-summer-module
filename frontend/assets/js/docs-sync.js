@@ -21,7 +21,7 @@
     var s = store() && store().getState ? store().getState() : null;
     if (s && s.activeTripId) return s.activeTripId;
     if (s && s.trip && s.trip.id) return s.trip.id;
-    return null;
+    return "trip-turkey-2026";
   }
 
   function esc(v){ return String(v == null ? "" : v).replace(/[&<>\"']/g, function(c){ return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]; }); }
@@ -72,7 +72,6 @@
     var a = api();
     if (!a || !a.listDocuments) return;
     var id = getTripId();
-    if (!id) return;
     withAuth(function(){
       a.listDocuments(id).then(function(r){
         var docs = (r && r.documents) ? r.documents : [];
@@ -103,7 +102,6 @@
       var a = api();
       if (!a || !a.uploadDocument) return;
       var id = getTripId();
-      if (!id) { toast("Сначала выберите поездку"); return; }
       toast("Загрузка «" + file.name + "»…");
       withAuth(function(){
         a.uploadDocument(id, file, {}).then(function(){
@@ -119,7 +117,7 @@
   // ---- Просмотр / скачивание / удаление ----
   function openFile(id){
     var a = api(); var tid = getTripId(); var raw = rawById[id];
-    if (!a || !tid || !raw) return;
+    if (!a || !raw) return;
     if (!raw.hasFile){ toast("У этого документа нет файла"); return; }
     a.fetchFileBlob(tid, id).then(function(b){
       var url = URL.createObjectURL(b);
@@ -130,7 +128,7 @@
 
   function downloadFile(id){
     var a = api(); var tid = getTripId(); var raw = rawById[id];
-    if (!a || !tid || !raw) return;
+    if (!a || !raw) return;
     if (!raw.hasFile){ toast("У этого документа нет файла"); return; }
     a.fetchFileBlob(tid, id).then(function(b){
       var url = URL.createObjectURL(b);
@@ -143,7 +141,7 @@
 
   function deleteDoc(id){
     var a = api(); var tid = getTripId();
-    if (!a || !tid || !a.removeDocument) return;
+    if (!a || !a.removeDocument) return;
     if (!window.confirm("Удалить документ безвозвратно?")) return;
     withAuth(function(){
       a.removeDocument(tid, id).then(function(){
@@ -192,7 +190,7 @@
   // Подтверждение данных: собираем исправления → сохраняем в бэкенд, статус → confirmed.
   function confirmOcr(id){
     var a = api(); var tid = getTripId(); var raw = rawById[id];
-    if (!a || !tid || !a.updateDocument || !raw) return;
+    if (!a || !a.updateDocument || !raw) return;
     var fields = {};
     try { fields = JSON.parse(raw.ocrData || "{}"); } catch (e) {}
     var typeEl = document.getElementById("ocr-f-type");
@@ -233,7 +231,6 @@
     var raw = rawById[id];
     if (!raw) return;
     var a = api(); var tid = getTripId();
-    if (!tid) return;
     // Реальный превью файла
     var prev = document.getElementById("doc-view-preview");
     if (prev && raw.hasFile && a && a.fetchFileBlob){

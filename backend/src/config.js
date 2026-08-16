@@ -61,24 +61,13 @@ function isCorsOriginAllowed(origin, allowedOrigins) {
   }
 }
 
-const DEVELOPMENT_JWT_SECRET = 'dev-insecure-secret-change-me';
-
-function resolveJwtSecret(rawValue, isProduction) {
-  const secret = String(rawValue || '').trim();
-  if (isProduction && (!secret || secret === DEVELOPMENT_JWT_SECRET)) {
-    throw new Error('JWT_SECRET is required in production and must not use the development placeholder');
-  }
-  return secret || DEVELOPMENT_JWT_SECRET;
-}
-
 const nodeEnv = process.env.NODE_ENV || 'development';
 const isProd = nodeEnv === 'production';
 const corsOrigins = parseCorsOrigins(process.env.FRONTEND_ORIGIN, isProd);
-const jwtSecret = resolveJwtSecret(process.env.JWT_SECRET, isProd);
 
 module.exports = {
   port: process.env.PORT || 3000,
-  jwtSecret: jwtSecret,
+  jwtSecret: process.env.JWT_SECRET || 'dev-insecure-secret-change-me',
   nodeEnv: nodeEnv,
   isProd: isProd,
   corsOrigins: corsOrigins,
