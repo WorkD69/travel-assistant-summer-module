@@ -25,6 +25,14 @@ function roundTripUnsupportedError() {
   return error;
 }
 
+function multiPassengerUnsupportedError() {
+  const error = contractError(
+    'SearchRequestV1 passengers must be exactly one adult, zero children, and zero infants in V1',
+  );
+  error.code = 'TUTU_MULTI_PASSENGER_UNSUPPORTED';
+  return error;
+}
+
 function object(value, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw contractError(label + ' must be an object');
@@ -97,6 +105,10 @@ function validateSearchRequestV1(input) {
     children: integer(passengers.children, 'SearchRequestV1 passengers.children', 0, 9),
     infants: integer(passengers.infants, 'SearchRequestV1 passengers.infants', 0, 9),
   };
+  if (normalizedPassengers.adults !== 1 ||
+      normalizedPassengers.children !== 0 || normalizedPassengers.infants !== 0) {
+    throw multiPassengerUnsupportedError();
+  }
   if (normalizedPassengers.adults + normalizedPassengers.children + normalizedPassengers.infants > 9) {
     throw contractError('SearchRequestV1 passengers total cannot exceed 9');
   }

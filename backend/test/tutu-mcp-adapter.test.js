@@ -58,13 +58,13 @@ test('every mapped argument is present in the captured Tutu 0.38.0 tool schema',
   }
 });
 
-test('rejects passenger combinations unsupported by a concrete current tool schema', () => {
+test('rejects passenger combinations outside the single-traveler V1 before tool mapping', () => {
   assert.throws(() => mapSearchRequestToTool(request('train', {
     adults: 1, children: 1, infants: 0,
-  })), function (error) { return error && error.code === 'TUTU_PASSENGER_COMBINATION_UNSUPPORTED'; });
+  })), function (error) { return error && error.code === 'TUTU_MULTI_PASSENGER_UNSUPPORTED'; });
   assert.throws(() => mapSearchRequestToTool(request('bus', {
     adults: 1, children: 0, infants: 1,
-  })), function (error) { return error && error.code === 'TUTU_PASSENGER_COMBINATION_UNSUPPORTED'; });
+  })), function (error) { return error && error.code === 'TUTU_MULTI_PASSENGER_UNSUPPORTED'; });
 });
 
 for (const example of [

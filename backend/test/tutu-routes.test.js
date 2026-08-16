@@ -82,6 +82,32 @@ test('POST /search rejects returnDate before invoking MCP', async () => {
   });
 });
 
+test('POST /search rejects unsupported passenger combinations before invoking MCP', async () => {
+  let calls = 0;
+  const router = createTutuRouter({
+    requireAuth: auth,
+    adapter: { async search() { calls += 1; return []; } },
+    selectionTokens: createSelectionTokenService({ secret: 'route-test-secret' }),
+  });
+  await withServer(router, async function (baseUrl) {
+    for (const passengers of [
+      { adults: 2, children: 0, infants: 0 },
+      { adults: 1, children: 1, infants: 0 },
+      { adults: 1, children: 0, infants: 1 },
+    ]) {
+      const body = request(null);
+      body.passengers = passengers;
+      const response = await fetch(baseUrl + '/api/tutu/search', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const payload = await response.json();
+      assert.equal(response.status, 400);
+      assert.equal(payload.error.code, 'TUTU_MULTI_PASSENGER_UNSUPPORTED');
+    }
+    assert.equal(calls, 0);
+  });
+});
+
 test('POST /checkout-link verifies the selection and returns the opaque provider URL', async () => {
   const selectionTokens = createSelectionTokenService({ secret: 'route-test-secret' });
   const token = selectionTokens.signSelection('user-1', parsedSelection);

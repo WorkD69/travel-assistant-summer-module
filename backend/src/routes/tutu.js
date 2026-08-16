@@ -11,6 +11,7 @@ const { createTripFactory } = require('../services/tripFactory');
 const SAFE_MESSAGES = Object.freeze({
   TRANSPORT_CONTRACT_INVALID: 'Transport request is invalid',
   TUTU_ROUND_TRIP_UNSUPPORTED: 'Round-trip search is unsupported in Transport Contract V1',
+  TUTU_MULTI_PASSENGER_UNSUPPORTED: 'Transport Contract V1 supports exactly one adult traveler',
   TUTU_PASSENGER_COMBINATION_UNSUPPORTED: 'Passenger combination is unsupported for this transport mode',
   TUTU_SELECTION_INVALID: 'Transport selection token is invalid',
   TUTU_SELECTION_EXPIRED: 'Transport selection has expired',
