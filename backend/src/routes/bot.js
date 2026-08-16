@@ -19,7 +19,6 @@ const { requireAuth } = require('../middleware/auth');
 const botNotify = require('../services/botNotify');
 const assistant = require('../services/assistant');
 const tripChanges = require('../services/tripChanges');
-const { isLinkedActiveParticipant, canReadDocument } = require('../services/tripAccess');
 
 const router = express.Router();
 
@@ -143,9 +142,10 @@ async function tripRoleFor(trip, userId) {
   if (!trip) return null;
   if (trip.ownerId === userId) return { role: 'organizer', membership: 'member' };
   const p = await prisma.participant.findFirst({ where: { tripId: trip.id, userId: userId } });
-  if (!isLinkedActiveParticipant(p, userId)) return null;
+  if (!p) return null;
   const role = ['organizer', 'participant', 'viewer'].indexOf(p.role) >= 0 ? p.role : 'participant';
-  return { role: role, membership: 'member' };
+  const membership = p.access === 'revoked' ? 'revoked' : (p.access === 'invited' ? 'invited' : 'member');
+  return { role: role, membership: membership };
 }
 async function loadAccessibleTrip(tripId, userId) {
   const trip = await prisma.trip.findUnique({ where: { id: tripId } });
@@ -162,9 +162,10 @@ async function accessibleTrips(userId) {
   parts.forEach(function (p) {
     if (!p.trip) return;
     if (byId.has(p.trip.id)) return;
-    if (!isLinkedActiveParticipant(p, userId)) return;
+    if (p.access === 'revoked') return;
     const role = ['organizer', 'participant', 'viewer'].indexOf(p.role) >= 0 ? p.role : 'participant';
-    byId.set(p.trip.id, { trip: p.trip, roleInfo: { role: role, membership: 'member' } });
+    const membership = p.access === 'invited' ? 'invited' : 'member';
+    byId.set(p.trip.id, { trip: p.trip, roleInfo: { role: role, membership: membership } });
   });
   return Array.from(byId.values());
 }
@@ -263,12 +264,13 @@ function serializeDoc(d) {
     deleted: false,
   };
 }
-function canSeeDoc(d, roleInfo) {
-  return canReadDocument(d, {
-    isOwner: roleInfo.role === 'organizer',
-    role: roleInfo.role,
-    isActiveParticipant: roleInfo.role !== 'organizer',
-  });
+function canSeeDoc(d, roleInfo, userId) {
+  const vis = docVisibility(d.visibility);
+  if (roleInfo.role === 'organizer') return true;
+  if (vis === 'all') return true;
+  if (vis === 'personal') return d.uploadedById === userId;
+  if (vis === 'organizer_only') return false;
+  return true;
 }
 
 function serializeMsg(m) {
@@ -509,7 +511,7 @@ router.get('/api/bot/trips/:tripId/documents', requireService, resolveUser, asyn
     orderBy: { uploadedAt: 'desc' },
     include: { blob: { select: { id: true } } },
   });
-  const items = docs.filter(function (d) { return d.blob && canSeeDoc(d, r.roleInfo); })
+  const items = docs.filter(function (d) { return d.blob && canSeeDoc(d, r.roleInfo, req.siteUser.id); })
     .map(serializeDoc);
   res.json(page(items));
 });
@@ -523,7 +525,7 @@ router.post('/api/bot/documents/:documentId/temporary-link', requireService, res
     if (!doc) return fail(res, 'not_found');
     const r = await loadAccessibleTrip(doc.tripId, req.siteUser.id);
     if (r.error) return fail(res, r.error);
-    if (!canSeeDoc(doc, r.roleInfo)) return fail(res, 'access_denied');
+    if (!canSeeDoc(doc, r.roleInfo, req.siteUser.id)) return fail(res, 'access_denied');
     if (!doc.blob) return fail(res, 'not_found', 'Файл документа не сохранён.');
     const token = makeFileToken(doc.id, req.tgId);
     const url = config.publicBaseUrl + '/api/bot/documents/download/' + token;
@@ -717,7 +719,7 @@ router.get('/api/bot/trips/:tripId/assistant-context', requireService, resolveUs
   res.json({
     trip: serializeTrip(r.trip, r.roleInfo),
     events: tripEvents(r.trip),
-    documents: docs.filter(function (d) { return d.blob && canSeeDoc(d, r.roleInfo); }).map(serializeDoc),
+    documents: docs.filter(function (d) { return d.blob && canSeeDoc(d, r.roleInfo, req.siteUser.id); }).map(serializeDoc),
     messages: msgs.filter(isPublishedMsg).map(serializeMsg),
     own_sos: sigs.filter(isSosSignal).map(serializeSos),
     participants: context ? context.participants : [],
