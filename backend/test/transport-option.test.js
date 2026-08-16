@@ -43,7 +43,7 @@ test('SearchRequestV1 normalizes a provider-independent one-way request', () => 
     origin: ' Москва ',
     destination: ' Санкт-Петербург ',
     departureDate: '2026-08-20',
-    passengers: { adults: 2, children: 1, infants: 0 },
+    passengers: { adults: 1, children: 0, infants: 0 },
   });
 
   assert.deepEqual(request, {
@@ -53,9 +53,31 @@ test('SearchRequestV1 normalizes a provider-independent one-way request', () => 
     destination: 'Санкт-Петербург',
     departureDate: '2026-08-20',
     returnDate: null,
-    passengers: { adults: 2, children: 1, infants: 0 },
+    passengers: { adults: 1, children: 0, infants: 0 },
   });
   assert.deepEqual(SEARCH_MODES, ['flight', 'train', 'bus', 'etrain', 'mixed']);
+});
+
+test('SearchRequestV1 rejects every non-single-traveler combination with a stable V1 code', () => {
+  const base = {
+    schemaVersion: '1',
+    mode: 'flight',
+    origin: 'Москва',
+    destination: 'Сочи',
+    departureDate: '2026-08-20',
+    returnDate: null,
+  };
+  for (const passengers of [
+    { adults: 2, children: 0, infants: 0 },
+    { adults: 1, children: 1, infants: 0 },
+    { adults: 1, children: 0, infants: 1 },
+  ]) {
+    assert.throws(() => validateSearchRequestV1(Object.assign({}, base, {
+      passengers: passengers,
+    })), function (error) {
+      return error && error.code === 'TUTU_MULTI_PASSENGER_UNSUPPORTED' && error.status === 400;
+    });
+  }
 });
 
 test('SearchRequestV1 rejects round-trip searches with a stable V1 error code', () => {
