@@ -43,3 +43,13 @@ paths = [
   '''^backend/test/tutu-routes\.test\.js$''',
   '''^backend/test/tutu-trip-e2e\.test\.js$''',
 ]
+
+[[allowlists]]
+targetRules = ["generic-api-key"]
+description = "Historical false positives from non-secret Idempotency-Key literals in Plan B route tests."
+condition = "AND"
+commits = [
+  "862e3c33c1470f015ac90b68d8ebf3391a7d9e54",
+  "486a05e697e944576b0c1c7c12e6fa4505d67caa",
+]
+paths = ['''^backend/test/plan-b-routes\.test\.js$''']
