@@ -9,7 +9,7 @@ function read(relativePath) {
 }
 
 function loadAdapter() {
-  const context = { window: {}, URLSearchParams };
+  const context = { window: {}, URLSearchParams, Date };
   vm.runInNewContext(read('assets/js/tutu-search-adapter.js'), context);
   return context.window.TutuSearchAdapter;
 }

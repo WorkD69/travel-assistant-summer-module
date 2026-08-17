@@ -105,14 +105,15 @@ class FakeCustomEvent {
   }
 }
 
-test('home opts into the scoped Tutu shell after authenticated Home init', () => {
+test('Home route mounts only the scoped Tutu landing after authenticated init', () => {
   const html = read('home.html');
 
   assert.match(html, /<body class="[^"]*tutu-native-surface[^"]*"/);
   assert.match(html, /assets\/css\/tutu-native-shell\.css/);
   assert.match(html, /assets\/js\/tutu-search-shell\.js/);
   assert.match(html, /appShellInit\(\{\s*section:\s*"Главная",\s*variant:\s*"tutu"\s*\}\)/);
-  assert.match(html, /tripPagesHomeInit[\s\S]*tutuSearchShellInit/);
+  assert.match(html, /tutuSearchShellInit/);
+  assert.doesNotMatch(html, /home-root|trip-pages(?:-state)?\.js|trip-pages\.css|tripPagesHomeInit/);
 });
 
 test('all transport artwork is local SVG with stable viewBox geometry', () => {
