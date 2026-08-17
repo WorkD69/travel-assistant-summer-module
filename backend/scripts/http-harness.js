@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const express = require('express');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -88,6 +89,7 @@ async function runHarness() {
   delete process.env.AI_API_KEY;
 
   let server;
+  let coreServer;
   let prisma;
   try {
     pushTemporarySchema(databaseUrl);
@@ -333,45 +335,216 @@ async function runHarness() {
     }), true);
 
     const selectedAlternative = planAlternatives.body.plans[1];
-    const deniedPlanApply = await request(baseUrl, 'POST', '/api/trips/' + tripId + '/monitoring/plan', {
-      headers: secondSiteHeaders,
-      body: selectedAlternative,
-    });
-    assert.equal(deniedPlanApply.status, 403);
-    const appliedPlan = await request(baseUrl, 'POST', '/api/trips/' + tripId + '/monitoring/plan', {
+    const canonicalBeforeLegacyPost = await prisma.trip.findUnique({ where: { id: tripId } });
+    const legacyPost = await request(baseUrl, 'POST', '/api/trips/' + tripId + '/monitoring/plan', {
       headers: siteHeaders,
       body: selectedAlternative,
     });
-    assert.equal(appliedPlan.status, 201);
-    assert.equal(appliedPlan.body.plan.status, 'applied');
-    assert.equal(appliedPlan.body.trip.route, selectedAlternative.revisedRoute);
-    assert.deepEqual(appliedPlan.body.trip.segments, selectedAlternative.segments);
-    const persistedAppliedTrip = await prisma.trip.findUnique({ where: { id: tripId } });
-    assert.equal(persistedAppliedTrip.route, selectedAlternative.revisedRoute);
-    assert.deepEqual(JSON.parse(persistedAppliedTrip.segments), selectedAlternative.segments);
-    assert.equal(await prisma.tripChange.count({ where: { tripId: tripId, type: 'plan_b_created' } }), 1);
-    assert.equal(await prisma.tripChange.count({ where: { tripId: tripId, type: 'plan_b_applied' } }), 1);
-    assert.equal(await prisma.telegramNotification.count({
-      where: { tripId: tripId, type: 'plan_b_applied', telegramUserId: secondTelegramUserId },
-    }), 1);
-    const contextAfterPlan = await request(baseUrl, 'GET', '/api/bot/trips/' + tripId + '/assistant-context', {
+    assert.equal(legacyPost.status, 410);
+    assert.equal(legacyPost.body.code, 'LEGACY_PLAN_B_DISABLED');
+    const canonicalAfterLegacyPost = await prisma.trip.findUnique({ where: { id: tripId } });
+    assert.equal(canonicalAfterLegacyPost.route, canonicalBeforeLegacyPost.route);
+    assert.equal(canonicalAfterLegacyPost.segments, canonicalBeforeLegacyPost.segments);
+    assert.equal(await prisma.tripChange.count({ where: { tripId: tripId, type: 'plan_b_created' } }), 0);
+    assert.equal(await prisma.tripChange.count({ where: { tripId: tripId, type: 'plan_b_applied' } }), 0);
+
+    const legacyReadFixture = await prisma.tripPlan.create({ data: {
+      tripId: tripId,
+      title: 'Legacy read fixture',
+      strategy: 'fastest',
+      revisedRoute: 'Fixture route must stay private',
+      segments: JSON.stringify(revisedSegments),
+      source: 'test',
+      status: 'active',
+    } });
+    const ownerActiveLegacyPlan = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring/plan', { headers: siteHeaders });
+    assert.equal(ownerActiveLegacyPlan.status, 200);
+    assert.equal(ownerActiveLegacyPlan.body.plan.id, legacyReadFixture.id);
+    const participantActiveLegacyPlan = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring/plan', { headers: secondSiteHeaders });
+    assert.equal(participantActiveLegacyPlan.status, 200);
+    assert.equal(participantActiveLegacyPlan.body.plan.id, legacyReadFixture.id);
+    const ownerLegacyPlans = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring/plans', { headers: siteHeaders });
+    assert.equal(ownerLegacyPlans.status, 200);
+    assert.equal(ownerLegacyPlans.body.plans.some(function (plan) { return plan.id === legacyReadFixture.id; }), true);
+    const participantLegacyPlans = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring/plans', { headers: secondSiteHeaders });
+    assert.equal(participantLegacyPlans.status, 200);
+    assert.equal(participantLegacyPlans.body.plans.some(function (plan) { return plan.id === legacyReadFixture.id; }), true);
+
+    const outsiderRegistered = await request(baseUrl, 'POST', '/api/auth/register', {
+      body: {
+        email: 'harness-outsider-' + crypto.randomUUID() + '@example.test',
+        password: crypto.randomBytes(24).toString('base64url'),
+        name: 'HTTP Harness Outsider',
+      },
+    });
+    assert.equal(outsiderRegistered.status, 201);
+    const outsiderHeaders = { Authorization: 'Bearer ' + outsiderRegistered.body.token };
+    const deniedActiveLegacyPlan = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring/plan', { headers: outsiderHeaders });
+    assert.equal(deniedActiveLegacyPlan.status, 403);
+    assert.equal(Object.prototype.hasOwnProperty.call(deniedActiveLegacyPlan.body, 'plan'), false);
+    const deniedLegacyPlans = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring/plans', { headers: outsiderHeaders });
+    assert.equal(deniedLegacyPlans.status, 403);
+    assert.equal(Object.prototype.hasOwnProperty.call(deniedLegacyPlans.body, 'plans'), false);
+
+    const privateMonitoringSignal = await prisma.monitoringSignal.create({ data: {
+      tripId: tripId,
+      label: 'Private monitoring signal',
+      status: 'active',
+      severity: 'warning',
+      source: 'http-harness',
+      detail: 'Must not be disclosed cross-trip',
+    } });
+    const ownerMonitoring = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring', { headers: siteHeaders });
+    assert.equal(ownerMonitoring.status, 200);
+    assert.equal(ownerMonitoring.body.signals.some(function (signal) { return signal.id === privateMonitoringSignal.id; }), true);
+    const participantMonitoring = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring', { headers: secondSiteHeaders });
+    assert.equal(participantMonitoring.status, 200);
+    assert.equal(participantMonitoring.body.signals.some(function (signal) { return signal.id === privateMonitoringSignal.id; }), true);
+    const unrelatedMonitoring = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring', { headers: outsiderHeaders });
+    assert.equal(unrelatedMonitoring.status, 403);
+    assert.equal(Object.prototype.hasOwnProperty.call(unrelatedMonitoring.body, 'signals'), false);
+    const missingMonitoring = await request(baseUrl, 'GET', '/api/trips/missing-monitoring-trip/monitoring', { headers: siteHeaders });
+    assert.equal(missingMonitoring.status, 404);
+
+    const uploadedPdfBytes = Buffer.from('%PDF-1.7\nproduct-cut-fixture');
+    const uploadedPdfForm = new FormData();
+    uploadedPdfForm.set('file', new Blob([uploadedPdfBytes], { type: 'application/pdf' }), 'product-cut.pdf');
+    const uploadedPdfResponse = await fetch(baseUrl + '/api/trips/' + tripId + '/documents/upload', {
+      method: 'POST', headers: siteHeaders, body: uploadedPdfForm,
+    });
+    const uploadedPdf = { status: uploadedPdfResponse.status, body: await uploadedPdfResponse.json() };
+    assert.equal(uploadedPdf.status, 201);
+    assert.equal(uploadedPdf.body.document.ocrStatus, 'unavailable');
+    assert.equal(uploadedPdf.body.document.hasFile, true);
+    const downloadedPdf = await requestRaw(baseUrl, 'GET', '/api/trips/' + tripId + '/documents/' + uploadedPdf.body.document.id + '/file', { headers: siteHeaders });
+    assert.equal(downloadedPdf.status, 200);
+    assert.deepEqual(downloadedPdf.body, uploadedPdfBytes);
+
+    await prisma.assistantMessage.create({ data: { tripId: tripId, userId: restored.body.user.id, role: 'user', content: 'Owner private history' } });
+    await prisma.assistantMessage.create({ data: { tripId: tripId, userId: secondRegistered.body.user.id, role: 'user', content: 'Participant private history' } });
+    const ownerHistory = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring/assistant/history', { headers: siteHeaders });
+    assert.equal(ownerHistory.status, 200);
+    assert.equal(ownerHistory.body.history.some(function (message) { return message.content === 'Owner private history'; }), true);
+    assert.equal(ownerHistory.body.history.some(function (message) { return message.content === 'Participant private history'; }), false);
+    const participantHistory = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring/assistant/history', { headers: secondSiteHeaders });
+    assert.equal(participantHistory.status, 200);
+    assert.equal(participantHistory.body.history.some(function (message) { return message.content === 'Participant private history'; }), true);
+    assert.equal(participantHistory.body.history.some(function (message) { return message.content === 'Owner private history'; }), false);
+    const unrelatedHistory = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring/assistant/history', { headers: outsiderHeaders });
+    assert.equal(unrelatedHistory.status, 403);
+    assert.equal(Object.prototype.hasOwnProperty.call(unrelatedHistory.body, 'history'), false);
+
+    await prisma.participant.create({ data: {
+      tripId: tripId,
+      userId: outsiderRegistered.body.user.id,
+      name: outsiderRegistered.body.user.name,
+      role: 'participant',
+      access: 'revoked',
+      telegram: 'none',
+    } });
+    const revokedMonitoring = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring', { headers: outsiderHeaders });
+    assert.equal(revokedMonitoring.status, 403);
+    const revokedHistory = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring/assistant/history', { headers: outsiderHeaders });
+    assert.equal(revokedHistory.status, 403);
+
+    const contextAfterLegacyPost = await request(baseUrl, 'GET', '/api/bot/trips/' + tripId + '/assistant-context', {
       headers: serviceHeaders,
     });
-    assert.equal(contextAfterPlan.status, 200);
-    assert.equal(contextAfterPlan.body.trip.route, selectedAlternative.revisedRoute);
-    assert.equal(contextAfterPlan.body.selected_plan.strategy, selectedAlternative.strategy);
-    assert.equal(contextAfterPlan.body.events[0].departure_place, selectedAlternative.segments[0].departurePlace);
-    assert.equal(contextAfterPlan.body.events[0].arrival_place, selectedAlternative.segments[0].arrivalPlace);
+    assert.equal(contextAfterLegacyPost.status, 200);
+    assert.equal(contextAfterLegacyPost.body.trip.route, canonicalBeforeLegacyPost.route);
+    assert.equal(contextAfterLegacyPost.body.selected_plan, null);
+
+    const coreCanonicalSegments = [{
+      id: 'core-original-segment', transportType: 'flight', departurePlace: 'SVO', arrivalPlace: 'LED',
+      departureAt: '2026-08-21T08:00:00.000Z', arrivalAt: '2026-08-21T09:30:00.000Z',
+      serviceNumber: 'SU100', carrierName: 'Harness Air', order: 0, transportOptionId: 'core-original',
+      source: 'tutu-mcp', fetchedAt: '2026-08-17T08:00:00.000Z',
+    }];
+    const coreTrip = await prisma.trip.create({ data: {
+      title: 'Core Plan B HTTP Trip', route: 'SVO → LED', segments: JSON.stringify(coreCanonicalSegments),
+      startDate: new Date('2026-08-21T08:00:00.000Z'), endDate: new Date('2026-08-21T09:30:00.000Z'),
+      status: 'active', type: 'solo', ownerId: restored.body.user.id,
+    } });
+    const otherCoreTrip = await prisma.trip.create({ data: {
+      title: 'Other Core Trip', route: 'SVO → LED', segments: JSON.stringify(coreCanonicalSegments),
+      startDate: new Date('2026-08-21T08:00:00.000Z'), endDate: new Date('2026-08-21T09:30:00.000Z'),
+      status: 'active', type: 'solo', ownerId: restored.body.user.id,
+    } });
+    const corePastOption = {
+      schemaVersion: '1', id: 'core-past-option', transportType: 'flight',
+      segments: [{
+        id: 'core-past-segment', transportType: 'flight', departurePlace: 'SVO', arrivalPlace: 'LED',
+        departureAt: '2026-08-21T07:00:00.000Z', arrivalAt: '2026-08-21T08:00:00.000Z', serviceNumber: 'SU099', carrierName: 'Harness Air',
+      }],
+      price: { amount: 5000, currency: 'RUB', kind: 'unknown' }, availability: null, transferCount: 0, durationMinutes: 60,
+      source: { provider: 'tutu-mcp', tool: 'search_avia', serverVersion: 'http-harness' }, fetchedAt: '2026-08-17T08:00:00.000Z',
+    };
+    const coreApplyOption = {
+      schemaVersion: '1', id: 'core-apply-option', transportType: 'flight',
+      segments: [{
+        id: 'core-apply-segment', transportType: 'flight', departurePlace: 'SVO', arrivalPlace: 'LED',
+        departureAt: '2026-08-21T10:00:00.000Z', arrivalAt: '2026-08-21T11:30:00.000Z', serviceNumber: 'SU200', carrierName: 'Harness Air',
+      }],
+      price: { amount: 6500, currency: 'RUB', kind: 'unknown' }, availability: null, transferCount: 0, durationMinutes: 90,
+      source: { provider: 'tutu-mcp', tool: 'search_avia', serverVersion: 'http-harness' }, fetchedAt: '2026-08-17T08:00:00.000Z',
+    };
+    const { createPlanBRouter } = require('../src/routes/planB');
+    const coreApp = express();
+    coreApp.use(express.json());
+    coreApp.use('/api', require('../src/routes/trips'));
+    coreApp.use('/api', createPlanBRouter({ prisma: prisma, adapter: { async search() { return [{ option: corePastOption }, { option: coreApplyOption }]; } } }));
+    coreServer = await new Promise(function (resolve, reject) {
+      const instance = coreApp.listen(0, '127.0.0.1', function () { resolve(instance); });
+      instance.once('error', reject);
+    });
+    const coreBaseUrl = 'http://127.0.0.1:' + coreServer.address().port;
+    const coreBefore = await request(coreBaseUrl, 'GET', '/api/trips/' + coreTrip.id, { headers: siteHeaders });
+    assert.equal(coreBefore.status, 200);
+    const coreDisruption = await request(coreBaseUrl, 'POST', '/api/trips/' + coreTrip.id + '/disruptions/demo', {
+      headers: siteHeaders,
+      body: { type: 'DELAYED', occurredAt: '2026-08-21T09:00:00.000Z' },
+    });
+    assert.equal(coreDisruption.status, 201);
+    const corePreview = await request(coreBaseUrl, 'POST', '/api/trips/' + coreTrip.id + '/plan-b/preview', {
+      headers: siteHeaders,
+      body: { preferences: ['faster'] },
+    });
+    assert.equal(corePreview.status, 200);
+    assert.deepEqual(corePreview.body.candidates.map(function (candidate) { return candidate.option.id; }), ['core-apply-option']);
+    const crossTripProposal = await request(coreBaseUrl, 'POST', '/api/trips/' + otherCoreTrip.id + '/plan-b/apply', {
+      headers: Object.assign({}, siteHeaders, { 'Idempotency-Key': 'http-harness-cross-trip-proposal-key' }),
+      body: { proposalId: corePreview.body.proposalId, candidateId: corePreview.body.candidates[0].candidateId },
+    });
+    assert.equal(crossTripProposal.status, 404);
+    assert.equal(crossTripProposal.body.error.code, 'PLAN_B_PROPOSAL_NOT_FOUND');
+    const coreApply = await request(coreBaseUrl, 'POST', '/api/trips/' + coreTrip.id + '/plan-b/apply', {
+      headers: Object.assign({}, siteHeaders, { 'Idempotency-Key': 'http-harness-core-apply-key' }),
+      body: { proposalId: corePreview.body.proposalId, candidateId: corePreview.body.candidates[0].candidateId },
+    });
+    assert.equal(coreApply.status, 201);
+    const coreAfterApply = await request(coreBaseUrl, 'GET', '/api/trips/' + coreTrip.id, { headers: siteHeaders });
+    assert.equal(coreAfterApply.status, 200);
+    assert.equal(coreAfterApply.body.trip.route, 'SVO → LED');
+    assert.equal(coreAfterApply.body.trip.segments[0].transportOptionId, 'core-apply-option');
+    const coreRevert = await request(coreBaseUrl, 'POST', '/api/trips/' + coreTrip.id + '/plan-b/revert', {
+      headers: siteHeaders,
+      body: {},
+    });
+    assert.equal(coreRevert.status, 200);
+    const coreAfterRevert = await request(coreBaseUrl, 'GET', '/api/trips/' + coreTrip.id, { headers: siteHeaders });
+    assert.equal(coreAfterRevert.status, 200);
+    assert.deepEqual(coreAfterRevert.body.trip.segments, coreBefore.body.trip.segments);
+    assert.equal(coreAfterRevert.body.trip.route, coreBefore.body.trip.route);
 
     const addedDocument = await request(baseUrl, 'POST', '/api/trips/' + tripId + '/documents', {
       headers: siteHeaders,
       body: { name: 'Safe harness document', type: 'ticket', status: 'confirmed' },
     });
     assert.equal(addedDocument.status, 201);
-    assert.equal(await prisma.tripChange.count({ where: { tripId: tripId, type: 'document_added' } }), 1);
+    assert.equal(await prisma.tripChange.count({ where: { tripId: tripId, type: 'document_added' } }), 2);
     assert.equal(await prisma.telegramNotification.count({
       where: { tripId: tripId, type: 'document_added', telegramUserId: secondTelegramUserId },
-    }), 1);
+    }), 2);
 
     const organizerMessage = await request(baseUrl, 'POST', '/api/trips/' + tripId + '/messages', {
       headers: siteHeaders,
@@ -674,7 +847,8 @@ async function runHarness() {
         'telegram-assistant-context',
         'structured-plan-b-alternatives',
         'atomic-plan-b-apply',
-        'fresh-context-after-plan-b',
+        'legacy-plan-b-fail-closed-and-idor',
+        'plan-b-core-http-preview-apply-revert',
         'typed-change-outbox-events',
         'invitation-1d-3d-7d-lifecycle',
         'telegram-notification-preferences',
@@ -685,6 +859,9 @@ async function runHarness() {
       ],
     };
   } finally {
+    if (coreServer) {
+      await new Promise(function (resolve) { coreServer.close(resolve); });
+    }
     if (server) {
       await new Promise(function (resolve) { server.close(resolve); });
     }

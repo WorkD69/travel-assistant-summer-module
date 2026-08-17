@@ -28,7 +28,7 @@ async function runOcr(docId, buffer, mimeType, filename) {
     const fields = ocr.extractFields(text);
     const segment = ocr.buildSegment(fields);
     const data = {
-      ocrStatus: text ? 'done' : (r && r.engine === 'error' ? 'failed' : 'empty'),
+      ocrStatus: text ? 'done' : (r && r.engine === 'unavailable' ? 'unavailable' : (r && r.engine === 'error' ? 'failed' : 'empty')),
       ocrText: text ? text.slice(0, 20000) : null,
       ocrData: JSON.stringify(fields || {}),
     };

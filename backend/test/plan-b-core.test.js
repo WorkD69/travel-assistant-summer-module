@@ -24,10 +24,11 @@ function option(id, departureAt, arrivalAt, price, segments) {
     serviceNumber: id,
     carrierName: 'Carrier',
   }];
+  const modes = Array.from(new Set(optionSegments.map(function (segment) { return segment.transportType; })));
   return {
     schemaVersion: '1',
     id: id,
-    transportType: optionSegments.length === 1 ? optionSegments[0].transportType : 'mixed',
+    transportType: modes.length === 1 ? modes[0] : 'mixed',
     segments: optionSegments,
     price: price,
     availability: null,
@@ -174,6 +175,69 @@ test('preview calls the adapter boundary, excludes provably identical original s
   assert.equal(trip.segments, originalSegments);
   assert.equal(trip.route, originalRoute);
   assert.equal(sameScheduledOption(original, JSON.parse(originalSegments)), true);
+});
+
+test('preview excludes candidates scheduled before the trusted recovery cutoff before ranking and proposal persistence', async () => {
+  const db = fakePrisma();
+  const trip = canonicalTrip();
+  const original = option('SU100', '2026-08-20T08:00:00+03:00', '2026-08-20T09:30:00+03:00', { amount: 7000, currency: 'RUB', kind: 'unknown' });
+  const beforeCutoff = option('EARLIER', '2026-08-20T07:00:00+03:00', '2026-08-20T08:00:00+03:00', { amount: 6000, currency: 'RUB', kind: 'unknown' });
+  const atCutoff = option('AT_CUTOFF', '2026-08-20T09:00:00+03:00', '2026-08-20T10:00:00+03:00', { amount: 6500, currency: 'RUB', kind: 'unknown' });
+  const afterCutoff = option('AFTER_CUTOFF', '2026-08-20T10:00:00+03:00', '2026-08-20T11:00:00+03:00', { amount: 6800, currency: 'RUB', kind: 'unknown' });
+  const service = createPlanBService({
+    prisma: db,
+    adapter: { async search() { return [{ option: original }, { option: beforeCutoff }, { option: atCutoff }, { option: afterCutoff }]; } },
+  });
+  await service.createDemoDisruption({
+    trip: trip,
+    actorId: 'owner-a',
+    body: { type: 'DELAYED', occurredAt: '2026-08-20T09:00:00+03:00' },
+  });
+  db.signals[0].createdAt = new Date('2026-08-20T09:00:00+03:00');
+
+  const preview = await service.createPreview({ trip: trip, actorId: 'owner-a', body: { preferences: ['faster'] } });
+  assert.deepEqual(preview.candidates.map(function (candidate) { return candidate.option.id; }), ['AT_CUTOFF', 'AFTER_CUTOFF']);
+  assert.equal(preview.fastest.candidateId, preview.candidates[0].candidateId);
+  assert.deepEqual(
+    JSON.parse(db.changes[0].newValue).candidates.map(function (candidate) { return candidate.option.id; }),
+    ['AT_CUTOFF', 'AFTER_CUTOFF'],
+  );
+});
+
+test('preview fails closed when a trusted recovery timestamp is missing', async () => {
+  const db = fakePrisma();
+  const trip = canonicalTrip();
+  const alternative = option('SAFE_LOOKING', '2026-08-20T09:00:00+03:00', '2026-08-20T10:00:00+03:00', { amount: 6500, currency: 'RUB', kind: 'unknown' });
+  const service = createPlanBService({ prisma: db, adapter: { async search() { return [{ option: alternative }]; } } });
+  await service.createDemoDisruption({
+    trip: trip,
+    actorId: 'owner-a',
+    body: { type: 'DELAYED', occurredAt: '2026-08-20T09:00:00+03:00' },
+  });
+  db.signals[0].createdAt = null;
+
+  await assert.rejects(
+    service.createPreview({ trip: trip, actorId: 'owner-a', body: { preferences: ['faster'] } }),
+    { code: 'PLAN_B_RECOVERY_CUTOFF_INVALID', status: 409 },
+  );
+});
+
+test('preview rejects an unparseable persisted recovery timestamp with the cutoff error envelope', async () => {
+  const db = fakePrisma();
+  const trip = canonicalTrip();
+  const alternative = option('SAFE_LOOKING', '2026-08-20T09:00:00+03:00', '2026-08-20T10:00:00+03:00', { amount: 6500, currency: 'RUB', kind: 'unknown' });
+  const service = createPlanBService({ prisma: db, adapter: { async search() { return [{ option: alternative }]; } } });
+  await service.createDemoDisruption({
+    trip: trip,
+    actorId: 'owner-a',
+    body: { type: 'DELAYED', occurredAt: '2026-08-20T09:00:00+03:00' },
+  });
+  db.signals[0].createdAt = 'not-a-timestamp';
+
+  await assert.rejects(
+    service.createPreview({ trip: trip, actorId: 'owner-a', body: { preferences: ['faster'] } }),
+    { code: 'PLAN_B_RECOVERY_CUTOFF_INVALID', status: 409 },
+  );
 });
 
 test('provider error propagates as a controlled adapter boundary error and empty results are honest', async () => {
@@ -354,4 +418,64 @@ test('Apply rejects a stale proposal rather than mutating a changed canonical Tr
     idempotencyKey: 'plan-b-apply-key-0002',
   }), { code: 'PLAN_B_PROPOSAL_STALE' });
   assert.equal(db.state.changes.filter(function (change) { return change.type === 'plan_b_apply'; }).length, 0);
+});
+
+test('recovery cutoff uses the later persisted createdAt instant across timezone offsets', async () => {
+  const db = fakePrisma();
+  const trip = canonicalTrip();
+  const beforeCreatedAt = option('BEFORE_CREATED', '2026-08-20T11:00:00+03:00', '2026-08-20T12:00:00+03:00', { amount: 6000, currency: 'RUB', kind: 'unknown' });
+  const atCreatedAt = option('AT_CREATED', '2026-08-20T08:30:00Z', '2026-08-20T10:00:00Z', { amount: 6500, currency: 'RUB', kind: 'unknown' });
+  const service = createPlanBService({ prisma: db, adapter: { async search() { return [{ option: beforeCreatedAt }, { option: atCreatedAt }]; } } });
+  await service.createDemoDisruption({
+    trip: trip,
+    actorId: 'owner-a',
+    body: { type: 'DELAYED', occurredAt: '2026-08-20T09:00:00+03:00' },
+  });
+  db.signals[0].createdAt = new Date('2026-08-20T08:30:00Z');
+
+  const preview = await service.createPreview({ trip: trip, actorId: 'owner-a', body: { preferences: ['faster'] } });
+  assert.deepEqual(preview.candidates.map(function (candidate) { return candidate.option.id; }), ['AT_CREATED']);
+});
+
+test('recovery cutoff produces an honest empty preview after excluding past and exact-original options', async () => {
+  const db = fakePrisma();
+  const trip = canonicalTrip();
+  const original = option('SU100', '2026-08-20T08:00:00+03:00', '2026-08-20T09:30:00+03:00', { amount: 7000, currency: 'RUB', kind: 'unknown' });
+  const past = option('PAST', '2026-08-20T07:00:00+03:00', '2026-08-20T08:00:00+03:00', { amount: 6000, currency: 'RUB', kind: 'unknown' });
+  const service = createPlanBService({ prisma: db, adapter: { async search() { return [{ option: original }, { option: past }]; } } });
+  await service.createDemoDisruption({
+    trip: trip,
+    actorId: 'owner-a',
+    body: { type: 'DELAYED', occurredAt: '2026-08-20T09:00:00+03:00' },
+  });
+  db.signals[0].createdAt = new Date('2026-08-20T09:00:00+03:00');
+
+  const preview = await service.createPreview({ trip: trip, actorId: 'owner-a', body: { preferences: ['faster'] } });
+  assert.deepEqual(preview.candidates, []);
+  assert.deepEqual(preview.fastest, { status: 'unavailable', code: 'PLAN_B_NO_ALTERNATIVES' });
+});
+
+test('recovery cutoff compares the first segment of a multi-segment candidate', async () => {
+  const db = fakePrisma();
+  const trip = canonicalTrip();
+  const multiSegment = option('MULTI_PAST_FIRST', '2026-08-20T07:00:00+03:00', '2026-08-20T11:00:00+03:00', { amount: 6000, currency: 'RUB', kind: 'unknown' }, [
+    {
+      id: 'multi-first', transportType: 'flight', departurePlace: 'SVO', arrivalPlace: 'KZN',
+      departureAt: '2026-08-20T07:00:00+03:00', arrivalAt: '2026-08-20T08:00:00+03:00', serviceNumber: 'SU701', carrierName: 'Carrier',
+    },
+    {
+      id: 'multi-second', transportType: 'flight', departurePlace: 'KZN', arrivalPlace: 'LED',
+      departureAt: '2026-08-20T09:00:00+03:00', arrivalAt: '2026-08-20T11:00:00+03:00', serviceNumber: 'SU702', carrierName: 'Carrier',
+    },
+  ]);
+  const service = createPlanBService({ prisma: db, adapter: { async search() { return [{ option: multiSegment }]; } } });
+  await service.createDemoDisruption({
+    trip: trip,
+    actorId: 'owner-a',
+    body: { type: 'DELAYED', occurredAt: '2026-08-20T09:00:00+03:00' },
+  });
+  db.signals[0].createdAt = new Date('2026-08-20T09:00:00+03:00');
+
+  const preview = await service.createPreview({ trip: trip, actorId: 'owner-a', body: { preferences: ['faster'] } });
+  assert.deepEqual(preview.candidates, []);
 });
