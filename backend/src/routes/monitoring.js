@@ -4,7 +4,6 @@ const { requireAuth } = require('../middleware/auth');
 const assistant = require('../services/assistant');
 const config = require('../config');
 const tripChanges = require('../services/tripChanges');
-const { validateSelectedPlan } = require('../services/planValidation');
 const { isLinkedActiveParticipant } = require('../services/tripAccess');
 
 const router = express.Router();
@@ -190,6 +189,8 @@ router.post('/trips/:tripId/monitoring/assistant', requireAuth, async (req, res)
 // ---- Применённый план Б ----
 router.get('/trips/:tripId/monitoring/plan', requireAuth, async (req, res) => {
   try {
+    const access = await tripAccess(req.params.tripId, req.user.id);
+    if (access.error) return res.status(access.error).json({ error: 'Нет доступа к поездке' });
     const plan = await prisma.tripPlan.findFirst({ where: { tripId: req.params.tripId, status: { in: ['applied', 'active'] } }, orderBy: { createdAt: 'desc' } });
     res.json({ plan: plan ? serializeStructuredPlan(plan) : null });
   } catch (e) { console.error(e); res.status(500).json({ error: 'Не удалось загрузить план' }); }
@@ -197,108 +198,19 @@ router.get('/trips/:tripId/monitoring/plan', requireAuth, async (req, res) => {
 
 router.get('/trips/:tripId/monitoring/plans', requireAuth, async (req, res) => {
   try {
+    const access = await tripAccess(req.params.tripId, req.user.id);
+    if (access.error) return res.status(access.error).json({ error: 'Нет доступа к поездке' });
     const plans = await prisma.tripPlan.findMany({ where: { tripId: req.params.tripId }, orderBy: { createdAt: 'desc' } });
     res.json({ plans: plans.map(serializeStructuredPlan) });
   } catch (e) { console.error(e); res.status(500).json({ error: 'Не удалось загрузить планы' }); }
 });
 
-router.post('/trips/:tripId/monitoring/plan', requireAuth, async (req, res) => {
-  const tripId = req.params.tripId;
-  const candidate = req.body || {};
-  try {
-    validateSelectedPlan(candidate);
-    const before = await prisma.trip.findUnique({ where: { id: tripId }, include: { participants: true } });
-    if (!before) return res.status(404).json({ error: 'Поездка не найдена' });
-    if (before.ownerId !== req.user.id) {
-      return res.status(403).json({ error: 'Только организатор может применить Plan B' });
-    }
-    const result = await prisma.$transaction(async function (tx) {
-      await tx.tripPlan.updateMany({
-        where: { tripId: tripId, status: 'applied' },
-        data: { status: 'archived' },
-      });
-      const email = candidate.emailDraft || {};
-      const plan = await tx.tripPlan.create({ data: {
-        tripId: tripId,
-        title: String(candidate.title),
-        strategy: candidate.strategy,
-        revisedRoute: candidate.revisedRoute,
-        segments: JSON.stringify(candidate.segments),
-        totalDuration: candidate.totalDuration,
-        estimatedCost: candidate.estimatedCost,
-        currency: candidate.currency,
-        delayComparedToOriginal: candidate.delayComparedToOriginal,
-        transferCount: candidate.transferCount,
-        reliability: candidate.reliability,
-        risks: JSON.stringify(candidate.risks),
-        assumptions: JSON.stringify(candidate.assumptions),
-        requiredActions: JSON.stringify(candidate.requiredActions),
-        hotelImpact: candidate.hotelImpact,
-        transferImpact: candidate.transferImpact,
-        activitiesImpact: candidate.activitiesImpact,
-        summary: candidate.summary ? String(candidate.summary) : null,
-        steps: JSON.stringify(candidate.steps || candidate.requiredActions),
-        pros: candidate.pros,
-        cons: candidate.cons,
-        whenToUse: candidate.whenToUse,
-        emailTo: email.to || null,
-        emailSubject: email.subject || null,
-        emailBody: email.body || null,
-        source: candidate.source,
-        isDemoData: candidate.isDemoData,
-        status: 'applied',
-        appliedById: req.user.id,
-        appliedAt: new Date(),
-      } });
-      const updated = await tx.trip.update({
-        where: { id: tripId },
-        data: {
-          route: candidate.revisedRoute,
-          segments: JSON.stringify(candidate.segments),
-        },
-      });
-      await tripChanges.recordTripChangeEvents(tx, {
-        tripId: tripId,
-        actorId: req.user.id,
-        before: before,
-        after: updated,
-      });
-      await tripChanges.recordCustomChangeEvent(tx, {
-        tripId: tripId,
-        actorId: req.user.id,
-        tripTitle: updated.title,
-        type: 'plan_b_created',
-        newValue: { planId: plan.id, strategy: plan.strategy, revisedRoute: plan.revisedRoute },
-        deepLinkTarget: 'monitoring',
-      });
-      await tripChanges.recordCustomChangeEvent(tx, {
-        tripId: tripId,
-        actorId: req.user.id,
-        tripTitle: updated.title,
-        type: 'plan_b_applied',
-        oldValue: { route: before.route, segments: parseList(before.segments) },
-        newValue: { planId: plan.id, route: updated.route, segments: parseList(updated.segments) },
-        deepLinkTarget: 'monitoring',
-      });
-      await tx.monitoringSignal.create({ data: {
-        tripId: tripId,
-        label: 'Применён Plan B: ' + plan.title,
-        status: 'План применён',
-        severity: 'info',
-        source: 'Mock GDS demo catalog',
-        detail: plan.revisedRoute,
-      } });
-      return { plan: plan, trip: updated };
-    });
-    res.status(201).json({
-      plan: serializeStructuredPlan(result.plan),
-      trip: Object.assign({}, result.trip, { segments: parseList(result.trip.segments) }),
-    });
-  } catch (error) {
-    console.error('[plan/apply]', error && error.message ? error.message : error);
-    const status = error.status && error.status >= 400 && error.status < 600 ? error.status : 500;
-    res.status(status).json({ error: status === 500 ? 'Не удалось применить Plan B' : error.message, code: error.code });
-  }
+// Deprecated unsafe boundary: canonical Trip mutation is available only through Plan B Core.
+router.post('/trips/:tripId/monitoring/plan', requireAuth, function (req, res) {
+  return res.status(410).json({
+    error: 'Legacy Plan B apply is disabled; use Plan B Core',
+    code: 'LEGACY_PLAN_B_DISABLED',
+  });
 });
 
 router.patch('/trips/:tripId/monitoring/plan/:planId', requireAuth, async (req, res) => {

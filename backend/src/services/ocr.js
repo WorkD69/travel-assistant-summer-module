@@ -1,5 +1,5 @@
 // Офлайн OCR / извлечение текста из файлов (без внешних сервисов).
-// PDF с текстовым слоем -> pdf-parse.
+// PDF с текстовым слоем -> controlled pdfjs-dist with eval disabled.
 // PDF-скан (без текста) -> растеризация через pdfjs-dist + @napi-rs/canvas, затем tesseract.js.
 // Картинки -> tesseract.js (rus+eng).
 // Все тяжёлые зависимости подгружаются лениво и best-effort: если их нет,
@@ -10,7 +10,6 @@ const path = require('node:path');
 
 const DEFAULT_OCR_TIMEOUT_MS = 45000;
 
-let pdfParse = null;
 let Tesseract = null;
 let pdfjsLib = null;
 let napiCanvas = null;
@@ -50,13 +49,6 @@ function withTimeout(promise, timeoutMs) {
   });
 }
 
-function loadPdf() {
-  if (pdfParse === null) {
-    try { pdfParse = require('pdf-parse'); }
-    catch (e) { pdfParse = false; }
-  }
-  return pdfParse;
-}
 function loadTesseract() {
   if (Tesseract === null) {
     try { Tesseract = require('tesseract.js'); }
@@ -165,29 +157,14 @@ async function extractText(buffer, mimeType, filename) {
   const name = String(filename || '').toLowerCase();
   try {
     if (mt.indexOf('pdf') !== -1 || name.endsWith('.pdf')) {
-      const pp = loadPdf();
-      let text = '';
-      let pages;
-      if (pp) {
-        try {
-          // Keep the original upload immutable for the independent fallbacks.
-          const parsed = await pp(Buffer.from(buffer));
-          text = (parsed && parsed.text) ? parsed.text.trim() : '';
-          pages = parsed ? parsed.numpages : undefined;
-        } catch (e) { /* pdfjs fallbacks below */ }
-      }
-      // Есть нормальный текстовый слой — используем его.
-      if (text && text.length >= 20) {
-        return { text: text, engine: 'pdf-parse', pages: pages };
-      }
       const viaText = await extractPdfTextViaPdfjs(buffer);
       if (viaText.text && viaText.text.length >= 20) {
-        return { text: viaText.text, engine: 'pdfjs-text', pages: viaText.pages || pages };
+        return { text: viaText.text, engine: 'pdfjs-text', pages: viaText.pages };
       }
       // PDF-скан без текстового слоя — пробуем растеризацию + OCR.
       const viaImg = await ocrPdfViaImages(buffer);
       if (viaImg.text) {
-        return { text: viaImg.text, engine: 'pdf-ocr', pages: pages };
+        return { text: viaImg.text, engine: 'pdf-ocr' };
       }
       const note = viaImg.reason === 'deps'
         ? 'PDF без текстового слоя; для OCR сканов нужны pdfjs-dist и @napi-rs/canvas'

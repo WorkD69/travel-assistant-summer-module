@@ -140,3 +140,28 @@ test('owner apply response explicitly states that Plan B did not complete a prov
     assert.equal(applied.body.purchaseCompleted, false);
   });
 });
+
+test('preview exposes a controlled fail-closed response when recovery cutoff data is invalid', async () => {
+  const ownerTrip = trip('trip-a', 'user-a');
+  const cutoffError = Object.assign(
+    new Error('Trusted demo disruption timestamps cannot establish a recovery cutoff'),
+    { code: 'PLAN_B_RECOVERY_CUTOFF_INVALID', status: 409, retryable: false },
+  );
+  const router = createPlanBRouter({
+    prisma: fakePrisma([ownerTrip]),
+    requireAuth: auth,
+    adapter: { async search() { return []; } },
+    service: {
+      async createDemoDisruption() { return { source: 'DEMO_SIMULATION', type: 'DELAYED' }; },
+      async createPreview() { throw cutoffError; },
+      async apply() { return { applied: true, applyId: 'apply-a', trip: ownerTrip }; },
+      async revert() { return { reverted: true, revertId: 'revert-a', trip: ownerTrip }; },
+    },
+  });
+  await withServer(router, async function (baseUrl) {
+    const preview = await request(baseUrl, '/api/trips/trip-a/plan-b/preview', 'user-a', { preferences: ['faster'] });
+    assert.equal(preview.status, 409);
+    assert.equal(preview.body.error.code, 'PLAN_B_RECOVERY_CUTOFF_INVALID');
+    assert.equal(preview.body.error.retryable, false);
+  });
+});

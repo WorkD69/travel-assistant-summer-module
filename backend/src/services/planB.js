@@ -167,6 +167,12 @@ function validateDisruptionInput(input, clock) {
   };
 }
 
+function persistedInstantIso(value) {
+  if (value === null || value === undefined) return null;
+  const instant = new Date(value).getTime();
+  return Number.isNaN(instant) ? null : new Date(instant).toISOString();
+}
+
 function disruptionFromSignal(signal) {
   if (!signal || signal.source !== DISRUPTION_SOURCE || signal.category !== DISRUPTION_CATEGORY) return null;
   const detail = parseJson(signal.detail, null);
@@ -181,7 +187,7 @@ function disruptionFromSignal(signal) {
     note: detail.note || null,
     context: detail.context || null,
     segmentId: detail.segmentId || null,
-    createdAt: signal.createdAt ? new Date(signal.createdAt).toISOString() : null,
+    createdAt: persistedInstantIso(signal.createdAt),
   };
 }
 
@@ -216,6 +222,32 @@ function deriveRecoverySearch(trip, disruption) {
     passengers: { adults: 1, children: 0, infants: 0 },
   };
   return validateSearchRequestV1(request);
+}
+
+function trustedInstantMs(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const instant = new Date(value).getTime();
+  return Number.isNaN(instant) ? null : instant;
+}
+
+function recoveryCutoffMs(disruption) {
+  const occurredAt = trustedInstantMs(disruption && disruption.occurredAt);
+  const createdAt = trustedInstantMs(disruption && disruption.createdAt);
+  if (occurredAt === null || createdAt === null) {
+    throw planBError(
+      'PLAN_B_RECOVERY_CUTOFF_INVALID',
+      'Trusted demo disruption timestamps cannot establish a recovery cutoff',
+      409,
+      false,
+    );
+  }
+  return Math.max(occurredAt, createdAt);
+}
+
+function departsAtOrAfterRecoveryCutoff(option, cutoffMs) {
+  const firstSegment = option && Array.isArray(option.segments) ? option.segments[0] : null;
+  const departureMs = new Date(firstSegment && firstSegment.departureAt).getTime();
+  return !Number.isNaN(departureMs) && departureMs >= cutoffMs;
 }
 
 function sameScheduledOption(option, originalSegments) {
@@ -502,6 +534,7 @@ function createPlanBService(options) {
       const disruption = disruptionFromSignal(signal);
       if (!disruption) throw planBError('PLAN_B_DISRUPTION_REQUIRED', 'An active demo disruption is required', 409, false);
       const recoverySearch = deriveRecoverySearch(trip, disruption);
+      const recoveryCutoff = recoveryCutoffMs(disruption);
       const originalSegments = canonicalSegments(trip);
       const normalized = await adapter.search(recoverySearch);
       if (!Array.isArray(normalized)) throw planBError('TUTU_INVALID_RESPONSE', 'Tutu adapter returned an invalid selection collection', 502, false);
@@ -509,6 +542,8 @@ function createPlanBService(options) {
       const candidates = normalized.map(function (selection) {
         const option = validateTransportOptionV1(selection && selection.option);
         return { option: option };
+      }).filter(function (candidate) {
+        return departsAtOrAfterRecoveryCutoff(candidate.option, recoveryCutoff);
       }).filter(function (candidate) {
         return !sameScheduledOption(candidate.option, originalSegments);
       }).map(function (candidate) {
@@ -694,6 +729,9 @@ module.exports = {
   PREFERENCE_VALUES,
   canonicalSegments,
   deriveRecoverySearch,
+  trustedInstantMs,
+  recoveryCutoffMs,
+  departsAtOrAfterRecoveryCutoff,
   sameScheduledOption,
   fastestCandidate,
   cheapestCandidate,

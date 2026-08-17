@@ -32,3 +32,17 @@ test('PDF text extraction falls back when pdf-parse rejects a valid text-layer P
   assert.equal(result.engine, 'pdfjs-text');
   assert.match(result.text, /TRAVEL E2E TICKET 2026/);
 });
+
+test('untrusted PDF handling does not load legacy pdf-parse before controlled PDF.js parsing', () => {
+  const source = fs.readFileSync(path.resolve(__dirname, '../src/services/ocr.js'), 'utf8');
+
+  assert.equal(source.includes("require('pdf-parse')"), false);
+  assert.match(source, /isEvalSupported:\s*false/);
+});
+
+test('unparseable PDF reaches a controlled no-text result instead of a runtime parser error', async () => {
+  const result = await extractText(Buffer.from('%PDF-1.7\nnot-a-valid-document'), 'application/pdf', 'broken.pdf');
+
+  assert.notEqual(result.engine, 'error');
+  assert.equal(result.engine, 'none');
+});
