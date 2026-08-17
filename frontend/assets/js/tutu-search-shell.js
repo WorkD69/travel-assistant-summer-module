@@ -167,8 +167,12 @@
         returnDate: value(root, "return"),
         passengers: value(root, "passengers")
       };
-      root.dispatchEvent(new CustomEvent("tutu-native:search", { bubbles: true, detail }));
-      status.textContent = "Параметры поиска готовы. Результаты появятся после подключения TransportOption.";
+      const accepted = root.dispatchEvent(new CustomEvent("tutu-native:search", {
+        bubbles: true,
+        cancelable: true,
+        detail
+      }));
+      if (accepted) status.textContent = "Параметры поиска готовы. Открываем результаты.";
     }, { signal });
 
     return true;

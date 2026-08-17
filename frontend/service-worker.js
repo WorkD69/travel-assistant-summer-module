@@ -6,7 +6,11 @@ const PRECACHE = [
   "/",
   "/index.html",
   "/login.html",
+  "/search-results.html",
+  "/assets/css/tutu-search-results.css",
   "/assets/js/api-client.js",
+  "/assets/js/tutu-search-adapter.js",
+  "/assets/js/tutu-search-results.js",
 ];
 
 self.addEventListener("install", function(event) {
