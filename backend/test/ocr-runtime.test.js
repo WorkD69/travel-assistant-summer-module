@@ -26,23 +26,26 @@ test('OCR work is rejected with a stable timeout error', async () => {
   );
 });
 
-test('PDF text extraction falls back when pdf-parse rejects a valid text-layer PDF', async () => {
+test('PDF text extraction is explicitly unavailable after the server-side PDF OCR product cut', async () => {
   const result = await extractText(TEXT_LAYER_PDF, 'application/pdf', 'ticket.pdf');
 
-  assert.equal(result.engine, 'pdfjs-text');
-  assert.match(result.text, /TRAVEL E2E TICKET 2026/);
+  assert.equal(result.engine, 'unavailable');
+  assert.equal(result.text, '');
+  assert.match(result.note, /PDF OCR.*disabled/i);
 });
 
-test('untrusted PDF handling does not load legacy pdf-parse before controlled PDF.js parsing', () => {
+test('untrusted PDF handling has no server-side parser dependency after the product cut', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '../src/services/ocr.js'), 'utf8');
 
   assert.equal(source.includes("require('pdf-parse')"), false);
-  assert.match(source, /isEvalSupported:\s*false/);
+  assert.equal(source.includes("require('pdfjs-dist')"), false);
+  assert.equal(source.includes("require('@napi-rs/canvas')"), false);
 });
 
-test('unparseable PDF reaches a controlled no-text result instead of a runtime parser error', async () => {
+test('unparseable PDF is also explicitly unavailable without invoking a server-side parser', async () => {
   const result = await extractText(Buffer.from('%PDF-1.7\nnot-a-valid-document'), 'application/pdf', 'broken.pdf');
 
-  assert.notEqual(result.engine, 'error');
-  assert.equal(result.engine, 'none');
+  assert.equal(result.engine, 'unavailable');
+  assert.equal(result.text, '');
+  assert.match(result.note, /PDF OCR.*disabled/i);
 });

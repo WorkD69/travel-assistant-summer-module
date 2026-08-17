@@ -386,6 +386,67 @@ async function runHarness() {
     assert.equal(deniedLegacyPlans.status, 403);
     assert.equal(Object.prototype.hasOwnProperty.call(deniedLegacyPlans.body, 'plans'), false);
 
+    const privateMonitoringSignal = await prisma.monitoringSignal.create({ data: {
+      tripId: tripId,
+      label: 'Private monitoring signal',
+      status: 'active',
+      severity: 'warning',
+      source: 'http-harness',
+      detail: 'Must not be disclosed cross-trip',
+    } });
+    const ownerMonitoring = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring', { headers: siteHeaders });
+    assert.equal(ownerMonitoring.status, 200);
+    assert.equal(ownerMonitoring.body.signals.some(function (signal) { return signal.id === privateMonitoringSignal.id; }), true);
+    const participantMonitoring = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring', { headers: secondSiteHeaders });
+    assert.equal(participantMonitoring.status, 200);
+    assert.equal(participantMonitoring.body.signals.some(function (signal) { return signal.id === privateMonitoringSignal.id; }), true);
+    const unrelatedMonitoring = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring', { headers: outsiderHeaders });
+    assert.equal(unrelatedMonitoring.status, 403);
+    assert.equal(Object.prototype.hasOwnProperty.call(unrelatedMonitoring.body, 'signals'), false);
+    const missingMonitoring = await request(baseUrl, 'GET', '/api/trips/missing-monitoring-trip/monitoring', { headers: siteHeaders });
+    assert.equal(missingMonitoring.status, 404);
+
+    const uploadedPdfBytes = Buffer.from('%PDF-1.7\nproduct-cut-fixture');
+    const uploadedPdfForm = new FormData();
+    uploadedPdfForm.set('file', new Blob([uploadedPdfBytes], { type: 'application/pdf' }), 'product-cut.pdf');
+    const uploadedPdfResponse = await fetch(baseUrl + '/api/trips/' + tripId + '/documents/upload', {
+      method: 'POST', headers: siteHeaders, body: uploadedPdfForm,
+    });
+    const uploadedPdf = { status: uploadedPdfResponse.status, body: await uploadedPdfResponse.json() };
+    assert.equal(uploadedPdf.status, 201);
+    assert.equal(uploadedPdf.body.document.ocrStatus, 'unavailable');
+    assert.equal(uploadedPdf.body.document.hasFile, true);
+    const downloadedPdf = await requestRaw(baseUrl, 'GET', '/api/trips/' + tripId + '/documents/' + uploadedPdf.body.document.id + '/file', { headers: siteHeaders });
+    assert.equal(downloadedPdf.status, 200);
+    assert.deepEqual(downloadedPdf.body, uploadedPdfBytes);
+
+    await prisma.assistantMessage.create({ data: { tripId: tripId, userId: restored.body.user.id, role: 'user', content: 'Owner private history' } });
+    await prisma.assistantMessage.create({ data: { tripId: tripId, userId: secondRegistered.body.user.id, role: 'user', content: 'Participant private history' } });
+    const ownerHistory = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring/assistant/history', { headers: siteHeaders });
+    assert.equal(ownerHistory.status, 200);
+    assert.equal(ownerHistory.body.history.some(function (message) { return message.content === 'Owner private history'; }), true);
+    assert.equal(ownerHistory.body.history.some(function (message) { return message.content === 'Participant private history'; }), false);
+    const participantHistory = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring/assistant/history', { headers: secondSiteHeaders });
+    assert.equal(participantHistory.status, 200);
+    assert.equal(participantHistory.body.history.some(function (message) { return message.content === 'Participant private history'; }), true);
+    assert.equal(participantHistory.body.history.some(function (message) { return message.content === 'Owner private history'; }), false);
+    const unrelatedHistory = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring/assistant/history', { headers: outsiderHeaders });
+    assert.equal(unrelatedHistory.status, 403);
+    assert.equal(Object.prototype.hasOwnProperty.call(unrelatedHistory.body, 'history'), false);
+
+    await prisma.participant.create({ data: {
+      tripId: tripId,
+      userId: outsiderRegistered.body.user.id,
+      name: outsiderRegistered.body.user.name,
+      role: 'participant',
+      access: 'revoked',
+      telegram: 'none',
+    } });
+    const revokedMonitoring = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring', { headers: outsiderHeaders });
+    assert.equal(revokedMonitoring.status, 403);
+    const revokedHistory = await request(baseUrl, 'GET', '/api/trips/' + tripId + '/monitoring/assistant/history', { headers: outsiderHeaders });
+    assert.equal(revokedHistory.status, 403);
+
     const contextAfterLegacyPost = await request(baseUrl, 'GET', '/api/bot/trips/' + tripId + '/assistant-context', {
       headers: serviceHeaders,
     });
@@ -480,10 +541,10 @@ async function runHarness() {
       body: { name: 'Safe harness document', type: 'ticket', status: 'confirmed' },
     });
     assert.equal(addedDocument.status, 201);
-    assert.equal(await prisma.tripChange.count({ where: { tripId: tripId, type: 'document_added' } }), 1);
+    assert.equal(await prisma.tripChange.count({ where: { tripId: tripId, type: 'document_added' } }), 2);
     assert.equal(await prisma.telegramNotification.count({
       where: { tripId: tripId, type: 'document_added', telegramUserId: secondTelegramUserId },
-    }), 1);
+    }), 2);
 
     const organizerMessage = await request(baseUrl, 'POST', '/api/trips/' + tripId + '/messages', {
       headers: siteHeaders,

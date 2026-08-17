@@ -1,6 +1,6 @@
 // Офлайн OCR / извлечение текста из файлов (без внешних сервисов).
-// PDF с текстовым слоем -> controlled pdfjs-dist with eval disabled.
-// PDF-скан (без текста) -> растеризация через pdfjs-dist + @napi-rs/canvas, затем tesseract.js.
+// PDF parsing/OCR is intentionally unavailable server-side in this deployment.
+// Image OCR -> tesseract.js (rus+eng).
 // Картинки -> tesseract.js (rus+eng).
 // Все тяжёлые зависимости подгружаются лениво и best-effort: если их нет,
 // загрузка файла не ломается, а документ помечается «текст не найден» (можно ввести вручную).
@@ -11,8 +11,6 @@ const path = require('node:path');
 const DEFAULT_OCR_TIMEOUT_MS = 45000;
 
 let Tesseract = null;
-let pdfjsLib = null;
-let napiCanvas = null;
 
 function tesseractOptions() {
   const langPath = path.resolve(__dirname, '../..');
@@ -56,120 +54,16 @@ function loadTesseract() {
   }
   return Tesseract;
 }
-function loadPdfjs() {
-  if (pdfjsLib === null) {
-    try {
-      // Подкладываем глобалы из @napi-rs/canvas ДО загрузки pdfjs, чтобы pdfjs не пытался
-      // подключить нативный node-canvas (его бинарный билд часто заблокирован npm).
-      const c = loadCanvas();
-      if (c) {
-        if (!globalThis.DOMMatrix && c.DOMMatrix) globalThis.DOMMatrix = c.DOMMatrix;
-        if (!globalThis.Path2D && c.Path2D) globalThis.Path2D = c.Path2D;
-        if (!globalThis.ImageData && c.ImageData) globalThis.ImageData = c.ImageData;
-        if (!globalThis.DOMPoint && c.DOMPoint) globalThis.DOMPoint = c.DOMPoint;
-      }
-      pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
-    }
-    catch (e) {
-      try { pdfjsLib = require('pdfjs-dist'); }
-      catch (e2) { pdfjsLib = false; }
-    }
-  }
-  return pdfjsLib;
-}
-function loadCanvas() {
-  if (napiCanvas === null) {
-    try { napiCanvas = require('@napi-rs/canvas'); }
-    catch (e) { napiCanvas = false; }
-  }
-  return napiCanvas;
-}
-
-// Extract a PDF text layer with pdfjs. pdf-parse 1.x can reject otherwise
-// readable PDFs with `bad XRef entry`; pdfjs can recover them without OCR.
-async function extractPdfTextViaPdfjs(buffer, maxPages) {
-  const pdfjs = loadPdfjs();
-  if (!pdfjs) return { text: '', reason: 'deps' };
-  try {
-    const data = new Uint8Array(Buffer.from(buffer));
-    const doc = await pdfjs.getDocument({
-      data: data,
-      disableWorker: true,
-      isEvalSupported: false,
-      useSystemFonts: true,
-    }).promise;
-    const n = Math.min(doc.numPages || 1, maxPages || 20);
-    const parts = [];
-    for (let i = 1; i <= n; i++) {
-      const page = await doc.getPage(i);
-      const content = await page.getTextContent();
-      const pageText = (content.items || [])
-        .map(function (item) { return item && item.str ? item.str : ''; })
-        .filter(Boolean)
-        .join(' ')
-        .trim();
-      if (pageText) parts.push(pageText);
-    }
-    return { text: parts.join('\n').trim(), pages: doc.numPages };
-  } catch (e) {
-    return { text: '', reason: String((e && e.message) || e) };
-  }
-}
-
-// Растеризация PDF в PNG постранично и OCR каждой страницы (best-effort).
-async function ocrPdfViaImages(buffer, maxPages) {
-  const pdfjs = loadPdfjs();
-  const cv = loadCanvas();
-  const T = loadTesseract();
-  if (!pdfjs || !cv || !T) return { text: '', reason: 'deps' };
-  try {
-    const data = new Uint8Array(buffer);
-    const doc = await pdfjs.getDocument({
-      data: data,
-      disableWorker: true,
-      isEvalSupported: false,
-      useSystemFonts: true,
-    }).promise;
-    const n = Math.min(doc.numPages || 1, maxPages || 5);
-    const parts = [];
-    for (let i = 1; i <= n; i++) {
-      const page = await doc.getPage(i);
-      const viewport = page.getViewport({ scale: 2 });
-      const canvas = cv.createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
-      const ctx = canvas.getContext('2d');
-      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-      const png = canvas.toBuffer('image/png');
-      const res = await withTimeout(
-        T.recognize(png, 'rus+eng', tesseractOptions()),
-        ocrTimeoutMs(),
-      );
-      const pageText = (res && res.data && res.data.text) ? res.data.text.trim() : '';
-      if (pageText) parts.push(pageText);
-    }
-    return { text: parts.join('\n').trim() };
-  } catch (e) {
-    return { text: '', reason: String((e && e.message) || e) };
-  }
-}
-
 async function extractText(buffer, mimeType, filename) {
   const mt = String(mimeType || '').toLowerCase();
   const name = String(filename || '').toLowerCase();
   try {
     if (mt.indexOf('pdf') !== -1 || name.endsWith('.pdf')) {
-      const viaText = await extractPdfTextViaPdfjs(buffer);
-      if (viaText.text && viaText.text.length >= 20) {
-        return { text: viaText.text, engine: 'pdfjs-text', pages: viaText.pages };
-      }
-      // PDF-скан без текстового слоя — пробуем растеризацию + OCR.
-      const viaImg = await ocrPdfViaImages(buffer);
-      if (viaImg.text) {
-        return { text: viaImg.text, engine: 'pdf-ocr' };
-      }
-      const note = viaImg.reason === 'deps'
-        ? 'PDF без текстового слоя; для OCR сканов нужны pdfjs-dist и @napi-rs/canvas'
-        : ('PDF без текстового слоя; OCR-растеризация не удалась: ' + (viaImg.reason || ''));
-      return { text: '', engine: 'none', note: note };
+      return {
+        text: '',
+        engine: 'unavailable',
+        note: 'Server-side PDF OCR is disabled for this deployment.',
+      };
     }
     if (mt.indexOf('image') !== -1 || /\.(png|jpe?g|webp|bmp|gif|tiff?)$/.test(name)) {
       const T = loadTesseract();
@@ -257,7 +151,6 @@ function buildSegment(fields) {
 module.exports = {
   extractText: extractText,
   extractFields: extractFields,
-  extractPdfTextViaPdfjs: extractPdfTextViaPdfjs,
   buildSegment: buildSegment,
   tesseractOptions: tesseractOptions,
   withTimeout: withTimeout,

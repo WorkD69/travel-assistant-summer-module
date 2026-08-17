@@ -37,6 +37,8 @@ async function tripAccess(tripId, userId) {
 
 router.get('/trips/:tripId/monitoring', requireAuth, async (req, res) => {
   try {
+    const access = await tripAccess(req.params.tripId, req.user.id);
+    if (access.error) return res.status(access.error).json({ error: 'Нет доступа к поездке' });
     const signals = await prisma.monitoringSignal.findMany({
       where: { tripId: req.params.tripId },
       orderBy: { createdAt: 'desc' },
@@ -123,6 +125,8 @@ router.patch('/trips/:tripId/monitoring/:signalId', requireAuth, async (req, res
 
 router.get('/trips/:tripId/monitoring/assistant/history', requireAuth, async (req, res) => {
   try {
+    const access = await tripAccess(req.params.tripId, req.user.id);
+    if (access.error) return res.status(access.error).json({ error: 'Нет доступа к поездке' });
     const history = await prisma.assistantMessage.findMany({
       where: { tripId: req.params.tripId, userId: req.user.id },
       orderBy: { createdAt: 'asc' },
