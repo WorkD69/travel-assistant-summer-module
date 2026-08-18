@@ -209,3 +209,18 @@ test('scoped stylesheet owns Smart Workspace geometry, focus, and 390px safeguar
   assert.doesNotMatch(css, /(^|\n)body\s*\{/);
   assert.doesNotMatch(css, /(^|\n)\.card\s*\{/);
 });
+
+test('canonical Trip surface links scoped CSS and mounts Smart Workspace outside legacy overview DOM', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'trip-overview.html'), 'utf8');
+  const overviewEnd = html.indexOf('</div>\n        </div>\n      </div>\n\n      <!-- Detailed route panel -->');
+  const rootIndex = html.indexOf('<section id="smart-workspace-root" aria-live="polite"></section>');
+  const stylesIndex = html.indexOf('<link rel="stylesheet" href="assets/css/smart-workspace.css" />');
+  const viewModelScript = html.indexOf('<script src="assets/js/smart-workspace-view-model.js"></script>');
+  const rendererScript = html.indexOf('<script src="assets/js/smart-workspace-renderer.js"></script>');
+  const integrationScript = html.indexOf('<script src="assets/js/smart-workspace-integration.js"></script>');
+
+  assert.ok(stylesIndex > -1, 'scoped Smart Workspace stylesheet must be linked');
+  assert.ok(rootIndex > overviewEnd, 'Smart Workspace root must be appended after the legacy overview grid');
+  assert.ok(viewModelScript > -1 && rendererScript > viewModelScript && integrationScript > rendererScript,
+    'Smart Workspace scripts must load in view-model, renderer, integration order');
+});
