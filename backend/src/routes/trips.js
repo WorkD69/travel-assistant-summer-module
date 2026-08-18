@@ -7,6 +7,7 @@ const ocr = require('../services/ocr');
 const tripChanges = require('../services/tripChanges');
 const config = require('../config');
 const { isLinkedActiveParticipant, canReadDocument } = require('../services/tripAccess');
+const { deriveActivePlanBApply } = require('../services/planB');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -189,10 +190,15 @@ router.get('/trips/:tripId', requireAuth, ensureTripAccess, async (req, res) => 
         plans: { orderBy: { createdAt: 'desc' } },
       },
     });
+    const lifecycleChanges = await prisma.tripChange.findMany({
+      where: { tripId: req.params.tripId, type: { in: ['plan_b_apply', 'plan_b_revert'] } },
+      select: { id: true, type: true, newValue: true, createdAt: true },
+    });
+    const activePlanBApply = deriveActivePlanBApply(lifecycleChanges);
     const offline = trip.offlineCopy ? Object.assign({}, trip.offlineCopy, { selectedDocuments: jsonParse(trip.offlineCopy.selectedDocuments, []) }) : null;
     const plans = (trip.plans || []).map(function (p) { return Object.assign({}, p, { steps: jsonParse(p.steps, []) }); });
     const activePlan = plans.filter(function (p) { return p.status === 'active'; })[0] || null;
-    res.json({ trip: Object.assign({}, trip, { offlineCopy: offline, plans: plans, activePlan: activePlan, segments: jsonParse(trip.segments, []) }) });
+    res.json({ trip: Object.assign({}, trip, { offlineCopy: offline, plans: plans, activePlan: activePlan, activePlanBApply: activePlanBApply, segments: jsonParse(trip.segments, []) }) });
   } catch (e) { console.error(e); res.status(500).json({ error: 'Не удалось загрузить поездку' }); }
 });
 
