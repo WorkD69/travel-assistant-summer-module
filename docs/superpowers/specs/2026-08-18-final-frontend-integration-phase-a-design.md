@@ -1,7 +1,7 @@
 # Final Frontend Integration Phase A — Design
 
 **Дата:** 18 августа 2026  
-**Статус:** согласовано пользователем  
+**Статус:** APPROVED FOR IMPLEMENTATION
 **Baseline:** `integration/hackathon-2026@3b9fbd90703027cdbd6e7815167d73064d0bf702`  
 **Рабочая ветка:** `feat/final-frontend-integration-phase-a`
 
@@ -15,7 +15,9 @@
 
 ## API base
 
-Единая точка конфигурации остаётся `window.TRAVEL_API_BASE`, устанавливаемая до загрузки `assets/js/api-client.js`. API-клиент получает origin только из неё; при отсутствии значения его default — same-origin пустая строка. В финальном execution path не остаётся B2 staging origin, page-specific base или hardcoded временный URL. Этот подход сохраняет существующий способ runtime override для test harness и обеспечивает общий origin для auth, search, checkout, demo purchase и Trip.
+Final production wiring использует одну общую runtime bootstrap point, которая устанавливает `window.TRAVEL_API_BASE` до загрузки `assets/js/api-client.js` на каждой production page. Bootstrap не содержит hardcoded release URL в нескольких HTML-файлах: единственная configurable runtime injection point задаёт текущий release backend origin для auth, search, checkout, demo purchase и Trip. API-клиент получает origin только из `window.TRAVEL_API_BASE`; пустая same-origin строка сохраняется исключительно как безопасный fallback при отсутствии injection и не является молчаливой заменой release configuration.
+
+В final execution path отсутствуют B2 staging origin, page-specific API base и временные URL. Release/E2E acceptance проверяет фактическое равенство `TravelApi.base === CURRENT_RELEASE_BACKEND_ORIGIN` для реального demo execution. Этот подход сохраняет существующий runtime override для test harness и единый production origin без изменения backend semantics.
 
 ## Search Results и transient selection intent
 
@@ -25,9 +27,11 @@
 
 ## Isolated checkout handoff
 
-Нажатие «Выбрать билет» синхронно открывает пустой placeholder window в рамках user gesture c feature string `noopener,noreferrer`. Если browser не возвращает окно, контроллер остаётся на Results page, отображает safe error и не делает переход текущей вкладки.
+Нажатие «Выбрать билет» синхронно вызывает `window.open("", "_blank")` внутри непосредственного user click gesture и сохраняет управляемый `WindowProxy` placeholder. Если возвращён `null`, контроллер остаётся на Results page, показывает safe popup-blocked error и не продолжает checkout API flow как успешный. `noopener` не передаётся в windowFeatures, поскольку в некоторых browser implementations это лишает frontend управляемого handle.
 
-После `POST /api/tutu/checkout-link` frontend принимает URL только если `new URL(checkoutUrl).protocol === "https:"`. Перед навигацией устанавливается `placeholder.opener = null`; затем placeholder направляется на валидный provider URL. Главная вкладка Travel Assistant остаётся на Search Results. При сетевой/API ошибке или невалидном URL placeholder закрывается, а пользователь получает безопасное сообщение и может выбрать билет заново.
+Сразу после получения handle frontend устанавливает `placeholder.opener = null`, что является обязательным security property: provider page не получает доступ к Travel Assistant opener. Затем контроллер вызывает `POST /api/tutu/checkout-link` и принимает URL только если `new URL(checkoutUrl).protocol === "https:"`. После validation placeholder направляется на factual checkout URL через `placeholder.location.replace(checkoutUrl)` или эквивалентную безопасную навигацию. `noreferrer` может использоваться только если конкретная реализация browser сохраняет корректный управляемый placeholder; отсутствие opener access обязательно независимо от него.
+
+Главная вкладка Travel Assistant остаётся на Search Results. При API/network ошибке или невалидном URL placeholder закрывается, а пользователь получает безопасное сообщение и может выбрать билет заново.
 
 ## Explicit demo purchase
 
@@ -41,7 +45,9 @@ Action блокируется до завершения запроса. Сете
 
 ## Тестируемость и проверка
 
-Новые focused tests используют существующий `node --test` style и проверяют runtime override/default, отсутствие B2 в final execution, isolated `noopener` handoff и popup-safe placeholder, запрет token в URL/storage/HTML, reload loss, exact demo payload, stable Idempotency-Key, convergence `201/200`, canonical GET до `goToTrip`, отсутствие `/trips/:id` и fixture Trip construction. Существующие Search Results регрессии сохраняются, затем выполняется полный frontend suite, `git diff --check`, сканирование conflict markers, сборка standalone bundle и SHA-256.
+Новые focused tests используют существующий `node --test` style и проверяют common runtime bootstrap до API-клиента, runtime override/default, отсутствие B2 в final execution и release/E2E равенство `TravelApi.base` текущему release origin. Browser/DOM tests отдельно проверяют синхронный `window.open("", "_blank")`, `null` popup handle, немедленную `opener` isolation, навигацию только после validated HTTPS и закрытие placeholder при ошибке.
+
+Дополнительно тесты проверяют запрет token в URL/storage/HTML, reload loss, exact demo payload, stable Idempotency-Key, convergence `201/200`, canonical GET до `goToTrip`, отсутствие `/trips/:id` и fixture Trip construction. Существующие Search Results регрессии сохраняются, затем выполняется полный frontend suite, `git diff --check`, сканирование conflict markers, сборка standalone bundle и SHA-256.
 
 ## Рассмотренные альтернативы
 
