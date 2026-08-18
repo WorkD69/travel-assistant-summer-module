@@ -349,3 +349,37 @@ test('unauthenticated canonical reread reports session state without route navig
   assert.deepEqual(routes, []);
   assert.match(controller.getState().errorMessage, /Сессия истекла/i);
 });
+
+test('IDEMPOTENCY_KEY_REUSE clears the conflicted intent and requires a new factual search', async () => {
+  const results = loadResults();
+  const keys = [];
+  let randomCalls = 0;
+  const placeholder = { opener: 'parent-window', location: { replace() {} }, close() {} };
+  const controller = results.createController({
+    api: {
+      async tutuSearch() { return { options: [{ option: option(), selectionToken: 'opaque-selection-token' }] }; },
+      async tutuCheckoutLink() { return { checkout: { checkoutUrl: 'https://avia.tutu.ru/checkout' } }; },
+      async tutuDemoPurchaseSuccess(_token, key) {
+        keys.push(key);
+        throw { status: 409, data: { error: { code: 'IDEMPOTENCY_KEY_REUSE' } } };
+      },
+    },
+    openPlaceholder() { return placeholder; },
+    randomBytes() { randomCalls += 1; return new Uint8Array(24).fill(9); },
+    render() {},
+  });
+
+  await searchOne(controller);
+  await controller.select('option-1');
+  await controller.confirmDemoPurchase();
+
+  assert.equal(keys.length, 1);
+  assert.equal(randomCalls, 1);
+  assert.equal(controller.getState().selectionIntent, null);
+  assert.equal(controller.getState().requiresFreshSearch, true);
+  assert.equal(await controller.confirmDemoPurchase(), false);
+  assert.equal(await controller.select('option-1'), false);
+  assert.equal(keys.length, 1);
+  assert.equal(randomCalls, 1);
+  assert.match(controller.getState().errorMessage, /новый поиск.*выберите вариант/i);
+});

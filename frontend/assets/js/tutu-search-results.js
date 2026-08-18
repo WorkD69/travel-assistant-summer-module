@@ -324,7 +324,7 @@
       return "Этот вариант больше недоступен. Выполните новый поиск и выберите билет снова.";
     }
     if (code === "IDEMPOTENCY_KEY_REUSE") {
-      return "Не удалось подтвердить этот демонстрационный выбор. Не меняйте вариант и повторите попытку позже.";
+      return "Не удалось подтвердить этот выбор из-за конфликта запроса. Выполните новый поиск и выберите вариант заново.";
     }
     if (code === "TUTU_TIMEOUT" || code === "TUTU_UNAVAILABLE") {
       return "Подтверждение временно недоступно. Повторите попытку позже.";
@@ -362,6 +362,7 @@
       carrier: "",
       pendingSelectionId: null,
       selectionIntent: null,
+      requiresFreshSearch: false,
       demoPurchasePending: false,
       errorMessage: ""
     };
@@ -410,6 +411,7 @@
         carrier: "",
         pendingSelectionId: null,
         selectionIntent: null,
+        requiresFreshSearch: false,
         demoPurchasePending: false,
         errorMessage: ""
       });
@@ -427,7 +429,7 @@
     }
 
     async function select(optionId) {
-      if (state.pendingSelectionId || state.demoPurchasePending) return false;
+      if (state.pendingSelectionId || state.demoPurchasePending || state.requiresFreshSearch) return false;
       const entry = state.entries.find(function (item) { return item.option.id === optionId; });
       if (!entry) return false;
 
@@ -504,7 +506,9 @@
           : (canonicalTripId
             ? "Демонстрационное подтверждение получено, но не удалось открыть созданную поездку. Повторите попытку."
             : messageForDemoPurchaseError(error));
-        state = Object.assign({}, state, { errorMessage: message });
+        state = Object.assign({}, state, backendCode(error) === "IDEMPOTENCY_KEY_REUSE"
+          ? { selectionIntent: null, requiresFreshSearch: true, errorMessage: message }
+          : { errorMessage: message });
       } finally {
         state = Object.assign({}, state, { demoPurchasePending: false });
         publish();
