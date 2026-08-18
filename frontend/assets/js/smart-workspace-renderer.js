@@ -118,14 +118,14 @@
       '<p class="smart-workspace__card-note">Заселение и события появляются в таймлайне, только если они есть в поездке.</p></section>';
   }
 
-  function presentationContainerMarkup(kind, title, detail) {
-    return '<section class="smart-workspace__native-card smart-workspace__presentation-card smart-workspace__presentation-card--' + kind + '"><h2>' + escapeHtml(title) + '</h2><div class="smart-workspace__presentation-placeholder" role="img" aria-label="' + escapeHtml(title) + '"><span>' + escapeHtml(detail) + '</span></div></section>';
+  function factualPanelMarkup(kind, title, factual) {
+    if (!factual) return "";
+    var detail = factual.detail || factual.summary || factual.description || factual.label || "";
+    return '<section class="smart-workspace__native-card smart-workspace__presentation-card smart-workspace__presentation-card--' + kind + '"><h2>' + escapeHtml(title) + '</h2>' + (detail ? '<p class="smart-workspace__factual-panel-copy">' + escapeHtml(detail) + '</p>' : "") + '</section>';
   }
 
   function documentsMarkup(documents) {
-    if (!documents.length) {
-      return '<section class="smart-workspace__native-card smart-workspace__documents"><h2>Документы поездки</h2><div class="smart-workspace__empty-document">Документы не добавлены</div><p class="smart-workspace__card-note">Документы показываются, только если они есть в поездке.</p></section>';
-    }
+    if (!documents.length) return "";
     return '<section class="smart-workspace__native-card smart-workspace__documents"><h2>Документы поездки</h2><ul>' + documents.map(function renderDocument(document) { return '<li>' + escapeHtml(document.title || document.name || "Документ") + '</li>'; }).join("") + '</ul></section>';
   }
 
@@ -195,7 +195,7 @@
     if (safeState.applied || safeModel.stage === "applied") {
       return '<section class="smart-workspace" aria-label="Сопровождение поездки">' + afterApplyMarkup(safeModel, safeState) + timelineMarkup(safeModel) + documentsMarkup(asArray(safeModel.documents)) + '</section>';
     }
-    return '<section class="smart-workspace" aria-label="Сопровождение поездки"><header class="smart-workspace__header"><div><h1>' + escapeHtml(trip.route || "Поездка") + '</h1><p>' + escapeHtml(trip.dateLabel || "") + '</p></div><span class="smart-workspace__trip-badge">' + (disrupted ? "⚠ Требуется внимание" : "✨ Сопровождение включено") + '</span></header>' + routeFactsMarkup(trip) + (disrupted ? disruptionMarkup(safeModel.disruption) : normalStatusMarkup(safeModel)) + '<div class="smart-workspace__module-grid">' + presentationContainerMarkup("map", "Карта маршрута", "Карта переиспользуется из существующего продукта") + timelineMarkup(safeModel) + presentationContainerMarkup("weather", "Погода", "Данные отображаются, только если они переданы поездкой") + documentsMarkup(asArray(safeModel.documents)) + '</div>' + (showPlanB ? planBMarkup(safeModel, safeState) : "") + companionMarkup(disrupted) + '</section>';
+    return '<section class="smart-workspace" aria-label="Сопровождение поездки"><header class="smart-workspace__header"><div><h1>' + escapeHtml(trip.route || "Поездка") + '</h1><p>' + escapeHtml(trip.dateLabel || "") + '</p></div><span class="smart-workspace__trip-badge">' + (disrupted ? "⚠ Требуется внимание" : "✨ Сопровождение включено") + '</span></header>' + routeFactsMarkup(trip) + (disrupted ? disruptionMarkup(safeModel.disruption) : normalStatusMarkup(safeModel)) + '<div class="smart-workspace__module-grid">' + factualPanelMarkup("map", "Карта маршрута", safeModel.map) + timelineMarkup(safeModel) + factualPanelMarkup("weather", "Погода", safeModel.weather) + documentsMarkup(asArray(safeModel.documents)) + '</div>' + (showPlanB ? planBMarkup(safeModel, safeState) : "") + companionMarkup(disrupted) + '</section>';
   }
 
   function nextRevertStatus(status) {

@@ -310,11 +310,24 @@ test('renders documents and downstream context only when factual values are supp
     contextRows: [{ label: 'Заселение', value: '20:00' }]
   }, renderer.selectCandidate(renderer.createPresentationState(), 'candidate-a'));
 
-  assert.match(emptyMarkup, /Документы не добавлены/);
+  assert.doesNotMatch(emptyMarkup, /Документы поездки/);
   assert.doesNotMatch(emptyMarkup, /<li>Маршрут поездки<\/li>/);
   assert.match(factualMarkup, /<li>Маршрут поездки<\/li>/);
   assert.match(factualMarkup, /Заселение/);
   assert.match(factualMarkup, /20:00/);
+});
+
+test('does not render map, weather, or document placeholder cards when facts are absent', () => {
+  const renderer = loadRenderer();
+  const markup = renderer.renderMarkup({
+    stage: 'normal',
+    trip: { route: 'Москва → Санкт-Петербург' },
+    documents: []
+  }, renderer.createPresentationState());
+
+  assert.doesNotMatch(markup, /Карта маршрута/);
+  assert.doesNotMatch(markup, /Погода/);
+  assert.doesNotMatch(markup, /Документы поездки/);
 });
 
 test('Smart Workspace source contains no client ranking, storage, or mutation API behavior', () => {
