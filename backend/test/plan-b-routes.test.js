@@ -165,3 +165,33 @@ test('preview exposes a controlled fail-closed response when recovery cutoff dat
     assert.equal(preview.body.error.retryable, false);
   });
 });
+
+test('preview exposes a controlled fail-closed response for invalid persisted recovery context', async () => {
+  const ownerTrip = trip('trip-a', 'user-a');
+  const contextError = Object.assign(
+    new Error('Stored Tutu recovery search context is invalid'),
+    { code: 'PLAN_B_RECOVERY_CONTEXT_INVALID', status: 409, retryable: false },
+  );
+  const router = createPlanBRouter({
+    prisma: fakePrisma([ownerTrip]),
+    requireAuth: auth,
+    adapter: { async search() { return []; } },
+    service: {
+      async createDemoDisruption() { return { source: 'DEMO_SIMULATION', type: 'DELAYED' }; },
+      async createPreview() { throw contextError; },
+      async apply() { return { applied: true, applyId: 'apply-a', trip: ownerTrip }; },
+      async revert() { return { reverted: true, revertId: 'revert-a', trip: ownerTrip }; },
+    },
+  });
+  await withServer(router, async function (baseUrl) {
+    const preview = await request(baseUrl, '/api/trips/trip-a/plan-b/preview', 'user-a', { preferences: ['faster'] });
+    assert.equal(preview.status, 409);
+    assert.deepEqual(preview.body, {
+      error: {
+        code: 'PLAN_B_RECOVERY_CONTEXT_INVALID',
+        message: 'Stored recovery search context is invalid',
+        retryable: false,
+      },
+    });
+  });
+});

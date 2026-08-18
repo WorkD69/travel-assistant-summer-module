@@ -62,6 +62,14 @@ function canonicalTrip() {
   };
 }
 
+function originalSearchRequest() {
+  return {
+    schemaVersion: '1', mode: 'flight', origin: 'Москва', destination: 'Санкт-Петербург',
+    departureDate: '2026-08-20', returnDate: null,
+    passengers: { adults: 1, children: 0, infants: 0 },
+  };
+}
+
 function fakePrisma() {
   const signals = [];
   const changes = [];
@@ -103,6 +111,11 @@ function fakePrisma() {
       },
     },
     tripChange: {
+      async findFirst(input) {
+        return changes.find(function (change) {
+          return change.tripId === input.where.tripId && change.type === input.where.type;
+        }) || null;
+      },
       async create(input) { return tx.tripChange.create(input); },
     },
   };
@@ -157,6 +170,55 @@ test('recovery mapping derives only supported first-segment scope and rejects am
   assert.throws(function () {
     deriveRecoverySearch(multi, { source: DISRUPTION_SOURCE, segmentId: 'second' });
   }, { code: 'PLAN_B_RECOVERY_UNSUPPORTED' });
+});
+
+test('preview uses persisted city search context instead of Tutu airport and terminal display labels', async () => {
+  const db = fakePrisma();
+  const trip = canonicalTrip();
+  const segments = JSON.parse(trip.segments);
+  segments[0].departurePlace = 'Москва — Внуково (VKO), терм. A';
+  segments[0].arrivalPlace = 'Санкт-Петербург — Пулково (LED), терм. 1';
+  trip.segments = JSON.stringify(segments);
+  db.changes.push({
+    id: 'context-1', tripId: trip.id, actorId: trip.ownerId, type: 'tutu_search_context',
+    newValue: JSON.stringify(originalSearchRequest()),
+    details: JSON.stringify({ schemaVersion: '1', source: 'tutu-mcp', purpose: 'recovery-search-context' }),
+    createdAt: new Date('2026-08-16T10:00:00.000Z'),
+  });
+  let seenRequest;
+  const service = createPlanBService({
+    prisma: db,
+    adapter: { async search(request) { seenRequest = request; return []; } },
+  });
+  await service.createDemoDisruption({ trip: trip, actorId: 'owner-a', body: { type: 'CARRIER_CANCELLED' } });
+
+  await service.createPreview({ trip: trip, actorId: 'owner-a', body: { preferences: ['faster'] } });
+
+  assert.deepEqual(seenRequest, originalSearchRequest());
+});
+
+test('preview fails closed before MCP when persisted Tutu search context is malformed or inconsistent', async () => {
+  for (const stored of [
+    '{not-json',
+    JSON.stringify(Object.assign({}, originalSearchRequest(), { departureDate: '2026-08-21' })),
+    JSON.stringify(Object.assign({}, originalSearchRequest(), { mode: 'train' })),
+  ]) {
+    const db = fakePrisma();
+    const trip = canonicalTrip();
+    db.changes.push({ id: 'context-1', tripId: trip.id, type: 'tutu_search_context', newValue: stored });
+    let adapterCalls = 0;
+    const service = createPlanBService({
+      prisma: db,
+      adapter: { async search() { adapterCalls += 1; return []; } },
+    });
+    await service.createDemoDisruption({ trip: trip, actorId: 'owner-a', body: { type: 'CARRIER_CANCELLED' } });
+
+    await assert.rejects(
+      service.createPreview({ trip: trip, actorId: 'owner-a', body: { preferences: ['faster'] } }),
+      { code: 'PLAN_B_RECOVERY_CONTEXT_INVALID', retryable: false },
+    );
+    assert.equal(adapterCalls, 0);
+  }
 });
 
 test('preview calls the adapter boundary, excludes provably identical original service, and never mutates canonical Trip', async () => {

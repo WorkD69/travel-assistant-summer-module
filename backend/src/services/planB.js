@@ -20,6 +20,7 @@ const PREFERENCE_VALUES = Object.freeze(['faster', 'cheaper', 'fewer_transfers']
 const PROPOSAL_TYPE = 'plan_b_proposal';
 const APPLY_TYPE = 'plan_b_apply';
 const REVERT_TYPE = 'plan_b_revert';
+const TUTU_SEARCH_CONTEXT_TYPE = 'tutu_search_context';
 
 function planBError(code, message, status, retryable) {
   const error = new Error(message);
@@ -222,6 +223,42 @@ function deriveRecoverySearch(trip, disruption) {
     passengers: { adults: 1, children: 0, infants: 0 },
   };
   return validateSearchRequestV1(request);
+}
+
+function invalidRecoveryContext() {
+  return planBError(
+    'PLAN_B_RECOVERY_CONTEXT_INVALID',
+    'Stored Tutu recovery search context is invalid',
+    409,
+    false,
+  );
+}
+
+function validateRecoveryContext(change, derived) {
+  let stored;
+  try {
+    stored = validateSearchRequestV1(JSON.parse(change.newValue));
+  } catch (error) {
+    throw invalidRecoveryContext();
+  }
+  if (stored.departureDate !== derived.departureDate ||
+      stored.mode !== derived.mode ||
+      stored.returnDate !== null ||
+      stored.passengers.adults !== 1 ||
+      stored.passengers.children !== 0 ||
+      stored.passengers.infants !== 0) {
+    throw invalidRecoveryContext();
+  }
+  return stored;
+}
+
+async function resolveRecoverySearch(prisma, trip, disruption) {
+  const derived = deriveRecoverySearch(trip, disruption);
+  const context = await prisma.tripChange.findFirst({
+    where: { tripId: trip.id, type: TUTU_SEARCH_CONTEXT_TYPE },
+    orderBy: { createdAt: 'desc' },
+  });
+  return context ? validateRecoveryContext(context, derived) : derived;
 }
 
 function trustedInstantMs(value) {
@@ -561,7 +598,7 @@ function createPlanBService(options) {
       });
       const disruption = disruptionFromSignal(signal);
       if (!disruption) throw planBError('PLAN_B_DISRUPTION_REQUIRED', 'An active demo disruption is required', 409, false);
-      const recoverySearch = deriveRecoverySearch(trip, disruption);
+      const recoverySearch = await resolveRecoverySearch(prisma, trip, disruption);
       const recoveryCutoff = recoveryCutoffMs(disruption);
       const originalSegments = canonicalSegments(trip);
       const normalized = await adapter.search(recoverySearch);

@@ -27,6 +27,7 @@ function option(id) {
 
 function fakePrisma() {
   const records = new Map();
+  const changes = [];
   const db = {
     trip: {
       async findUnique(query) { return records.get(query.where.id) || null; },
@@ -43,13 +44,26 @@ function fakePrisma() {
         return record;
       },
     },
+    tripChange: {
+      async create(query) {
+        const record = Object.assign({ id: 'change-' + (changes.length + 1) }, query.data);
+        changes.push(record);
+        return record;
+      },
+    },
     async $transaction(callback) { return callback(db); },
   };
-  return { db: db, records: records };
+  return { db: db, records: records, changes: changes };
 }
 
 const user = { id: 'user-1', name: 'Иван Иванов', initials: 'ИИ', telegram: null };
 const key = 'fixture-000000000000';
+
+const searchRequest = {
+  schemaVersion: '1', mode: 'flight', origin: 'Москва', destination: 'Санкт-Петербург',
+  departureDate: '2026-08-20', returnDate: null,
+  passengers: { adults: 1, children: 0, infants: 0 },
+};
 
 test('maps a selected TransportOptionV1 to the existing canonical Trip model', async () => {
   const fake = fakePrisma();
@@ -84,6 +98,24 @@ test('same user, key, and option replays the existing Trip', async () => {
   assert.equal(replay.created, false);
   assert.equal(replay.trip.id, first.trip.id);
   assert.equal(fake.records.size, 1);
+});
+
+test('persists one safe internal Tutu search context for a new Trip and not for its replay', async () => {
+  const fake = fakePrisma();
+  const factory = createTripFactory({ prisma: fake.db });
+  const input = { user: user, idempotencyKey: key, option: option(), searchRequest: searchRequest };
+
+  await factory.createFromSelection(input);
+  await factory.createFromSelection(input);
+
+  assert.equal(fake.changes.length, 1);
+  assert.equal(fake.changes[0].type, 'tutu_search_context');
+  assert.equal(fake.changes[0].actorId, user.id);
+  assert.deepEqual(JSON.parse(fake.changes[0].newValue), searchRequest);
+  assert.deepEqual(JSON.parse(fake.changes[0].details), {
+    schemaVersion: '1', source: 'tutu-mcp', purpose: 'recovery-search-context',
+  });
+  assert.doesNotMatch(JSON.stringify(fake.changes[0]), /checkoutRef|selectionToken|providerContext|raw/i);
 });
 
 test('same user and key with a different option returns a conflict and creates no second Trip', async () => {
