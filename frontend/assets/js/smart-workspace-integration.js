@@ -95,7 +95,11 @@
         priceDelta: null,
         priceDeltaStatus: "unavailable"
       },
-      apply: { status: stage === "applied" ? "applied" : "idle" },
+      appliedTrip: stage === "applied" ? {
+        route: "Москва → Санкт-Петербург",
+        dateLabel: "15 августа · перелёт · в одну сторону · 1 взрослый"
+      } : null,
+      apply: { status: stage === "applied" ? "applied" : "idle", candidateId: stage === "applied" ? "candidate-a" : null },
       revert: { status: stage === "applied" ? "available" : "disabled" },
       documents: [],
       contextRows: []

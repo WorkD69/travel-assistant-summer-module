@@ -208,6 +208,7 @@ test('scoped stylesheet owns Smart Workspace geometry, focus, and 390px safeguar
   assert.match(css, /@media\s*\(max-width:\s*390px\)/);
   assert.match(css, /min-width:\s*0/);
   assert.match(css, /overflow-wrap:\s*anywhere/);
+  assert.match(css, /\.smart-workspace__applied-route/);
   assert.doesNotMatch(css, /(^|\n)body\s*\{/);
   assert.doesNotMatch(css, /(^|\n)\.card\s*\{/);
 });
@@ -242,6 +243,8 @@ test('development preview supplies explicit frozen states while production still
   assert.equal(planB.ranking.fastest.candidateId, 'candidate-a');
   assert.equal(planB.ranking.cheapest.candidateId, 'candidate-c');
   assert.equal(applied.apply.status, 'applied');
+  assert.equal(applied.apply.candidateId, 'candidate-a');
+  assert.equal(applied.appliedTrip.route, 'Москва → Санкт-Петербург');
   assert.equal(integration.resolveSmartWorkspaceInput({ env: 'production', preview: 'smart-workspace', smartState: 'planb', supplied: null }), null);
 });
 
@@ -266,20 +269,30 @@ test('renderer keeps Disruption and Plan B as distinct presentation stages', () 
   assert.match(planB, /Варианты поездки/);
 });
 
-test('renders every Revert presentation status without a backend mutation', () => {
+test('renders every Revert presentation status as human-readable copy without a backend mutation', () => {
   const renderer = loadRenderer();
-  const statuses = ['available', 'pending', 'success', 'already_reverted', 'nothing_applied', 'conflict', 'disabled'];
+  const statuses = {
+    available: 'Предыдущий вариант можно вернуть',
+    pending: 'Возврат обрабатывается',
+    success: 'Предыдущий вариант возвращён',
+    already_reverted: 'Предыдущий вариант уже возвращён',
+    nothing_applied: 'Нет применённого варианта для возврата',
+    conflict: 'Возврат недоступен: состояние изменилось',
+    disabled: ''
+  };
 
-  statuses.forEach((status) => {
+  Object.entries(statuses).forEach(([status, expectedCopy]) => {
     const markup = renderer.renderMarkup({
       stage: 'applied',
       trip: { route: 'Москва → Санкт-Петербург' },
       candidates: [{ id: 'candidate-a', departure: { time: '15:40' }, arrival: { time: '17:20' } }],
+      apply: { status: 'applied', candidateId: 'candidate-a' },
       revert: { status: status },
       documents: []
     }, renderer.createPresentationState());
 
-    assert.match(markup, new RegExp('Состояние возврата: ' + status));
+    assert.doesNotMatch(markup, new RegExp('Состояние возврата: ' + status));
+    if (expectedCopy) assert.match(markup, new RegExp(expectedCopy));
     assert.match(markup, /Переоформление у перевозчика не выполнялось/);
     if (status === 'available') {
       assert.doesNotMatch(markup, /data-smart-action="revert" disabled/);
@@ -287,6 +300,34 @@ test('renders every Revert presentation status without a backend mutation', () =
       assert.match(markup, /data-smart-action="revert" disabled/);
     }
   });
+});
+
+test('renders After Apply with the route, date and transport facts from the applied model candidate', () => {
+  const renderer = loadRenderer();
+  const markup = renderer.renderMarkup({
+    stage: 'applied',
+    trip: { route: 'Москва → Санкт-Петербург', dateLabel: '15 августа · перелёт · 1 взрослый' },
+    appliedTrip: { route: 'Пермь → Казань', dateLabel: '22 сентября · поезд · 1 взрослый' },
+    candidates: [{
+      id: 'server-candidate-77',
+      departure: { time: '09:15', place: 'Пермь' },
+      arrival: { time: '18:40', place: 'Казань' },
+      duration: '9ч 25м',
+      transfers: 'Без пересадок'
+    }],
+    apply: { status: 'applied', candidateId: 'server-candidate-77' },
+    revert: { status: 'available' },
+    documents: []
+  }, renderer.createPresentationState());
+
+  assert.match(markup, /АКТУАЛЬНЫЙ МАРШРУТ/);
+  assert.match(markup, /Пермь → Казань/);
+  assert.match(markup, /22 сентября · поезд · 1 взрослый/);
+  assert.match(markup, /09:15/);
+  assert.match(markup, /18:40/);
+  assert.match(markup, /Пермь/);
+  assert.match(markup, /Казань/);
+  assert.doesNotMatch(markup, /Москва → Санкт-Петербург|рейс отменён|не состоится/i);
 });
 
 test('renders documents and downstream context only when factual values are supplied', () => {

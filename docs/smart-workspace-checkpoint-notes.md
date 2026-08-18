@@ -12,3 +12,8 @@ Post-fix desktop Plan B verification: absent map, weather, and documents no long
 Final mobile v2 inspection, tiles 1–2: the top factual grid and disruption card remain readable at 390px, primary and secondary actions have full width, and the formerly empty map/weather/documents cards are absent. The timeline transitions directly into the demo reminder and candidate section without overflow.
 
 Mobile After Apply v2 inspection used two ordered 390px tiles. The lime confirmation banner, presentation-only Revert control, status text, and cancellation timeline are readable and fit the viewport. The second tile contains only the expected tail of the timeline and page background; there is no overflow or hidden additional factual card.
+Final correction desktop verification: temporary preview chips are absent. After Apply presents an explicit current route summary with date, departure, arrival, duration, transfer fact, and human-readable Revert availability; the old cancelled timeline is not rendered in that state.
+
+Final correction mobile Applied inspection used two ordered 390px tiles. The visible state has no preview/debug chip and clearly foregrounds `АКТУАЛЬНЫЙ МАРШРУТ` with route, date label, departure, arrival, duration and transfer facts from the Applied model. The Revert action shows human-readable availability text, not the raw enum. No cancelled legacy timeline appears below the applied route; the second tile is only expected page background.
+
+Final correction mobile Plan B inspection, tiles 1–2: the header contains no `visual state` chip. The factual trip card, explicit demo cancellation state, full-width actions, cancellation timeline and candidate section remain readable at 390px without horizontal overflow.
