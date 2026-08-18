@@ -1,27 +1,32 @@
+'use strict';
+
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const test = require('node:test');
 
+function read(relativePath) {
+  return fs.readFileSync(relativePath, 'utf8');
+}
 
-test('version B2 exposes a non-secret staging build marker', () => {
-  const source = fs.readFileSync('assets/js/api-client.js', 'utf8');
+test('final build uses one runtime-configured API base and contains no historical B2 origin', () => {
+  const apiClient = read('assets/js/api-client.js');
+  const runtimeConfig = read('assets/js/runtime-config.js');
+  const finalSources = [apiClient, runtimeConfig, read('service-worker.js')].join('\n');
 
-  assert.match(source, /window\.TRAVEL_BUILD\s*=/);
-  assert.match(source, /version:\s*"B2"/);
-  assert.match(source, /deployedAt:\s*"2026-07-23"/);
-  assert.match(source, /buildId:\s*"version-b2-staging-20260723"/);
-  assert.match(
-    source,
-    /backend:\s*"https:\/\/travel-assistant-teammate-backend-b2-staging-staging-b2\.up\.railway\.app"/,
-  );
-  assert.match(source, /serviceWorker\.register\("\/service-worker\.js\?v=version-b2-staging-20260723"\)/);
+  assert.match(apiClient, /window\.TRAVEL_BUILD\s*=/);
+  assert.match(apiClient, /version:\s*"FINAL"/);
+  assert.match(apiClient, /buildId:\s*BUILD_ID/);
+  assert.match(apiClient, /var BASE = \(typeof window\.TRAVEL_API_BASE === "string"\) \? window\.TRAVEL_API_BASE : ""/);
+  assert.match(runtimeConfig, /TRAVEL_RELEASE_API_BASE/);
+  assert.match(runtimeConfig, /window\.TRAVEL_API_BASE = releaseBase/);
+  assert.doesNotMatch(finalSources, /travel-assistant-teammate-backend-b2-staging-staging-b2\.up\.railway\.app/);
 });
 
+test('service worker precaches final runtime bootstrap and removes stale application caches', () => {
+  const source = read('service-worker.js');
 
-test('service worker activates version B2 staging and removes stale app caches', () => {
-  const source = fs.readFileSync('service-worker.js', 'utf8');
-
-  assert.match(source, /travel-assistant-version-b2-staging-20260723/);
+  assert.match(source, /travel-assistant-final-frontend-integration-phase-a/);
+  assert.match(source, /\/assets\/js\/runtime-config\.js/);
   assert.match(source, /self\.skipWaiting\(\)/);
   assert.match(source, /self\.clients\.claim\(\)/);
   assert.match(source, /caches\.keys\(\)/);

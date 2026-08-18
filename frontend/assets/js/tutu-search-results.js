@@ -135,6 +135,15 @@
     return `<section class="tutu-results-state"><span class="tutu-state-mark" aria-hidden="true">↗</span><h2>${escapeHtml(title)}</h2><p>${escapeHtml(message)}</p>${action || ""}</section>`;
   }
 
+  function renderDemoPurchase(state) {
+    if (!state.selectionIntent) return "";
+    const pending = !!state.demoPurchasePending;
+    return `<section class="tutu-demo-purchase" aria-label="Демонстрационное подтверждение">
+      <p><strong>Демонстрационное подтверждение для Travel Assistant.</strong> Это не покупка у Туту или перевозчика.</p>
+      <button type="button" data-results-demo-purchase${pending ? " disabled" : ""}>${pending ? "Подтверждаем…" : "Подтвердить демонстрационную покупку"}</button>
+    </section>`;
+  }
+
   function renderContent(state, entries) {
     if (state.status === "loading") {
       return `<div class="tutu-results-list" aria-busy="true" aria-label="Ищем варианты">
@@ -151,7 +160,7 @@
       return statePanel("Нет вариантов с выбранными фильтрами", "Сбросьте фильтры, чтобы увидеть остальные варианты.", `<button type="button" data-results-reset>Сбросить фильтры</button>`);
     }
     const notice = state.errorMessage ? `<p class="tutu-checkout-error" role="alert">${escapeHtml(state.errorMessage)}</p>` : "";
-    return notice + `<div class="tutu-results-list">${entries.map(function (entry) { return renderCard(entry, state.pendingSelectionId); }).join("")}</div>`;
+    return notice + `<div class="tutu-results-list">${entries.map(function (entry) { return renderCard(entry, state.pendingSelectionId); }).join("")}</div>` + renderDemoPurchase(state);
   }
 
   function formatSearchDate(dateOnly) {
@@ -309,13 +318,40 @@
     return "Не удалось перейти к оформлению билета.";
   }
 
+  function messageForDemoPurchaseError(error) {
+    const code = backendCode(error);
+    if (["TUTU_SELECTION_INVALID", "TUTU_SELECTION_EXPIRED", "TUTU_SELECTION_USER_MISMATCH"].includes(code)) {
+      return "Этот вариант больше недоступен. Выполните новый поиск и выберите билет снова.";
+    }
+    if (code === "IDEMPOTENCY_KEY_REUSE") {
+      return "Не удалось подтвердить этот демонстрационный выбор. Не меняйте вариант и повторите попытку позже.";
+    }
+    if (code === "TUTU_TIMEOUT" || code === "TUTU_UNAVAILABLE") {
+      return "Подтверждение временно недоступно. Повторите попытку позже.";
+    }
+    if (error && error.status === 401) {
+      return "Сессия истекла. Войдите снова и выполните новый поиск.";
+    }
+    return "Не удалось подтвердить демонстрационную покупку. Повторите попытку.";
+  }
+
   function createController(options) {
     const settings = options || {};
     const api = settings.api;
     const render = typeof settings.render === "function" ? settings.render : function () {};
-    const navigate = typeof settings.navigate === "function"
-      ? settings.navigate
-      : function (url) { window.location.assign(url); };
+    const openPlaceholder = typeof settings.openPlaceholder === "function"
+      ? settings.openPlaceholder
+      : function () { return window.open("", "_blank"); };
+    const goToTrip = typeof settings.goToTrip === "function"
+      ? settings.goToTrip
+      : function (tripId) { window.AppRoutes.goToTrip(tripId); };
+    const randomBytes = typeof settings.randomBytes === "function"
+      ? settings.randomBytes
+      : function () {
+        const bytes = new Uint8Array(24);
+        window.crypto.getRandomValues(bytes);
+        return bytes;
+      };
     let searchPending = false;
     let state = {
       request: null,
@@ -325,6 +361,8 @@
       directOnly: false,
       carrier: "",
       pendingSelectionId: null,
+      selectionIntent: null,
+      demoPurchasePending: false,
       errorMessage: ""
     };
 
@@ -340,6 +378,26 @@
       return sortEntries(filterEntries(state.entries, state.directOnly, state.carrier), state.sort);
     }
 
+    function createIdempotencyKey() {
+      const bytes = randomBytes();
+      if (!bytes || bytes.length < 16) throw new Error("Secure idempotency key generation is unavailable");
+      return Array.prototype.map.call(bytes, function (value) {
+        return Number(value).toString(16).padStart(2, "0");
+      }).join("");
+    }
+
+    function createSelectionIntent(entry) {
+      return Object.freeze({
+        optionId: entry.option.id,
+        selectionToken: entry.selectionToken,
+        idempotencyKey: createIdempotencyKey()
+      });
+    }
+
+    function closePlaceholder(placeholder) {
+      try { placeholder.close(); } catch (error) { /* best effort */ }
+    }
+
     async function search(request) {
       if (searchPending) return false;
       searchPending = true;
@@ -351,6 +409,8 @@
         directOnly: false,
         carrier: "",
         pendingSelectionId: null,
+        selectionIntent: null,
+        demoPurchasePending: false,
         errorMessage: ""
       });
       publish();
@@ -367,10 +427,40 @@
     }
 
     async function select(optionId) {
-      if (state.pendingSelectionId) return false;
+      if (state.pendingSelectionId || state.demoPurchasePending) return false;
       const entry = state.entries.find(function (item) { return item.option.id === optionId; });
       if (!entry) return false;
-      state = Object.assign({}, state, { pendingSelectionId: optionId, errorMessage: "" });
+
+      let placeholder;
+      try {
+        placeholder = openPlaceholder();
+      } catch (error) {
+        placeholder = null;
+      }
+      if (!placeholder) {
+        state = Object.assign({}, state, {
+          errorMessage: "Браузер заблокировал новое окно оформления. Разрешите всплывающие окна и повторите попытку."
+        });
+        publish();
+        return false;
+      }
+      try {
+        placeholder.opener = null;
+        if (placeholder.opener !== null) throw new Error("Checkout opener isolation failed");
+      } catch (error) {
+        closePlaceholder(placeholder);
+        state = Object.assign({}, state, {
+          errorMessage: "Не удалось безопасно открыть окно оформления. Повторите попытку."
+        });
+        publish();
+        return false;
+      }
+
+      state = Object.assign({}, state, {
+        pendingSelectionId: optionId,
+        selectionIntent: null,
+        errorMessage: ""
+      });
       publish();
       try {
         const response = await api.tutuCheckoutLink(entry.selectionToken);
@@ -378,13 +468,45 @@
         if (typeof checkoutUrl !== "string" || !isSafeCheckoutUrl(checkoutUrl)) {
           throw new Error("Checkout response URL is unavailable");
         }
-        navigate(checkoutUrl);
+        const intent = createSelectionIntent(entry);
+        placeholder.location.replace(checkoutUrl);
+        state = Object.assign({}, state, { selectionIntent: intent });
       } catch (error) {
+        closePlaceholder(placeholder);
         state = Object.assign({}, state, {
           errorMessage: messageForCheckoutError(error)
         });
       } finally {
         state = Object.assign({}, state, { pendingSelectionId: null });
+        publish();
+      }
+      return true;
+    }
+
+    async function confirmDemoPurchase() {
+      const intent = state.selectionIntent;
+      if (!intent || state.demoPurchasePending) return false;
+      state = Object.assign({}, state, { demoPurchasePending: true, errorMessage: "" });
+      publish();
+      let canonicalTripId = "";
+      try {
+        const result = await api.tutuDemoPurchaseSuccess(intent.selectionToken, intent.idempotencyKey);
+        if (!result || typeof result.tripId !== "string" || !result.tripId ||
+            (result.created !== true && result.created !== false)) {
+          throw new Error("Demo purchase response is invalid");
+        }
+        canonicalTripId = result.tripId;
+        await api.getTrip(result.tripId);
+        goToTrip(result.tripId);
+      } catch (error) {
+        const message = error && error.status === 401
+          ? messageForDemoPurchaseError(error)
+          : (canonicalTripId
+            ? "Демонстрационное подтверждение получено, но не удалось открыть созданную поездку. Повторите попытку."
+            : messageForDemoPurchaseError(error));
+        state = Object.assign({}, state, { errorMessage: message });
+      } finally {
+        state = Object.assign({}, state, { demoPurchasePending: false });
         publish();
       }
       return true;
@@ -409,6 +531,7 @@
     return Object.freeze({
       search: search,
       select: select,
+      confirmDemoPurchase: confirmDemoPurchase,
       setSort: setSort,
       setDirectOnly: setDirectOnly,
       setCarrier: setCarrier,
@@ -432,6 +555,7 @@
 
     const controller = createController({
       api: window.TravelApi,
+      goToTrip: function (tripId) { window.AppRoutes.goToTrip(tripId); },
       render: function (state) { root.innerHTML = renderPage(state, controller.visibleEntries()); }
     });
 
@@ -443,6 +567,7 @@
     root.addEventListener("click", function (event) {
       const select = event.target.closest("[data-results-select]");
       if (select) { controller.select(select.dataset.resultsSelect); return; }
+      if (event.target.closest("[data-results-demo-purchase]")) { controller.confirmDemoPurchase(); return; }
       if (event.target.closest("[data-results-edit]")) { window.AppRoutes.goToHome(); return; }
       if (event.target.closest("[data-results-retry]")) { controller.search(request); return; }
       if (event.target.closest("[data-results-reset]")) {

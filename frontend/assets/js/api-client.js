@@ -6,26 +6,23 @@
     return b;
   }
 
-  // Isolated Version B2 staging backend. The preview must never fall back to
-  // the Version B production service. window.TRAVEL_API_BASE remains available
-  // for explicit test harness overrides before this script loads.
-  var STAGING_BACKEND = "https://travel-assistant-teammate-backend-b2-staging-staging-b2.up.railway.app";
+  // The only production origin is injected by runtime-config.js before this
+  // client loads. A same-origin empty base is a safe fallback, not a release
+  // configuration substitute.
+  var BUILD_ID = "final-frontend-integration-phase-a";
 
   window.TRAVEL_BUILD = Object.freeze({
-    version: "B2",
-    deployedAt: "2026-07-23",
-    backend: "https://travel-assistant-teammate-backend-b2-staging-staging-b2.up.railway.app",
-    buildId: "version-b2-staging-20260723",
-    sourceCommit: "local-codex-teammate-preview"
+    version: "FINAL",
+    buildId: BUILD_ID,
+    apiBaseRuntimeConfigured: typeof window.TRAVEL_API_BASE === "string"
   });
 
   if (typeof navigator !== "undefined" && "serviceWorker" in navigator && location.protocol === "https:") {
     window.addEventListener("load", function(){
-      navigator.serviceWorker.register("/service-worker.js?v=version-b2-staging-20260723").catch(function(){});
+      navigator.serviceWorker.register("/service-worker.js?v=" + BUILD_ID).catch(function(){});
     });
   }
-  var DEFAULT = STAGING_BACKEND;
-  var BASE = (typeof window.TRAVEL_API_BASE === "string") ? window.TRAVEL_API_BASE : DEFAULT;
+  var BASE = (typeof window.TRAVEL_API_BASE === "string") ? window.TRAVEL_API_BASE : "";
   BASE = stripTrail(BASE);
 
   var authStorage = window.TravelAuthStorage || {
@@ -113,6 +110,13 @@
     },
     tutuCheckoutLink: function(selectionToken){
       return req("/api/tutu/checkout-link", { method: "POST", body: { selectionToken: selectionToken } });
+    },
+    tutuDemoPurchaseSuccess: function(selectionToken, idempotencyKey){
+      return req("/api/tutu/demo-purchase-success", {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: { selectionToken: selectionToken }
+      });
     },
 
     // Geo & weather

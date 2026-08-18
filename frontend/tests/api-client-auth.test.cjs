@@ -76,13 +76,13 @@ test('session restore never performs an implicit credential login', async () => 
   assert.equal(client.clearCount(), 1);
 });
 
-test('preview client contains only the isolated Railway backend URL', () => {
+test('final client takes one API origin from runtime bootstrap and contains no historical B2 URL', () => {
   const source = fs.readFileSync('assets/js/api-client.js', 'utf8');
+  const runtime = fs.readFileSync('assets/js/runtime-config.js', 'utf8');
 
-  assert.match(
-    source,
-    /https:\/\/travel-assistant-teammate-backend-b2-staging-staging-b2\.up\.railway\.app/,
-  );
+  assert.match(source, /window\.TRAVEL_API_BASE/);
+  assert.match(runtime, /TRAVEL_RELEASE_API_BASE/);
+  assert.doesNotMatch(source, /travel-assistant-teammate-backend-b2-staging-staging-b2\.up\.railway\.app/);
   assert.equal(source.includes('REPLACE_WITH_BACKEND_URL'), false);
   assert.equal(source.includes('travel-assistant-summer-module'), false);
   assert.equal(source.includes('localhost'), false);
