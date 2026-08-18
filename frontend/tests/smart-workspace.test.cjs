@@ -73,3 +73,33 @@ test('ignores unavailable and unknown ranking references', () => {
 
   assert.deepEqual(model.candidates[0].rankingLabels, []);
 });
+
+const integrationPath = path.join(__dirname, '..', 'assets', 'js', 'smart-workspace-integration.js');
+
+function loadIntegration() {
+  assert.equal(
+    fs.existsSync(integrationPath),
+    true,
+    'Smart Workspace integration module must exist before preview safety can be checked'
+  );
+  delete require.cache[require.resolve(integrationPath)];
+  return require(integrationPath);
+}
+
+test('enables Smart Workspace preview only through an explicit non-production gate', () => {
+  const integration = loadIntegration();
+
+  assert.equal(integration.isSmartWorkspacePreview({ env: 'development', preview: 'smart-workspace' }), true);
+  assert.equal(integration.isSmartWorkspacePreview({ env: 'test', preview: 'smart-workspace' }), true);
+  assert.equal(integration.isSmartWorkspacePreview({ env: 'production', preview: 'smart-workspace' }), false);
+  assert.equal(integration.isSmartWorkspacePreview({ env: 'development', preview: '' }), false);
+});
+
+test('does not create a production fixture fallback without a supplied view model', () => {
+  const integration = loadIntegration();
+
+  assert.equal(
+    integration.resolveSmartWorkspaceInput({ env: 'production', preview: '', supplied: null }),
+    null
+  );
+});
