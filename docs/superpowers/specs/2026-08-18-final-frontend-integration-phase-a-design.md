@@ -1,8 +1,8 @@
 # Final Frontend Integration Phase A — Design
 
-**Дата:** 18 августа 2026  
+**Дата:** 18 августа 2026
 **Статус:** APPROVED FOR IMPLEMENTATION
-**Baseline:** `integration/hackathon-2026@3b9fbd90703027cdbd6e7815167d73064d0bf702`  
+**Baseline:** `integration/hackathon-2026@3b9fbd90703027cdbd6e7815167d73064d0bf702`
 **Рабочая ветка:** `feat/final-frontend-integration-phase-a`
 
 ## Цель
