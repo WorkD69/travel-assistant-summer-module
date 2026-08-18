@@ -179,8 +179,10 @@
 
   function afterApplyMarkup(model, state) {
     var selected = asArray(model.candidates).filter(function findCandidate(candidate) { return candidate.id === state.selectedCandidateId; })[0] || {};
-    var status = state.revertStatus || (model.revert && model.revert.status) || "disabled";
-    var disabled = status === "disabled" || status === "pending" || status === "already_reverted" || status === "nothing_applied" || status === "conflict";
+    var status = state.applied
+      ? (state.revertStatus || (model.revert && model.revert.status) || "disabled")
+      : ((model.revert && model.revert.status) || state.revertStatus || "disabled");
+    var disabled = status === "disabled" || status === "pending" || status === "success" || status === "already_reverted" || status === "nothing_applied" || status === "conflict";
     return '<section class="smart-workspace__applied"><span>✓ PLAN B ПРИМЕНЁН</span><h2>Маршрут обновлён</h2><p>' + escapeHtml((model.trip && model.trip.route) || "Поездка") + ' · ' + escapeHtml((selected.departure && selected.departure.time) || "") + ' → ' + escapeHtml((selected.arrival && selected.arrival.time) || "") + '</p><p>Переоформление у перевозчика не выполнялось.</p><div class="smart-workspace__history"><span>Демо-событие</span><span>Кандидаты</span><span>Предпочтения</span><strong>Применён Plan B</strong></div><button type="button" class="smart-workspace__revert" data-smart-action="revert"' + (disabled ? " disabled" : "") + '>Вернуть предыдущий вариант</button><small>Состояние возврата: ' + escapeHtml(status) + '</small></section>';
   }
 
@@ -189,10 +191,11 @@
     var safeState = state || createPresentationState();
     var trip = safeModel.trip || {};
     var disrupted = safeModel.disruption && safeModel.disruption.type === "CARRIER_CANCELLED";
-    if (safeState.applied) {
+    var showPlanB = safeModel.stage === "planb" || safeModel.stage === "impact";
+    if (safeState.applied || safeModel.stage === "applied") {
       return '<section class="smart-workspace" aria-label="Сопровождение поездки">' + afterApplyMarkup(safeModel, safeState) + timelineMarkup(safeModel) + documentsMarkup(asArray(safeModel.documents)) + '</section>';
     }
-    return '<section class="smart-workspace" aria-label="Сопровождение поездки"><header class="smart-workspace__header"><div><h1>' + escapeHtml(trip.route || "Поездка") + '</h1><p>' + escapeHtml(trip.dateLabel || "") + '</p></div><span class="smart-workspace__trip-badge">' + (disrupted ? "⚠ Требуется внимание" : "✨ Сопровождение включено") + '</span></header>' + routeFactsMarkup(trip) + (disrupted ? disruptionMarkup(safeModel.disruption) : normalStatusMarkup(safeModel)) + '<div class="smart-workspace__module-grid">' + presentationContainerMarkup("map", "Карта маршрута", "Карта переиспользуется из существующего продукта") + timelineMarkup(safeModel) + presentationContainerMarkup("weather", "Погода", "Данные отображаются, только если они переданы поездкой") + documentsMarkup(asArray(safeModel.documents)) + '</div>' + (disrupted ? planBMarkup(safeModel, safeState) : "") + companionMarkup(disrupted) + '</section>';
+    return '<section class="smart-workspace" aria-label="Сопровождение поездки"><header class="smart-workspace__header"><div><h1>' + escapeHtml(trip.route || "Поездка") + '</h1><p>' + escapeHtml(trip.dateLabel || "") + '</p></div><span class="smart-workspace__trip-badge">' + (disrupted ? "⚠ Требуется внимание" : "✨ Сопровождение включено") + '</span></header>' + routeFactsMarkup(trip) + (disrupted ? disruptionMarkup(safeModel.disruption) : normalStatusMarkup(safeModel)) + '<div class="smart-workspace__module-grid">' + presentationContainerMarkup("map", "Карта маршрута", "Карта переиспользуется из существующего продукта") + timelineMarkup(safeModel) + presentationContainerMarkup("weather", "Погода", "Данные отображаются, только если они переданы поездкой") + documentsMarkup(asArray(safeModel.documents)) + '</div>' + (showPlanB ? planBMarkup(safeModel, safeState) : "") + companionMarkup(disrupted) + '</section>';
   }
 
   function nextRevertStatus(status) {

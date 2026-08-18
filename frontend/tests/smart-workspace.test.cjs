@@ -143,6 +143,7 @@ test('renders explicit demo cancellation wording without claiming live detection
 test('keeps ranking labels separate from selected candidate and uses unavailable price wording', () => {
   const renderer = loadRenderer();
   const markup = renderer.renderMarkup({
+    stage: 'planb',
     trip: { route: 'Москва → Санкт-Петербург' },
     disruption: { type: 'CARRIER_CANCELLED', source: 'DEMO_SIMULATION' },
     candidates: [{
@@ -169,6 +170,7 @@ test('keeps ranking labels separate from selected candidate and uses unavailable
 test('renders impact only for an explicitly selected candidate and keeps price comparison unavailable', () => {
   const renderer = loadRenderer();
   const model = {
+    stage: 'planb',
     trip: { route: 'Москва → Санкт-Петербург' },
     disruption: { type: 'CARRIER_CANCELLED', source: 'DEMO_SIMULATION' },
     candidates: [{ id: 'candidate-a', rankingLabels: [] }],
@@ -223,4 +225,104 @@ test('canonical Trip surface links scoped CSS and mounts Smart Workspace outside
   assert.ok(rootIndex > overviewEnd, 'Smart Workspace root must be appended after the legacy overview grid');
   assert.ok(viewModelScript > -1 && rendererScript > viewModelScript && integrationScript > rendererScript,
     'Smart Workspace scripts must load in view-model, renderer, integration order');
+});
+
+test('development preview supplies explicit frozen states while production still resolves no fixture', () => {
+  const integration = loadIntegration();
+  const normal = integration.resolveSmartWorkspaceInput({ env: 'development', preview: 'smart-workspace', smartState: 'normal', supplied: null });
+  const disruption = integration.resolveSmartWorkspaceInput({ env: 'development', preview: 'smart-workspace', smartState: 'disruption', supplied: null });
+  const planB = integration.resolveSmartWorkspaceInput({ env: 'development', preview: 'smart-workspace', smartState: 'planb', supplied: null });
+  const applied = integration.resolveSmartWorkspaceInput({ env: 'development', preview: 'smart-workspace', smartState: 'applied', supplied: null });
+
+  assert.equal(normal.stage, 'normal');
+  assert.equal(disruption.stage, 'disruption');
+  assert.equal(planB.stage, 'planb');
+  assert.equal(applied.stage, 'applied');
+  assert.equal(planB.candidates.length, 3);
+  assert.equal(planB.ranking.fastest.candidateId, 'candidate-a');
+  assert.equal(planB.ranking.cheapest.candidateId, 'candidate-c');
+  assert.equal(applied.apply.status, 'applied');
+  assert.equal(integration.resolveSmartWorkspaceInput({ env: 'production', preview: 'smart-workspace', smartState: 'planb', supplied: null }), null);
+});
+
+test('renderer keeps Disruption and Plan B as distinct presentation stages', () => {
+  const renderer = loadRenderer();
+  const disruptionOnly = renderer.renderMarkup({
+    stage: 'disruption',
+    trip: { route: 'Москва → Санкт-Петербург' },
+    disruption: { type: 'CARRIER_CANCELLED', source: 'DEMO_SIMULATION' },
+    candidates: [{ id: 'candidate-a', rankingLabels: ['fastest'] }],
+    documents: []
+  }, renderer.createPresentationState());
+  const planB = renderer.renderMarkup({
+    stage: 'planb',
+    trip: { route: 'Москва → Санкт-Петербург' },
+    disruption: { type: 'CARRIER_CANCELLED', source: 'DEMO_SIMULATION' },
+    candidates: [{ id: 'candidate-a', rankingLabels: ['fastest'] }],
+    documents: []
+  }, renderer.createPresentationState());
+
+  assert.doesNotMatch(disruptionOnly, /Варианты поездки/);
+  assert.match(planB, /Варианты поездки/);
+});
+
+test('renders every Revert presentation status without a backend mutation', () => {
+  const renderer = loadRenderer();
+  const statuses = ['available', 'pending', 'success', 'already_reverted', 'nothing_applied', 'conflict', 'disabled'];
+
+  statuses.forEach((status) => {
+    const markup = renderer.renderMarkup({
+      stage: 'applied',
+      trip: { route: 'Москва → Санкт-Петербург' },
+      candidates: [{ id: 'candidate-a', departure: { time: '15:40' }, arrival: { time: '17:20' } }],
+      revert: { status: status },
+      documents: []
+    }, renderer.createPresentationState());
+
+    assert.match(markup, new RegExp('Состояние возврата: ' + status));
+    assert.match(markup, /Переоформление у перевозчика не выполнялось/);
+    if (status === 'available') {
+      assert.doesNotMatch(markup, /data-smart-action="revert" disabled/);
+    } else {
+      assert.match(markup, /data-smart-action="revert" disabled/);
+    }
+  });
+});
+
+test('renders documents and downstream context only when factual values are supplied', () => {
+  const renderer = loadRenderer();
+  const emptyMarkup = renderer.renderMarkup({
+    stage: 'planb',
+    trip: { route: 'Москва → Санкт-Петербург' },
+    disruption: { type: 'CARRIER_CANCELLED', source: 'DEMO_SIMULATION' },
+    candidates: [{ id: 'candidate-a', rankingLabels: [] }],
+    impact: { candidateId: 'candidate-a', priceDelta: null, priceDeltaStatus: 'unavailable' },
+    documents: [],
+    contextRows: []
+  }, renderer.selectCandidate(renderer.createPresentationState(), 'candidate-a'));
+  const factualMarkup = renderer.renderMarkup({
+    stage: 'planb',
+    trip: { route: 'Москва → Санкт-Петербург' },
+    disruption: { type: 'CARRIER_CANCELLED', source: 'DEMO_SIMULATION' },
+    candidates: [{ id: 'candidate-a', rankingLabels: [] }],
+    impact: { candidateId: 'candidate-a', priceDelta: null, priceDeltaStatus: 'unavailable' },
+    documents: [{ title: 'Маршрут поездки' }],
+    contextRows: [{ label: 'Заселение', value: '20:00' }]
+  }, renderer.selectCandidate(renderer.createPresentationState(), 'candidate-a'));
+
+  assert.match(emptyMarkup, /Документы не добавлены/);
+  assert.doesNotMatch(emptyMarkup, /<li>Маршрут поездки<\/li>/);
+  assert.match(factualMarkup, /<li>Маршрут поездки<\/li>/);
+  assert.match(factualMarkup, /Заселение/);
+  assert.match(factualMarkup, /20:00/);
+});
+
+test('Smart Workspace source contains no client ranking, storage, or mutation API behavior', () => {
+  const viewModelSource = fs.readFileSync(viewModelPath, 'utf8');
+  const rendererSource = fs.readFileSync(rendererPath, 'utf8');
+  const integrationSource = fs.readFileSync(integrationPath, 'utf8');
+  const source = [viewModelSource, rendererSource, integrationSource].join('\n');
+
+  assert.doesNotMatch(viewModelSource, /\.sort\(|Math\.min|Math\.max|score|match percent/i);
+  assert.doesNotMatch(source, /localStorage|TravelApi|fetch\(|applyPlan\(|revertPlan\(/);
 });
