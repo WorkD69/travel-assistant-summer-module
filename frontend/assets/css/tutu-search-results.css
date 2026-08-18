@@ -632,11 +632,60 @@ body.tutu-results-surface {
   }
 }
 
+.tutu-demo-purchase {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 18px 20px;
+  border: 1px solid var(--tutu-results-line);
+  border-radius: 18px;
+  background: #fff;
+}
+
+.tutu-demo-purchase p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--tutu-results-ink);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.tutu-demo-purchase button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--tutu-results-violet);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tutu-demo-purchase button:disabled {
+  cursor: wait;
+  opacity: .62;
+}
+
+@media (max-width: 700px) {
+  .tutu-demo-purchase {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .tutu-demo-purchase button {
+    width: 100%;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tutu-result-skeleton::after {
     animation: none;
   }
-
   .tutu-select-ticket,
   .tutu-results-state button {
     transition: none;
