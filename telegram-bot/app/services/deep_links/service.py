@@ -3,6 +3,7 @@ tripId в адресе не даёт доступа без авторизаци�
 from __future__ import annotations
 
 from typing import Optional
+from urllib.parse import quote
 
 
 class DeepLinkService:
@@ -13,7 +14,7 @@ class DeepLinkService:
         return f"{self._base}/home.html"
 
     def trip(self, trip_id: str) -> str:
-        return f"{self._base}/trip-overview.html?tripId={trip_id}"
+        return f"{self._base}/trips/{quote(str(trip_id), safe='')}"
 
     def monitoring(self, trip_id: str) -> str:
         return self.trip(trip_id)

@@ -79,6 +79,28 @@ def event_line(event: TripEvent, tz_str: str) -> str:
     return "\n".join(parts)
 
 
+def companion_trip_summary(trip: Trip) -> str:
+    lines = [f"🧳 {trip.title}"]
+    if trip.route:
+        lines.append(f"Маршрут: {trip.route}")
+    lines.append(
+        f"Даты: {trip.date_start.strftime('%d.%m.%Y')} — {trip.date_end.strftime('%d.%m.%Y')}")
+    lines.append(f"Статус: {TRIP_STATUS_LABELS.get(trip.status, trip.status)}")
+    if trip.demo_disruption is not None:
+        disruption_type = trip.demo_disruption.type or "без уточнённого типа"
+        lines.append("⚠️ Демо-событие")
+        lines.append(f"Для демонстрации в поездке создано событие: {disruption_type}")
+        context = trip.demo_disruption.context or {}
+        details = [
+            f"{str(key)[:48]}: {str(value)[:120]}"
+            for key, value in context.items()
+            if isinstance(value, (str, int, float, bool))
+        ]
+        if details:
+            lines.append("Детали: " + "; ".join(details[:3]))
+    return "\n".join(lines)
+
+
 def trip_card(trip: Trip) -> str:
     lines = [f"🧳 {trip.title}"]
     if trip.route:

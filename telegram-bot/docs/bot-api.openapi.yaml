@@ -533,6 +533,24 @@ components:
         status: {type: string, enum: [draft, planned, active, finished]}
         role: {type: string, enum: [organizer, participant, viewer]}
         membership_status: {type: string, enum: [member, invited, revoked]}
+        demo_disruption:
+          oneOf:
+            - $ref: '#/components/schemas/DemoDisruption'
+            - type: 'null'
+    DemoDisruption:
+      type: object
+      additionalProperties: false
+      required: [category, source, status, type, context]
+      properties:
+        category: {type: string, enum: [plan_b_disruption]}
+        source: {type: string, enum: [DEMO_SIMULATION]}
+        status: {type: string, enum: [active]}
+        type: {type: [string, 'null']}
+        context:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: 'null'
     TripEvent:
       type: object
       additionalProperties: false

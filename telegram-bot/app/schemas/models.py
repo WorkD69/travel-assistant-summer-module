@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -41,6 +41,14 @@ class LinkResult(BaseModel):
     relinked: bool = False
 
 
+class DemoDisruption(BaseModel):
+    category: Literal["plan_b_disruption"]
+    source: Literal["DEMO_SIMULATION"]
+    status: Literal["active"]
+    type: str | None = None
+    context: dict[str, Any] | None = None
+
+
 class Trip(BaseModel):
     id: str
     title: str
@@ -51,6 +59,7 @@ class Trip(BaseModel):
     status: TripStatus = "planned"
     role: Role = "participant"
     membership_status: MembershipStatus = "member"
+    demo_disruption: DemoDisruption | None = None
 
 
 class TripEvent(BaseModel):

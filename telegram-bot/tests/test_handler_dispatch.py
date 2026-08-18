@@ -52,7 +52,7 @@ def command_update(update_id: int, telegram_id: int, command: str) -> Update:
     )
 
 
-async def test_required_commands_dispatch_without_real_telegram_or_unhandled_errors() -> None:
+async def test_companion_v1_commands_dispatch_and_legacy_b2_commands_are_unreachable() -> None:
     settings = Settings(
         _env_file=None,
         bot_env="development",
@@ -71,27 +71,7 @@ async def test_required_commands_dispatch_without_real_telegram_or_unhandled_err
 
     try:
         await application.api.consume_link_token(telegram_id, "demo-anna")
-        await application.api.select_active_trip(telegram_id, "t-turkey")
-        commands = [
-            "/start",
-            "/trips",
-            "/history",
-            "/today",
-            "/next",
-            "/documents",
-            "/messages",
-            "/sos",
-            "/cancel",
-            "/mysos",
-            "/assistant",
-            "/cancel",
-            "/notifications",
-            "/settings",
-            "/help",
-            "/demo",
-            "/unlink",
-            "/cancel",
-        ]
+        commands = ["/start", "/trips", "/help"]
         for update_id, command in enumerate(commands, start=1):
             before = len(session.methods)
             await application.dispatcher.feed_update(
@@ -99,6 +79,17 @@ async def test_required_commands_dispatch_without_real_telegram_or_unhandled_err
                 command_update(update_id, telegram_id, command),
             )
             assert len(session.methods) > before, command
+
+        for update_id, command in enumerate(
+            ["/history", "/today", "/next", "/documents", "/messages", "/sos", "/mysos", "/assistant", "/notifications", "/settings", "/demo"],
+            start=len(commands) + 1,
+        ):
+            before = len(session.methods)
+            await application.dispatcher.feed_update(
+                application.bot,
+                command_update(update_id, telegram_id, command),
+            )
+            assert len(session.methods) == before, command
 
         sent_texts = [
             method.text for method in session.methods

@@ -11,8 +11,7 @@ from app.keyboards.inline import unlink_confirm_kb, unlinked_start_kb
 from app.keyboards.reply import main_menu
 from app.services.deep_links.service import DeepLinkService
 from app.services.travel_api.base import TravelApiClient
-from app.services.travel_api.errors import NotLinkedError, TravelApiError
-from app.utils.formatting import event_line
+from app.services.travel_api.errors import NotLinkedError
 
 router = Router(name="start")
 
@@ -24,20 +23,12 @@ NOT_LINKED_TEXT = (
 
 
 async def _show_linked_home(message: Message, api: TravelApiClient, tg_id: int) -> None:
-    me = await api.get_me(tg_id)
-    lines = [f"Здравствуйте, {me.name}! 👋"]
-    if me.active_trip_id:
-        try:
-            trip = await api.get_trip(tg_id, me.active_trip_id)
-            lines.append(f"Активная поездка: {trip.title}")
-            nxt = await api.get_next_event(tg_id, me.active_trip_id)
-            if nxt:
-                lines.append("Ближайшее событие:\n" + event_line(nxt, trip.timezone))
-        except TravelApiError:
-            pass
-    else:
-        lines.append("Активная поездка не выбрана — откройте 🧳 Мои поездки.")
-    await message.answer("\n\n".join(lines), reply_markup=main_menu())
+    await api.get_me(tg_id)
+    await message.answer(
+        "Travel Assistant сопровождает конкретную поездку.\n\n"
+        "Откройте «🧳 Мои поездки», чтобы посмотреть краткий статус и перейти в Web Workspace.",
+        reply_markup=main_menu(),
+    )
 
 
 @router.message(CommandStart(deep_link=True))

@@ -39,22 +39,9 @@ from app.services.travel_api.factory import create_travel_api_client
 logger = logging.getLogger(__name__)
 
 BOT_COMMANDS = [
-    BotCommand(command="start", description="Начать / привязать аккаунт"),
+    BotCommand(command="start", description="Начать"),
     BotCommand(command="trips", description="Мои поездки"),
-    BotCommand(command="history", description="Завершённые поездки"),
-    BotCommand(command="today", description="События на сегодня"),
-    BotCommand(command="next", description="Ближайшее событие"),
-    BotCommand(command="documents", description="Документы поездки"),
-    BotCommand(command="messages", description="Сообщения организатора"),
-    BotCommand(command="sos", description="Отправить SOS"),
-    BotCommand(command="mysos", description="Мои обращения SOS"),
-    BotCommand(command="assistant", description="AI-помощник"),
-    BotCommand(command="notifications", description="Настройки уведомлений"),
-    BotCommand(command="settings", description="Настройки"),
-    BotCommand(command="unlink", description="Отвязать Telegram"),
     BotCommand(command="help", description="Справка"),
-    BotCommand(command="cancel", description="Отменить действие"),
-    BotCommand(command="demo", description="Демо-события (dev mock)"),
 ]
 
 

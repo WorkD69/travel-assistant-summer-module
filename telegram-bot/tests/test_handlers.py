@@ -14,25 +14,19 @@ from app.services.deep_links.service import DeepLinkService
 from tests.helpers import ANNA_TG, link_both, make_env
 
 
-def test_all_required_commands_are_registered() -> None:
+def test_companion_v1_commands_are_registered_without_legacy_actions() -> None:
     commands = {item.command for item in BOT_COMMANDS}
-
-    assert {
-        "start", "trips", "history", "today", "next", "documents", "messages",
-        "sos", "mysos", "assistant", "notifications", "settings", "unlink", "help",
-        "cancel", "demo",
-    } <= commands
+    assert commands == {"start", "trips", "help"}
 
 
-def test_help_lists_messages_and_my_sos() -> None:
-    assert "/messages" in HELP_TEXT
-    assert "/mysos" in HELP_TEXT
+def test_help_describes_companion_scope_without_legacy_actions() -> None:
+    assert "/trips" in HELP_TEXT
+    for legacy_command in ("/messages", "/mysos", "/today", "/assistant", "/demo"):
+        assert legacy_command not in HELP_TEXT
 
 
 def test_localhost_deep_link_uses_callback_instead_of_invalid_url_button() -> None:
-    keyboard = open_trip_kb(
-        "http://localhost:8011/trip-overview.html?tripId=t-turkey"
-    )
+    keyboard = open_trip_kb("http://localhost:8011/trips/t-turkey")
 
     button = keyboard.inline_keyboard[0][0]
     assert button.url is None
@@ -61,7 +55,7 @@ async def test_local_site_callback_sends_plain_text_trip_link() -> None:
     await handler(callback, DeepLinkService("http://localhost:8011"))
 
     assert (
-        "http://localhost:8011/trip-overview.html?tripId=t-turkey"
+        "http://localhost:8011/trips/t-turkey"
         in callback.message.text
     )
     assert "Telegram Desktop" in callback.message.text
