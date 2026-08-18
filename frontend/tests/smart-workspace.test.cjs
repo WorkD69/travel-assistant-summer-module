@@ -103,3 +103,93 @@ test('does not create a production fixture fallback without a supplied view mode
     null
   );
 });
+
+const rendererPath = path.join(__dirname, '..', 'assets', 'js', 'smart-workspace-renderer.js');
+
+function loadRenderer() {
+  assert.equal(
+    fs.existsSync(rendererPath),
+    true,
+    'Smart Workspace renderer module must exist before presentation behavior can be checked'
+  );
+  delete require.cache[require.resolve(rendererPath)];
+  return require(rendererPath);
+}
+
+test('starts presentation state without candidate selection and selects only after explicit action', () => {
+  const renderer = loadRenderer();
+  const initial = renderer.createPresentationState({ selectedCandidateId: 'candidate-a' });
+  const selected = renderer.selectCandidate(initial, 'candidate-a');
+
+  assert.equal(initial.selectedCandidateId, null);
+  assert.equal(selected.selectedCandidateId, 'candidate-a');
+});
+
+test('renders explicit demo cancellation wording without claiming live detection', () => {
+  const renderer = loadRenderer();
+  const markup = renderer.renderMarkup({
+    trip: { route: 'Москва → Санкт-Петербург' },
+    disruption: { type: 'CARRIER_CANCELLED', source: 'DEMO_SIMULATION' },
+    candidates: [],
+    documents: []
+  }, renderer.createPresentationState());
+
+  assert.match(markup, /ДЕМО-СОБЫТИЕ/);
+  assert.match(markup, /Симулированное событие демо-режима/);
+  assert.match(markup, /Рейс отменён/);
+  assert.doesNotMatch(markup, /Tutu обнаружил|перевозчик сообщил|live cancellation/i);
+});
+
+test('keeps ranking labels separate from selected candidate and uses unavailable price wording', () => {
+  const renderer = loadRenderer();
+  const markup = renderer.renderMarkup({
+    trip: { route: 'Москва → Санкт-Петербург' },
+    disruption: { type: 'CARRIER_CANCELLED', source: 'DEMO_SIMULATION' },
+    candidates: [{
+      id: 'candidate-a',
+      departure: { time: '15:40', place: 'Москва' },
+      arrival: { time: '17:20', place: 'Санкт-Петербург' },
+      duration: '1ч 40м',
+      transfers: 'Без пересадок',
+      carrierName: null,
+      serviceNumber: null,
+      price: null,
+      rankingLabels: ['fastest', 'personalized']
+    }],
+    documents: []
+  }, renderer.createPresentationState());
+
+  assert.match(markup, /БЫСТРЕЕ ВСЕГО/);
+  assert.match(markup, /ДЛЯ ВАС/);
+  assert.match(markup, /Цена не указана/);
+  assert.doesNotMatch(markup, /Вы выбрали этот вариант/);
+  assert.match(markup, /disabled[^>]*>Применить Plan B/);
+});
+
+test('renders impact only for an explicitly selected candidate and keeps price comparison unavailable', () => {
+  const renderer = loadRenderer();
+  const model = {
+    trip: { route: 'Москва → Санкт-Петербург' },
+    disruption: { type: 'CARRIER_CANCELLED', source: 'DEMO_SIMULATION' },
+    candidates: [{ id: 'candidate-a', rankingLabels: [] }],
+    impact: {
+      candidateId: 'candidate-a',
+      arrivalAt: '17:20',
+      arrivalDeltaMinutes: 195,
+      durationMinutes: 100,
+      durationDeltaMinutes: 5,
+      transferCount: 0,
+      transferCountDelta: 0,
+      price: 7150,
+      priceDelta: null,
+      priceDeltaStatus: 'unavailable'
+    },
+    documents: []
+  };
+
+  assert.doesNotMatch(renderer.renderMarkup(model, renderer.createPresentationState()), /Что изменится/);
+  const markup = renderer.renderMarkup(model, renderer.selectCandidate(renderer.createPresentationState(), 'candidate-a'));
+  assert.match(markup, /Что изменится/);
+  assert.match(markup, /Цена нового варианта/);
+  assert.match(markup, /Сравнение с исходной ценой недоступно/);
+});
