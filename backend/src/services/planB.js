@@ -462,6 +462,34 @@ function parseProposal(change) {
   return proposal;
 }
 
+function deriveActivePlanBApply(changes) {
+  const lifecycleChanges = Array.isArray(changes) ? changes : [];
+  const revertedApplyIds = new Set(lifecycleChanges.filter(function (change) {
+    return change && change.type === REVERT_TYPE;
+  }).map(function (change) {
+    const value = parseJson(change.newValue, null);
+    return value && value.applyId;
+  }).filter(Boolean));
+  const activeApply = lifecycleChanges.filter(function (change) {
+    return change && change.type === APPLY_TYPE && !revertedApplyIds.has(change.id);
+  }).sort(function (left, right) {
+    const createdAt = new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+    return createdAt || String(right.id).localeCompare(String(left.id));
+  })[0];
+  if (!activeApply) return null;
+  const value = parseJson(activeApply.newValue, null);
+  const appliedAt = persistedInstantIso(activeApply.createdAt);
+  if (!value || typeof value.proposalId !== 'string' || typeof value.candidateId !== 'string' ||
+      typeof value.optionId !== 'string' || !appliedAt) return null;
+  return {
+    applyId: activeApply.id,
+    proposalId: value.proposalId,
+    candidateId: value.candidateId,
+    optionId: value.optionId,
+    appliedAt: appliedAt,
+  };
+}
+
 function publicCandidate(candidate) {
   return {
     candidateId: candidate.candidateId,
@@ -709,6 +737,15 @@ function createPlanBService(options) {
           newValue: JSON.stringify({ schemaVersion: '1', applyId: applyChange.id, restoredSnapshot: before }),
           details: JSON.stringify({ schemaVersion: '1', operation: 'revert', source: 'DEMO_PLAN_B_ROUTE_ONLY' }),
         } });
+        await tx.monitoringSignal.updateMany({
+          where: {
+            tripId: trip.id,
+            category: DISRUPTION_CATEGORY,
+            source: DISRUPTION_SOURCE,
+            status: 'active',
+          },
+          data: { status: 'resolved' },
+        });
           return { reverted: true, revertId: revertId, trip: restored };
         });
       } catch (error) {
@@ -737,6 +774,7 @@ module.exports = {
   cheapestCandidate,
   personalizedCandidate,
   impactForOption,
+  deriveActivePlanBApply,
   createPlanBService,
   planBError,
 };
