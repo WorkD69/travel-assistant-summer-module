@@ -6,9 +6,6 @@
   var els = {};
   var busy = false;
   var loadingEl = null;
-  var activeWrap = null;
-  var planRegistry = {};
-  var planCounter = 0;
 
   function getTripId(){
     try {
@@ -105,11 +102,6 @@
     if (plans.length){
       h += '<div class="ai-plans__grid">';
       plans.forEach(function(p, i){
-        var key = "plan-" + (planCounter++);
-        planRegistry[key] = Object.assign({}, p, {
-          summary: result.summary || null,
-          emailDraft: result.emailDraft || null
-        });
         h += '<article class="ai-plan">';
         h += '<h4 class="ai-plan__title">План ' + (i + 1) + '. ' + esc(p.title || "") + '</h4>';
         h += strategyBadge(p.strategy, i);
@@ -133,7 +125,7 @@
         if (p.pros) h += '<p class="ai-plan__meta"><span>Плюсы:</span> ' + esc(p.pros) + '</p>';
         if (p.cons) h += '<p class="ai-plan__meta"><span>Минусы:</span> ' + esc(p.cons) + '</p>';
         if (p.whenToUse) h += '<p class="ai-plan__meta"><span>Когда:</span> ' + esc(p.whenToUse) + '</p>';
-        h += '<div class="ai-plan__foot"><button type="button" class="ai-plan__apply" data-plan-key="' + key + '">Применить этот план</button></div>';
+        h += '<div class="ai-plan__foot"><small>Предложения ассистента справочные. Для изменения маршрута используйте canonical Plan B Workspace.</small></div>';
         h += '</article>';
       });
       h += '</div>';
@@ -152,91 +144,6 @@
       navigator.clipboard.writeText(text).then(function(){
         var old = btn.textContent; btn.textContent = "Скопировано"; setTimeout(function(){ btn.textContent = old; }, 1500);
       });
-    }
-  }
-
-  async function applyPlanByKey(key, btn){
-    var plan = planRegistry[key];
-    if (!plan || !tripId || !window.TravelApi) return;
-    if (typeof window.confirm === "function" && !window.confirm("Применить Plan B и заменить текущий маршрут поездки?")) return;
-    btn.disabled = true;
-    var old = btn.textContent;
-    btn.textContent = "Применяем…";
-    try {
-      var result = await window.TravelApi.applyPlan(tripId, plan);
-      if (result && result.trip && window.TravelAppState && window.TravelTripSync) {
-        var current = window.TravelAppState.getState ? window.TravelAppState.getState() : {};
-        var canonical = window.TravelTripSync.canonicalSharedTrip(result.trip, current.trip);
-        window.TravelAppState.setState({ trip: canonical }, { source: "server", action: "applyPlanB" });
-        document.dispatchEvent(new CustomEvent("travel:trip-changed", { detail: { tripId: canonical.id } }));
-      }
-      btn.textContent = "Применён ✓";
-      btn.classList.add("is-applied");
-      addBubble("assistant", "План «" + esc(plan.title || "") + "» применён к поездке — он появился в карточке «Активный план Б» вверху раздела.");
-      await loadActivePlan();
-    } catch (e){
-      btn.disabled = false;
-      btn.textContent = old;
-      var m = (e && e.data && e.data.error) || (e && e.message) || "Не удалось применить план";
-      addBubble("error", esc(m));
-    }
-  }
-
-  function activePlanHtml(plan){
-    var steps = plan.steps || [];
-    var done = plan.status === "done";
-    var h = '<section class="ai-active-plan' + (done ? ' is-done' : '') + '">';
-    h += '<div class="ai-active-plan__head">';
-    h += '<span class="ai-active-plan__badge">' + (done ? "План Б выполнен" : "Активный план Б") + '</span>';
-    h += '<div class="ai-active-plan__ctrls">';
-    if (!done) h += '<button type="button" class="ai-ap-btn" data-ap-done="' + esc(plan.id) + '">Отметить выполненным</button>';
-    h += '<button type="button" class="ai-ap-btn ai-ap-btn--ghost" data-ap-remove="' + esc(plan.id) + '">Убрать</button>';
-    h += '</div></div>';
-    h += '<h4 class="ai-active-plan__title">' + esc(plan.title || "") + '</h4>';
-    if (plan.summary) h += '<p class="ai-active-plan__summary">' + nl2br(plan.summary) + '</p>';
-    if (steps.length){
-      h += '<ol class="ai-active-plan__steps">';
-      steps.forEach(function(s){ h += '<li>' + esc(s) + '</li>'; });
-      h += '</ol>';
-    }
-    if (plan.whenToUse) h += '<p class="ai-active-plan__meta"><span>Когда:</span> ' + esc(plan.whenToUse) + '</p>';
-    if (plan.emailBody) h += emailBlockHtml(plan.emailTo, plan.emailSubject, plan.emailBody, true);
-    h += '</section>';
-    return h;
-  }
-
-  function renderActivePlan(plan){
-    if (!activeWrap) return;
-    activeWrap.innerHTML = plan ? activePlanHtml(plan) : "";
-  }
-
-  async function loadActivePlan(){
-    if (!activeWrap || !tripId || !window.TravelApi) return;
-    try {
-      var r = await window.TravelApi.getActivePlan(tripId);
-      renderActivePlan(r && r.plan);
-      document.dispatchEvent(new CustomEvent("travel:plan-changed"));
-    } catch (e) { /* ignore */ }
-  }
-
-  async function onActiveClick(e){
-    if (!tripId) return;
-    var t = e.target;
-    var copyBtn = t && t.closest ? t.closest(".ai-email__copy") : null;
-    if (copyBtn){ copyEmail(copyBtn); return; }
-    var doneBtn = t && t.closest ? t.closest("[data-ap-done]") : null;
-    if (doneBtn){
-      doneBtn.disabled = true;
-      try { await window.TravelApi.updatePlan(tripId, doneBtn.getAttribute("data-ap-done"), { status: "done" }); await loadActivePlan(); }
-      catch (e2){ doneBtn.disabled = false; }
-      return;
-    }
-    var rmBtn = t && t.closest ? t.closest("[data-ap-remove]") : null;
-    if (rmBtn){
-      rmBtn.disabled = true;
-      try { await window.TravelApi.deletePlan(tripId, rmBtn.getAttribute("data-ap-remove")); renderActivePlan(null); document.dispatchEvent(new CustomEvent("travel:plan-changed")); }
-      catch (e3){ rmBtn.disabled = false; }
-      return;
     }
   }
 
@@ -284,18 +191,11 @@
     var t = e.target;
     var copyBtn = t && t.closest ? t.closest(".ai-email__copy") : null;
     if (copyBtn){ copyEmail(copyBtn); return; }
-    var applyBtn = t && t.closest ? t.closest(".ai-plan__apply") : null;
-    if (applyBtn){ applyPlanByKey(applyBtn.getAttribute("data-plan-key"), applyBtn); return; }
   }
 
   async function init(){
     var surface = document.getElementById("monitoring-surface");
     if (!surface || document.getElementById("ai-assistant")) return;
-
-    activeWrap = document.createElement("div");
-    activeWrap.id = "ai-active-plan-wrap";
-    activeWrap.addEventListener("click", onActiveClick);
-    surface.appendChild(activeWrap);
 
     var wrap = document.createElement("div");
     wrap.innerHTML = panelHtml();
@@ -323,7 +223,6 @@
     try {
       await window.TravelApi.ensureAuth();
       setStatus("Готов", "ok");
-      await loadActivePlan();
       try {
         var hist = await window.TravelApi.assistantHistory(tripId);
         var items = (hist && hist.history) || [];

@@ -64,8 +64,14 @@
   function boot() {
     // dev override
     try {
-      if (new URLSearchParams(window.location.search).get("env") === "development") {
-        document.body.setAttribute("data-app-environment", "development");
+      const previewParams = new URLSearchParams(window.location.search);
+      const localPreviewHost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.hostname === "[::1]";
+      const smartWorkspacePreview = localPreviewHost &&
+        (previewParams.get("env") === "development" || previewParams.get("env") === "test") &&
+        previewParams.get("preview") === "smart-workspace";
+      if (smartWorkspacePreview) {
+        document.body.setAttribute("data-app-environment", previewParams.get("env"));
+        return;
       }
     } catch (error) { /* ignore */ }
 

@@ -119,6 +119,25 @@
       });
     },
 
+    // Canonical Plan B Core V5
+    triggerPlanBDemo: function(tripId, body){
+      return req(tp(tripId) + "/disruptions/demo", { method: "POST", body: body });
+    },
+    previewPlanB: function(tripId, preferences){
+      var body = Array.isArray(preferences) && preferences.length ? { preferences: preferences } : {};
+      return req(tp(tripId) + "/plan-b/preview", { method: "POST", body: body });
+    },
+    applyPlanB: function(tripId, body, idempotencyKey){
+      return req(tp(tripId) + "/plan-b/apply", {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: body
+      });
+    },
+    revertPlanB: function(tripId){
+      return req(tp(tripId) + "/plan-b/revert", { method: "POST", body: {} });
+    },
+
     // Geo & weather
     geoSearch: function(q){ return req("/api/geo/search?q=" + encodeURIComponent(q || "")); },
     weather: function(lat, lon){ return req("/api/weather?lat=" + encodeURIComponent(lat) + "&lon=" + encodeURIComponent(lon)); },
@@ -160,13 +179,6 @@
     assistant: function(tripId, messages, mode){
       return req(tp(tripId) + "/monitoring/assistant", { method: "POST", body: { messages: messages, mode: mode || "dialog" } });
     },
-
-    // Applied Plan B
-    getActivePlan: function(tripId){ return req(tp(tripId) + "/monitoring/plan"); },
-    listPlans: function(tripId){ return req(tp(tripId) + "/monitoring/plans"); },
-    applyPlan: function(tripId, plan){ return req(tp(tripId) + "/monitoring/plan", { method: "POST", body: plan }); },
-    updatePlan: function(tripId, planId, patch){ return req(tp(tripId) + "/monitoring/plan/" + encodeURIComponent(planId), { method: "PATCH", body: patch }); },
-    deletePlan: function(tripId, planId){ return req(tp(tripId) + "/monitoring/plan/" + encodeURIComponent(planId), { method: "DELETE" }); },
 
     // Загрузка файла (multipart) + доступ к файлу
     uploadDocument: function(tripId, file, meta){

@@ -371,12 +371,15 @@ test('does not render map, weather, or document placeholder cards when facts are
   assert.doesNotMatch(markup, /Документы поездки/);
 });
 
-test('Smart Workspace source contains no client ranking, storage, or mutation API behavior', () => {
+test('Smart Workspace keeps ranking and persistence out of presentation modules and mutations in integration boundary', () => {
   const viewModelSource = fs.readFileSync(viewModelPath, 'utf8');
   const rendererSource = fs.readFileSync(rendererPath, 'utf8');
   const integrationSource = fs.readFileSync(integrationPath, 'utf8');
-  const source = [viewModelSource, rendererSource, integrationSource].join('\n');
+  const presentationSource = [viewModelSource, rendererSource].join('\n');
 
   assert.doesNotMatch(viewModelSource, /\.sort\(|Math\.min|Math\.max|score|match percent/i);
-  assert.doesNotMatch(source, /localStorage|TravelApi|fetch\(|applyPlan\(|revertPlan\(/);
+  assert.doesNotMatch(presentationSource, /localStorage|sessionStorage|TravelApi|fetch\(|applyPlanB\(|revertPlanB\(/);
+  assert.doesNotMatch(integrationSource, /localStorage|sessionStorage|fetch\(/);
+  assert.match(integrationSource, /api\.applyPlanB\(/);
+  assert.match(integrationSource, /api\.revertPlanB\(/);
 });

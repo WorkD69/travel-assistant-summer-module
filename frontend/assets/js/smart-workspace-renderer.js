@@ -28,7 +28,10 @@
       selectedCandidateId: null,
       preferences: [],
       applied: false,
-      revertStatus: "disabled"
+      revertStatus: "disabled",
+      pendingAction: null,
+      error: null,
+      impact: null
     };
   }
 
@@ -47,8 +50,11 @@
 
   function formatPrice(price) {
     if (price === null || price === undefined || price === "") return "Цена не указана";
-    var numeric = Number(price);
-    return Number.isFinite(numeric) ? numeric.toLocaleString("ru-RU") + " ₽" : escapeHtml(price);
+    var amount = price && typeof price === "object" ? Number(price.amount) : Number(price);
+    if (!Number.isFinite(amount)) return "Цена не указана";
+    var currency = price && typeof price === "object" ? price.currency : "RUB";
+    var currencyLabel = currency === "RUB" ? "₽" : String(currency || "");
+    return amount.toLocaleString("ru-RU") + (currencyLabel ? " " + escapeHtml(currencyLabel) : "");
   }
 
   function formatDelta(minutes) {
@@ -83,21 +89,24 @@
       '</section>';
   }
 
-  function normalStatusMarkup(model) {
+  function normalStatusMarkup(model, state) {
     var trip = model.trip || {};
+    var pending = state.pendingAction === "disruption";
     return '<section class="smart-workspace__status smart-workspace__status--normal">' +
-      '<div class="smart-workspace__status-head"><span>✨ СОПРОВОЖДЕНИЕ ПОЕЗДКИ</span><button type="button" class="smart-workspace__minor-action" data-smart-action="companion">Спросить AI</button></div>' +
+      '<div class="smart-workspace__status-head"><span>✨ СОПРОВОЖДЕНИЕ ПОЕЗДКИ</span></div>' +
       '<h2>Всё идёт по плану</h2><p>Следующее событие</p><strong>' + escapeHtml(trip.nextEvent || "События появятся, когда они будут переданы поездкой") + '</strong>' +
       '<div class="smart-workspace__progress" aria-hidden="true"><span></span></div><small>' + escapeHtml(trip.route || "") + '</small>' +
+      '<button type="button" class="smart-workspace__secondary-action" data-smart-action="demo-disruption"' + (pending ? ' disabled' : '') + '>' + (pending ? "Запускаем демо…" : "Запустить демо отмены рейса") + '</button>' +
       '</section>';
   }
 
-  function disruptionMarkup(disruption) {
+  function disruptionMarkup(disruption, state) {
     var impact = disruption && disruption.impact ? disruption.impact : "Этот вариант поездки больше недоступен. Нужно подобрать новый вариант поездки.";
+    var pending = state.pendingAction === "preview";
     return '<div class="smart-workspace__section-label"><span>✨ СОПРОВОЖДЕНИЕ ПОЕЗДКИ</span></div>' +
       '<section class="smart-workspace__status smart-workspace__status--disruption">' +
       '<span class="smart-workspace__eyebrow">⚠ ДЕМО-СОБЫТИЕ</span><h2>Поездка изменилась</h2><h3>Рейс отменён</h3>' +
-      '<p>' + escapeHtml(impact) + '</p><div class="smart-workspace__actions"><button type="button" class="smart-workspace__primary-action" data-smart-action="show-plan-b">Найти Plan B</button><button type="button" class="smart-workspace__secondary-action" data-smart-action="companion">Спросить AI</button></div>' +
+      '<p>' + escapeHtml(impact) + '</p><div class="smart-workspace__actions"><button type="button" class="smart-workspace__primary-action" data-smart-action="show-plan-b"' + (pending ? ' disabled' : '') + '>' + (pending ? "Ищем варианты…" : "Найти Plan B") + '</button></div>' +
       '<small>Симулированное событие демо-режима</small></section>';
   }
 
@@ -130,7 +139,7 @@
   }
 
   function companionMarkup(disrupted) {
-    return '<section class="smart-workspace__companion"><span>✨ AI-ПОМОЩНИК</span><h2>' + (disrupted ? "Я уже знаю, что рейс отменён" : "Я знаю контекст этой поездки") + '</h2><p>' + (disrupted ? "Спросите, какие варианты есть, или попросите разобрать их за вас." : "Спросите про поездку, время в пути или что делать, если что-то изменится.") + '</p><button type="button" class="smart-workspace__secondary-action" data-smart-action="companion">Спросить о поездке</button></section>';
+    return '<section class="smart-workspace__companion"><span>✨ AI-ПОМОЩНИК</span><h2>' + (disrupted ? "Контекст отмены уже учтён" : "Контекст поездки готов") + '</h2><p>Диалог с помощником будет доступен в отдельном интерфейсе.</p></section>';
   }
 
   function candidateMarkup(candidate, state) {
@@ -143,27 +152,31 @@
       '<p class="smart-workspace__candidate-title">' + candidateTitle(candidate) + '</p><div class="smart-workspace__candidate-times"><strong>' + escapeHtml(departure.time || "—") + '</strong><span>→</span><strong>' + escapeHtml(arrival.time || "—") + '</strong></div>' +
       '<div class="smart-workspace__candidate-places"><span>' + escapeHtml(departure.place || "") + '</span><span>' + escapeHtml(arrival.place || "") + '</span></div>' +
       '<dl><div><dt>В пути</dt><dd>' + escapeHtml(candidate.duration || "Недоступно") + '</dd></div><div><dt>Пересадки</dt><dd>' + escapeHtml(candidate.transfers || "Недоступно") + '</dd></div><div><dt>Цена</dt><dd>' + formatPrice(candidate.price) + '</dd></div></dl>' +
-      '<button type="button" class="smart-workspace__candidate-action" data-smart-action="select" data-candidate-id="' + escapeHtml(candidate.id) + '"' + (selected ? ' aria-pressed="true"' : ' aria-pressed="false"') + '>' + (selected ? "Выбрано вами" : "Выбрать этот вариант") + '</button><small>Кандидат получен через Tutu MCP</small></article>';
+      '<button type="button" class="smart-workspace__candidate-action" data-smart-action="select" data-candidate-id="' + escapeHtml(candidate.id) + '"' + (selected ? ' aria-pressed="true"' : ' aria-pressed="false"') + (state.pendingAction ? ' disabled' : '') + '>' + (selected ? "Выбрано вами" : "Выбрать этот вариант") + '</button><small>Кандидат получен через Tutu MCP</small></article>';
   }
 
   function preferencesMarkup(state) {
-    var choices = ["Быстрее", "Дешевле", "Меньше пересадок"];
+    var choices = [
+      { value: "faster", label: "Быстрее" },
+      { value: "cheaper", label: "Дешевле" },
+      { value: "fewer_transfers", label: "Меньше пересадок" }
+    ];
     return '<section class="smart-workspace__preferences"><span>✨ ПРЕДПОЧТЕНИЯ</span><h2>Что для вас важнее в этой поездке?</h2><div class="smart-workspace__chips">' + choices.map(function renderChoice(choice) {
-      var chosen = state.preferences.indexOf(choice) !== -1;
-      return '<button type="button" class="smart-workspace__chip' + (chosen ? ' is-active' : '') + '" data-smart-action="preference" data-preference="' + choice + '" aria-pressed="' + chosen + '">' + (chosen ? "✓ " : "") + choice + '</button>';
+      var chosen = state.preferences.indexOf(choice.value) !== -1;
+      return '<button type="button" class="smart-workspace__chip' + (chosen ? ' is-active' : '') + '" data-smart-action="preference" data-preference="' + choice.value + '" aria-pressed="' + chosen + '"' + (state.pendingAction ? ' disabled' : '') + '>' + (chosen ? "✓ " : "") + choice.label + '</button>';
     }).join("") + '</div><p>Выберите от одного до трёх. Рекомендации поступают из данных поездки.</p></section>';
   }
 
   function planBMarkup(model, state) {
     var candidates = asArray(model.candidates);
-    return '<section class="smart-workspace__plan-b"><div class="smart-workspace__demo-reminder"><strong>⚠ ДЕМО-СОБЫТИЕ</strong><span>Рейс отменён. Ниже — варианты из переданных данных.</span></div><div class="smart-workspace__section-heading"><h2>Варианты поездки · ' + candidates.length + '</h2><span>Кандидаты и порядок получены через Tutu MCP</span></div>' +
-      (candidates.length ? '<div class="smart-workspace__candidate-grid">' + candidates.map(function renderCandidate(candidate) { return candidateMarkup(candidate, state); }).join("") + '</div>' : '<div class="smart-workspace__empty-state">Варианты пока не переданы.</div>') + preferencesMarkup(state) + impactMarkup(model, state) + applyMarkup(model, state) + '</section>';
+    return '<section class="smart-workspace__plan-b"><div class="smart-workspace__demo-reminder"><strong>⚠ ДЕМО-СОБЫТИЕ</strong><span>Рейс отменён. Ниже — варианты из переданных данных.</span></div><div class="smart-workspace__section-heading"><h2>Варианты поездки · ' + candidates.length + '</h2><span>Кандидаты — из Tutu MCP; рекомендации рассчитаны Travel Assistant.</span></div>' +
+      (candidates.length ? '<div class="smart-workspace__candidate-grid">' + candidates.map(function renderCandidate(candidate) { return candidateMarkup(candidate, state); }).join("") + '</div>' : '<div class="smart-workspace__empty-state">Подходящих вариантов не найдено.</div>') + preferencesMarkup(state) + impactMarkup(model, state) + applyMarkup(model, state) + '</section>';
   }
 
   function impactMarkup(model, state) {
-    var impact = model.impact;
+    var impact = model.impact || state.impact;
     if (!impact || !state.selectedCandidateId || impact.candidateId !== state.selectedCandidateId) return "";
-    var priceComparison = impact.priceDelta === null || impact.priceDeltaStatus === "unavailable" ? "Сравнение с исходной ценой недоступно" : escapeHtml(impact.priceDelta);
+    var priceComparison = impact.priceDelta === null || String(impact.priceDeltaStatus || "").indexOf("unavailable") === 0 ? "Сравнение с исходной ценой недоступно" : escapeHtml(impact.priceDelta);
     return '<section class="smart-workspace__impact"><span>✨ ОБЪЯСНЕНИЕ</span><h2>Что изменится</h2><p>Прибытие сдвигается на ' + formatDelta(impact.arrivalDeltaMinutes) + '.</p><dl><div><dt>Прибытие</dt><dd>' + escapeHtml(impact.arrivalAt || "Недоступно") + '</dd><em>' + formatDelta(impact.arrivalDeltaMinutes) + '</em></div><div><dt>В пути</dt><dd>' + escapeHtml(impact.duration || (impact.durationMinutes ? formatDelta(impact.durationMinutes) : "Недоступно")) + '</dd><em>' + formatDelta(impact.durationDeltaMinutes) + '</em></div><div><dt>Пересадки</dt><dd>' + escapeHtml(impact.transferCount == null ? "Недоступно" : impact.transferCount) + '</dd><em>' + formatDelta(impact.transferCountDelta) + '</em></div><div><dt>Цена нового варианта</dt><dd>' + formatPrice(impact.price) + '</dd><em>' + priceComparison + '</em></div></dl>' + contextRowsMarkup(model.contextRows) + '</section>';
   }
 
@@ -174,7 +187,9 @@
 
   function applyMarkup(model, state) {
     var selected = asArray(model.candidates).filter(function findCandidate(candidate) { return candidate.id === state.selectedCandidateId; })[0];
-    return '<section class="smart-workspace__apply" aria-label="Применение Plan B"><div><span>ГОТОВ К ПРИМЕНЕНИЮ</span><strong>' + escapeHtml(selected ? ((model.trip && model.trip.route) || "Вариант выбран") : "Выберите вариант") + '</strong><p>Маршрут поездки в Travel Assistant будет обновлён. Переоформление у перевозчика не выполняется.</p></div><button type="button" class="smart-workspace__apply-button" data-smart-action="apply"' + (selected ? "" : " disabled") + '>Применить Plan B</button></section>';
+    var pending = state.pendingAction === "apply";
+    var blocked = !!state.pendingAction;
+    return '<section class="smart-workspace__apply" aria-label="Применение Plan B"><div><span>ГОТОВ К ПРИМЕНЕНИЮ</span><strong>' + escapeHtml(selected ? ((model.trip && model.trip.route) || "Вариант выбран") : "Выберите вариант") + '</strong><p>Маршрут поездки в Travel Assistant будет обновлён. Переоформление у перевозчика не выполняется.</p></div><button type="button" class="smart-workspace__apply-button" data-smart-action="apply"' + (selected && !blocked ? "" : " disabled") + '>' + (pending ? "Применяем…" : "Применить Plan B") + '</button></section>';
   }
 
   function revertStatusCopy(status) {
@@ -193,26 +208,36 @@
     var apply = model.apply || {};
     var candidateId = state.selectedCandidateId || apply.candidateId || null;
     var selected = asArray(model.candidates).filter(function findCandidate(candidate) { return candidate.id === candidateId; })[0] || {};
-    var departure = selected.departure || {};
-    var arrival = selected.arrival || {};
+    var departure = selected.departure || appliedTrip.departure || {};
+    var arrival = selected.arrival || appliedTrip.arrival || {};
     var status = state.applied
       ? (state.revertStatus || (model.revert && model.revert.status) || "disabled")
       : ((model.revert && model.revert.status) || state.revertStatus || "disabled");
     var statusCopy = revertStatusCopy(status);
-    var disabled = status === "disabled" || status === "pending" || status === "success" || status === "already_reverted" || status === "nothing_applied" || status === "conflict";
-    return '<section class="smart-workspace__applied"><span>✓ PLAN B ПРИМЕНЁН</span><h2>Маршрут обновлён</h2><div class="smart-workspace__applied-route"><span>АКТУАЛЬНЫЙ МАРШРУТ</span><strong>' + escapeHtml(appliedTrip.route || "Маршрут уточняется") + '</strong><p>' + escapeHtml(appliedTrip.dateLabel || "") + '</p><div><b>' + escapeHtml(departure.time || "—") + '</b><i>' + escapeHtml(departure.place || "") + '</i><em>→</em><b>' + escapeHtml(arrival.time || "—") + '</b><i>' + escapeHtml(arrival.place || "") + '</i></div><small>' + escapeHtml(selected.duration || "") + (selected.transfers ? " · " + escapeHtml(selected.transfers) : "") + '</small></div><p>Переоформление у перевозчика не выполнялось.</p><div class="smart-workspace__history"><span>Демо-событие</span><span>Кандидаты</span><span>Предпочтения</span><strong>Применён Plan B</strong></div><button type="button" class="smart-workspace__revert" data-smart-action="revert"' + (disabled ? " disabled" : "") + '>Вернуть предыдущий вариант</button>' + (statusCopy ? '<small>' + escapeHtml(statusCopy) + '</small>' : "") + '</section>';
+    var pending = state.pendingAction === "revert";
+    var disabled = pending || status === "disabled" || status === "pending" || status === "success" || status === "already_reverted" || status === "nothing_applied" || status === "conflict";
+    return '<section class="smart-workspace__applied"><span>✓ PLAN B ПРИМЕНЁН</span><h2>Маршрут обновлён</h2><div class="smart-workspace__applied-route"><span>АКТУАЛЬНЫЙ МАРШРУТ</span><strong>' + escapeHtml(appliedTrip.route || "Маршрут уточняется") + '</strong><p>' + escapeHtml(appliedTrip.dateLabel || "") + '</p><div><b>' + escapeHtml(departure.time || "—") + '</b><i>' + escapeHtml(departure.place || "") + '</i><em>→</em><b>' + escapeHtml(arrival.time || "—") + '</b><i>' + escapeHtml(arrival.place || "") + '</i></div><small>' + escapeHtml(selected.duration || appliedTrip.duration || "") + (selected.transfers ? " · " + escapeHtml(selected.transfers) : "") + '</small></div><p>Переоформление у перевозчика не выполнялось.</p><div class="smart-workspace__history"><span>Демо-событие</span><span>Кандидаты</span><span>Предпочтения</span><strong>Применён Plan B</strong></div><button type="button" class="smart-workspace__revert" data-smart-action="revert"' + (disabled ? " disabled" : "") + '>' + (pending ? "Возвращаем…" : "Вернуть предыдущий вариант") + '</button>' + (statusCopy ? '<small>' + escapeHtml(statusCopy) + '</small>' : "") + '</section>';
+  }
+
+  function errorMarkup(error) {
+    if (!error) return "";
+    var action = error.kind === "preview" || error.kind === "preview_timeout" || error.kind === "apply_conflict" ? "retry-preview" : (error.kind === "load" || error.kind === "revert_conflict" ? "retry-load" : "");
+    var actionCopy = error.kind === "apply_conflict" ? "Получить новые варианты" : (error.kind === "revert_conflict" ? "Обновить поездку" : "Повторить");
+    return '<section class="smart-workspace__error" role="alert"><strong>Не удалось выполнить действие</strong><p>' + escapeHtml(error.message || "Произошла ошибка.") + '</p>' + (error.retryable && action ? '<button type="button" class="smart-workspace__secondary-action" data-smart-action="' + action + '">' + actionCopy + '</button>' : "") + '</section>';
   }
 
   function renderMarkup(model, state) {
     var safeModel = model || {};
     var safeState = state || createPresentationState();
+    if (!model && safeState.error) return '<section class="smart-workspace smart-workspace--error">' + errorMarkup(safeState.error) + '</section>';
+    if (!model) return '<section class="smart-workspace smart-workspace--loading" aria-busy="true"><div class="smart-workspace__empty-state">Загружаем поездку…</div></section>';
     var trip = safeModel.trip || {};
     var disrupted = safeModel.disruption && safeModel.disruption.type === "CARRIER_CANCELLED";
     var showPlanB = safeModel.stage === "planb" || safeModel.stage === "impact";
     if (safeState.applied || safeModel.stage === "applied") {
-      return '<section class="smart-workspace" aria-label="Сопровождение поездки">' + afterApplyMarkup(safeModel, safeState) + documentsMarkup(asArray(safeModel.documents)) + '</section>';
+      return '<section class="smart-workspace" aria-label="Сопровождение поездки">' + errorMarkup(safeState.error) + afterApplyMarkup(safeModel, safeState) + documentsMarkup(asArray(safeModel.documents)) + '</section>';
     }
-    return '<section class="smart-workspace" aria-label="Сопровождение поездки"><header class="smart-workspace__header"><div><h1>' + escapeHtml(trip.route || "Поездка") + '</h1><p>' + escapeHtml(trip.dateLabel || "") + '</p></div><span class="smart-workspace__trip-badge">' + (disrupted ? "⚠ Требуется внимание" : "✨ Сопровождение включено") + '</span></header>' + routeFactsMarkup(trip) + (disrupted ? disruptionMarkup(safeModel.disruption) : normalStatusMarkup(safeModel)) + '<div class="smart-workspace__module-grid">' + factualPanelMarkup("map", "Карта маршрута", safeModel.map) + timelineMarkup(safeModel) + factualPanelMarkup("weather", "Погода", safeModel.weather) + documentsMarkup(asArray(safeModel.documents)) + '</div>' + (showPlanB ? planBMarkup(safeModel, safeState) : "") + companionMarkup(disrupted) + '</section>';
+    return '<section class="smart-workspace" aria-label="Сопровождение поездки">' + errorMarkup(safeState.error) + '<header class="smart-workspace__header"><div><h1>' + escapeHtml(trip.route || "Поездка") + '</h1><p>' + escapeHtml(trip.dateLabel || "") + '</p></div><span class="smart-workspace__trip-badge">' + (disrupted ? "⚠ Требуется внимание" : "✨ Сопровождение включено") + '</span></header>' + routeFactsMarkup(trip) + (disrupted ? disruptionMarkup(safeModel.disruption, safeState) : normalStatusMarkup(safeModel, safeState)) + '<div class="smart-workspace__module-grid">' + factualPanelMarkup("map", "Карта маршрута", safeModel.map) + timelineMarkup(safeModel) + factualPanelMarkup("weather", "Погода", safeModel.weather) + documentsMarkup(asArray(safeModel.documents)) + '</div>' + (showPlanB ? planBMarkup(safeModel, safeState) : "") + companionMarkup(disrupted) + '</section>';
   }
 
   function nextRevertStatus(status) {
@@ -220,9 +245,10 @@
     return sequence[status] || status;
   }
 
-  function mount(rootElement, model) {
+  function mount(rootElement, model, options) {
     if (!rootElement) return null;
-    var state = createPresentationState();
+    var settings = options || {};
+    var state = Object.assign(createPresentationState(), settings.presentation || {});
     rootElement.innerHTML = renderMarkup(model, state);
 
     function rerender() {
@@ -235,17 +261,27 @@
         var control = event.target.closest("[data-smart-action]");
         if (!control || control.disabled) return;
         var action = control.getAttribute("data-smart-action");
-        if (action === "select") state = selectCandidate(state, control.getAttribute("data-candidate-id"));
-        if (action === "preference") state = togglePreference(state, control.getAttribute("data-preference"));
-        if (action === "apply" && state.selectedCandidateId) {
-          state = Object.assign({}, state, { applied: true, revertStatus: (model.revert && model.revert.status) || "available" });
+        var value = action === "select" ? control.getAttribute("data-candidate-id") : control.getAttribute("data-preference");
+        if (typeof settings.onAction === "function") settings.onAction(action, value);
+        else {
+          if (action === "select") state = selectCandidate(state, value);
+          if (action === "preference") state = togglePreference(state, value);
+          if (action === "apply" && state.selectedCandidateId) state = Object.assign({}, state, { applied: true, revertStatus: (model.revert && model.revert.status) || "available" });
+          if (action === "revert") state = Object.assign({}, state, { revertStatus: nextRevertStatus(state.revertStatus) });
+          rerender();
         }
-        if (action === "revert") state = Object.assign({}, state, { revertStatus: nextRevertStatus(state.revertStatus) });
-        rerender();
       });
     }
 
-    return { getState: function getState() { return Object.assign({}, state); }, rerender: rerender };
+    return {
+      getState: function getState() { return Object.assign({}, state); },
+      rerender: rerender,
+      update: function update(nextModel, nextState) {
+        model = nextModel;
+        state = Object.assign(createPresentationState(), nextState || {});
+        rerender();
+      }
+    };
   }
 
   return {
