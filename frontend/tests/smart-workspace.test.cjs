@@ -193,3 +193,19 @@ test('renders impact only for an explicitly selected candidate and keeps price c
   assert.match(markup, /Цена нового варианта/);
   assert.match(markup, /Сравнение с исходной ценой недоступно/);
 });
+
+const cssPath = path.join(__dirname, '..', 'assets', 'css', 'smart-workspace.css');
+
+test('scoped stylesheet owns Smart Workspace geometry, focus, and 390px safeguards', () => {
+  assert.equal(fs.existsSync(cssPath), true, 'Smart Workspace scoped stylesheet must exist');
+  const css = fs.readFileSync(cssPath, 'utf8');
+
+  assert.match(css, /\.smart-workspace\s*\{/);
+  assert.match(css, /\.smart-workspace\s+button:focus-visible/);
+  assert.match(css, /@media\s*\(max-width:\s*960px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*390px\)/);
+  assert.match(css, /min-width:\s*0/);
+  assert.match(css, /overflow-wrap:\s*anywhere/);
+  assert.doesNotMatch(css, /(^|\n)body\s*\{/);
+  assert.doesNotMatch(css, /(^|\n)\.card\s*\{/);
+});
