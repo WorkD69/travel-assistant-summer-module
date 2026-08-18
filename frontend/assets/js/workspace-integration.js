@@ -61,7 +61,7 @@
     return false;
   };
 
-  function boot() {
+  async function boot() {
     // dev override
     try {
       const previewParams = new URLSearchParams(window.location.search);
@@ -75,6 +75,16 @@
       }
     } catch (error) { /* ignore */ }
 
+    const authResult = window.TravelAuthSession && typeof window.TravelAuthSession.hydrate === "function"
+      ? await window.TravelAuthSession.hydrate()
+      : { ok: false, kind: "unavailable" };
+    if (!authResult.ok && authResult.kind === "unavailable") {
+      if (window.TravelAuthSession && typeof window.TravelAuthSession.renderUnavailable === "function") {
+        window.TravelAuthSession.renderUnavailable(boot);
+      }
+      return;
+    }
+
     // auth guard
     const session = (state().accountPages && state().accountPages.session) || {};
     if (!session.isAuthenticated) {
@@ -87,7 +97,7 @@
     const params = new URLSearchParams(window.location.search);
     const tripId = params.get("tripId") || params.get("trip");
     if (tripId) {
-      hydrateActiveTripFromBackend(tripId);
+      hydrateActiveTripFromBackend(tripId, authResult.user);
       return;
     }
 
@@ -102,11 +112,11 @@
   // Подтянуть поездку с бэкенда и добавить её в локальное состояние, чтобы
   // рабочее пространство могло её открыть. Фолбэк на случай, когда поездки ещё
   // нет в состоянии. «Нет доступа» показываем только если бэкенд отказал/недоступен.
-  function hydrateActiveTripFromBackend(tripId) {
+  function hydrateActiveTripFromBackend(tripId, authenticatedUser) {
     const conn = window.TravelApi;
     if (!conn || typeof conn.getTrip !== "function") { renderNoAccess(); return; }
-    let me = null;
-    Promise.resolve(conn.ensureAuth ? conn.ensureAuth() : null)
+    let me = authenticatedUser || null;
+    Promise.resolve(me || (conn.ensureAuth ? conn.ensureAuth() : null))
       .then((meRes) => { me = (meRes && meRes.user) ? meRes.user : meRes; return conn.getTrip(tripId); })
       .then((res) => {
         const bt = (res && res.trip) ? res.trip : res;

@@ -64,6 +64,7 @@
   var TravelApi = {
     base: BASE,
     getToken: function(){ return authToken; },
+    clearAuth: clearAuth,
     request: req,
     health: function(){ return req("/api/health"); },
     me: function(){ return req("/api/auth/me"); },

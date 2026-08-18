@@ -495,7 +495,7 @@ test('Search Results page reuses AppShell, AppRoutes, TravelApi, and the frozen 
   ]) {
     assert.match(html, new RegExp(script.replace(/[./]/g, '\\$&')));
   }
-  assert.match(html, /appShellInit\(\{\s*section:\s*"Результаты поиска",\s*variant:\s*"tutu"\s*\}\)/);
+  assert.match(html, /TravelAuthSession\.runProtected\(\{\s*section:\s*"Результаты поиска",\s*variant:\s*"tutu"\s*\}/);
   assert.match(html, /tutuSearchResultsInit/);
 });
 

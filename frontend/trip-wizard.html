@@ -20,12 +20,13 @@
   <script src="assets/js/auth-storage.js"></script>
   <script src="assets/js/runtime-config.js"></script>
   <script src="assets/js/api-client.js"></script>
+  <script src="assets/js/auth-session-bootstrap.js"></script>
   <script src="assets/js/trip-sync.js"></script>
   <script src="assets/js/city-autocomplete.js"></script>
   <script>
-    if (window.appShellInit({ section: "Поездка" })) {
+    window.TravelAuthSession.runProtected({ section: "Поездка" }, function () {
       window.tripWizardInit(document.getElementById("wizard-root"), window.TripPagesAdapter, window.TripPagesRoutes);
-    }
+    });
   </script>
 </body>
 </html>

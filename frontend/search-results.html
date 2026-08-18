@@ -17,14 +17,15 @@
   <script src="assets/js/auth-storage.js"></script>
   <script src="assets/js/runtime-config.js"></script>
   <script src="assets/js/api-client.js"></script>
+  <script src="assets/js/auth-session-bootstrap.js"></script>
   <script src="assets/js/app-routes.js"></script>
   <script src="assets/js/app-shell.js"></script>
   <script src="assets/js/tutu-search-adapter.js"></script>
   <script src="assets/js/tutu-search-results.js"></script>
   <script>
-    if (window.appShellInit({ section: "Результаты поиска", variant: "tutu" })) {
+    window.TravelAuthSession.runProtected({ section: "Результаты поиска", variant: "tutu" }, function () {
       window.tutuSearchResultsInit(document.getElementById("tutu-search-results-root"));
-    }
+    });
   </script>
 </body>
 </html>
