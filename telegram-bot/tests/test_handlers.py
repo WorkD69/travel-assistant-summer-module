@@ -26,7 +26,9 @@ def test_help_describes_companion_scope_without_legacy_actions() -> None:
 
 
 def test_localhost_deep_link_uses_callback_instead_of_invalid_url_button() -> None:
-    keyboard = open_trip_kb("http://localhost:8011/trips/t-turkey")
+    keyboard = open_trip_kb(
+        "http://localhost:8011/trip-overview.html?tripId=t-turkey"
+    )
 
     button = keyboard.inline_keyboard[0][0]
     assert button.url is None
@@ -55,7 +57,7 @@ async def test_local_site_callback_sends_plain_text_trip_link() -> None:
     await handler(callback, DeepLinkService("http://localhost:8011"))
 
     assert (
-        "http://localhost:8011/trips/t-turkey"
+        "http://localhost:8011/trip-overview.html?tripId=t-turkey"
         in callback.message.text
     )
     assert "Telegram Desktop" in callback.message.text

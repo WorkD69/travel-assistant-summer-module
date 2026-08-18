@@ -14,7 +14,7 @@ class DeepLinkService:
         return f"{self._base}/home.html"
 
     def trip(self, trip_id: str) -> str:
-        return f"{self._base}/trips/{quote(str(trip_id), safe='')}"
+        return f"{self._base}/trip-overview.html?tripId={quote(str(trip_id), safe='')}"
 
     def monitoring(self, trip_id: str) -> str:
         return self.trip(trip_id)

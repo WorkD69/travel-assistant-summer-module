@@ -28,12 +28,12 @@ def test_trip_accepts_nullable_factual_demo_disruption_projection() -> None:
         "category": "plan_b_disruption",
         "source": "DEMO_SIMULATION",
         "status": "active",
-        "type": "CANCELLED",
+        "type": "CARRIER_CANCELLED",
         "context": {"segment": "Москва → Казань"},
     })
     assert getattr(trip, "demo_disruption", None) is not None
     assert trip.demo_disruption.source == "DEMO_SIMULATION"
-    assert trip.demo_disruption.type == "CANCELLED"
+    assert trip.demo_disruption.type == "CARRIER_CANCELLED"
 
 
 def test_companion_summary_renders_only_factual_demo_wording() -> None:
@@ -43,14 +43,15 @@ def test_companion_summary_renders_only_factual_demo_wording() -> None:
         "category": "plan_b_disruption",
         "source": "DEMO_SIMULATION",
         "status": "active",
-        "type": "CANCELLED",
+        "type": "CARRIER_CANCELLED",
         "context": {"segment": "Москва → Казань"},
     }))
     assert "Москва → Казань" in rendered
     assert "Статус:" in rendered
     assert "⚠️ Демо-событие" in rendered
     assert "Для демонстрации в поездке создано событие" in rendered
-    assert "CANCELLED" in rendered
+    assert "Отмена сегмента" in rendered
+    assert "CARRIER_CANCELLED" not in rendered
     assert "Детали: segment: Москва → Казань" in rendered
     assert "{" not in rendered
     assert "Tutu обнаружил" not in rendered
@@ -70,7 +71,7 @@ def test_companion_summary_omits_warning_when_no_active_demo_projection() -> Non
 
 def test_web_trip_deeplink_uses_one_base_and_only_urlencoded_trip_id() -> None:
     url = DeepLinkService("https://travel.example/").trip("trip with space")
-    assert url == "https://travel.example/trips/trip%20with%20space"
+    assert url == "https://travel.example/trip-overview.html?tripId=trip%20with%20space"
     for forbidden in ("jwt", "token", "selectiontoken", "proposal", "secret"):
         assert forbidden not in url.lower()
 
@@ -143,7 +144,7 @@ async def test_open_trip_callback_uses_factual_summary_and_safe_v1_deeplink() ->
     assert "PNR" not in callback.message.text
     assert "билет" not in callback.message.text
     button = callback.message.keyboard.inline_keyboard[0][0]
-    assert button.url == "https://travel.example/trips/t-turkey"
+    assert button.url == "https://travel.example/trip-overview.html?tripId=t-turkey"
     assert callback.answered is True
 
 

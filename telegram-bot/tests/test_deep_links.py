@@ -12,14 +12,14 @@ def test_home_link():
 
 
 def test_trip_link():
-    assert svc.trip("t-1") == BASE + "/trips/t-1"
+    assert svc.trip("t-1") == BASE + "/trip-overview.html?tripId=t-1"
 
 
-def test_legacy_targets_resolve_to_the_single_v1_trip_route():
-    assert svc.monitoring("t-1") == BASE + "/trips/t-1"
-    assert svc.documents("t-1") == BASE + "/trips/t-1"
-    assert svc.messages("t-1") == BASE + "/trips/t-1"
-    assert svc.sos("t-1", "s-9") == BASE + "/trips/t-1"
+def test_legacy_targets_resolve_to_the_single_canonical_trip_route():
+    assert svc.monitoring("t-1") == BASE + "/trip-overview.html?tripId=t-1"
+    assert svc.documents("t-1") == BASE + "/trip-overview.html?tripId=t-1"
+    assert svc.messages("t-1") == BASE + "/trip-overview.html?tripId=t-1"
+    assert svc.sos("t-1", "s-9") == BASE + "/trip-overview.html?tripId=t-1"
 
 
 def test_no_secrets_in_urls():

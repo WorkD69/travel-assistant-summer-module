@@ -144,7 +144,7 @@ async function getTrip(baseUrl) {
 test('bot Trip detail returns active factual DEMO_SIMULATION projection without regressing core fields', { concurrency: false }, async () => {
   await withBotFixture({
     linkedUserId: 'user-owner',
-    signal: activeDemoSignal({ type: 'CANCELLED', context: { segmentId: 'seg-1', reason: 'schedule change' } }),
+    signal: activeDemoSignal({ type: 'CARRIER_CANCELLED', context: { segmentId: 'seg-1', reason: 'schedule change' } }),
   }, async function () {
     await withServer(async function (baseUrl) {
       const response = await getTrip(baseUrl);
@@ -169,7 +169,7 @@ test('bot Trip detail returns active factual DEMO_SIMULATION projection without 
         category: 'plan_b_disruption',
         source: 'DEMO_SIMULATION',
         status: 'active',
-        type: 'CANCELLED',
+        type: 'CARRIER_CANCELLED',
         context: { segmentId: 'seg-1', reason: 'schedule change' },
       });
     });
@@ -219,7 +219,7 @@ test('bot Trip detail keeps unrelated and revoked Telegram users fail-closed bef
   ]) {
     await withBotFixture({
       ...fixture,
-      signal: activeDemoSignal({ type: 'CANCELLED', context: { secret: 'must not leak' } }),
+      signal: activeDemoSignal({ type: 'CARRIER_CANCELLED', context: { secret: 'must not leak' } }),
     }, async function () {
       await withServer(async function (baseUrl) {
         const response = await getTrip(baseUrl);

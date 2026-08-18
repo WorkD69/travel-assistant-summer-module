@@ -127,7 +127,7 @@ assert "Перевозчик сообщил" not in rendered
 
 ```python
 url = DeepLinkService("https://travel.example").trip("trip-1")
-assert url == "https://travel.example/trips/trip-1"
+assert url == "https://travel.example/trip-overview.html?tripId=trip-1"
 for forbidden in ("jwt", "token", "selectiontoken", "proposal"):
     assert forbidden not in url.lower()
 ```
@@ -205,10 +205,10 @@ if trip.demo_disruption is not None:
     ])
 ```
 
-- [ ] **Step 5: Centralize V1 web route construction in `DeepLinkService`, use the existing `WEB_APP_BASE_URL`, and build only `/trips/<urlencoded-trip-id>`. The URL must contain no credentials or opaque selections.**
+- [ ] **Step 5: Centralize V1 web route construction in `DeepLinkService`, use the existing `WEB_APP_BASE_URL`, and build the existing canonical `trip-overview.html?tripId=<urlencoded-trip-id>` route. The URL must contain no credentials or opaque selections.**
 
 ```python
-return f"{self._base}/trips/{quote(trip_id, safe='')}"
+return f"{self._base}/trip-overview.html?tripId={quote(trip_id, safe='')}"
 ```
 
 - [ ] **Step 6: Register only the compact V1 routers and command list. Do not include legacy Today/Next/Documents/SOS/Assistant/Notifications/Settings/Demo routers in the V1 startup. The legacy files may remain present but no V1 menu, command or callback leads to them.**

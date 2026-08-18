@@ -36,7 +36,7 @@ V1 — короткий companion flow: `/start` → «Мои поездки» �
 
 Для detail Trip backend может передать nullable factual `demo_disruption` только при active signal с `category=plan_b_disruption`, `source=DEMO_SIMULATION` и `status=active`. В этом случае бот использует только формулировку демо-события; он не делает provider/live-cancellation claims. Если pipeline backend не enqueue уведомление о таком signal, статус остаётся `TELEGRAM_NOTIFICATION_BACKEND_BLOCKER`.
 
-Web переход строится через единственный существующий `WEB_APP_BASE_URL` и содержит только URL-encoded factual Trip ID. JWT, service token, selectionToken, proposal ID и другие secrets в deeplink не передаются.
+Web переход строится через единственный существующий `WEB_APP_BASE_URL` и canonical route `trip-overview.html?tripId=<URL-encoded factual Trip ID>`. JWT, service token, selectionToken, proposal ID и другие secrets в deeplink не передаются.
 
 ## Структура
 
@@ -57,7 +57,7 @@ Web переход строится через единственный суще
 
 - Live polling нельзя считать проверенным без настоящего Telegram token.
 - Полный end-to-end API-режим требует готового общего backend.
-- Финальный production origin Web Workspace определяется значением `WEB_APP_BASE_URL`; V1 использует единый route `/trips/<tripId>` и не меняет frontend production code.
+- Финальный production origin Web Workspace определяется значением `WEB_APP_BASE_URL`; V1 использует существующий `trip-overview.html?tripId=<tripId>` и не меняет frontend production code.
 - SQLite FSM предназначен для одного локального процесса бота, не для горизонтального кластера.
 
 Безопасность: [docs/SECURITY.md](docs/SECURITY.md). Demo защиты: [docs/DEMO-SCENARIO.md](docs/DEMO-SCENARIO.md). Актуальные результаты: [docs/TEST-REPORT.md](docs/TEST-REPORT.md).
