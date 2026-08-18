@@ -382,10 +382,14 @@ test('controller exposes loading, success, empty, and safe error states', async 
   assert.match(controller.getState().errorMessage, /временно|позже/i);
 });
 
-test('controller propagates the exact server selectionToken to checkout and opaque URL to navigation', async () => {
+test('controller propagates the exact server selectionToken to an isolated managed checkout placeholder', async () => {
   const results = loadResults();
   const checkoutTokens = [];
-  const navigations = [];
+  const placeholder = {
+    opener: 'parent-window',
+    location: { replace(url) { this.url = url; } },
+    close() { this.closed = true; },
+  };
   const controller = results.createController({
     api: {
       async tutuSearch() { return { options: [{ option: option(), selectionToken: 'server-token-123' }] }; },
@@ -394,15 +398,17 @@ test('controller propagates the exact server selectionToken to checkout and opaq
         return { checkout: { checkoutUrl: 'https://avia.tutu.ru/x?z=2&a=1' } };
       },
     },
+    openPlaceholder() { return placeholder; },
+    randomBytes() { return new Uint8Array(24).fill(1); },
     render() {},
-    navigate(url) { navigations.push(url); },
   });
   await controller.search(loadAdapter().mapSearchDetail(validDetail()));
 
   await controller.select('option-1');
 
   assert.deepEqual(checkoutTokens, ['server-token-123']);
-  assert.deepEqual(navigations, ['https://avia.tutu.ru/x?z=2&a=1']);
+  assert.equal(placeholder.opener, null);
+  assert.equal(placeholder.location.url, 'https://avia.tutu.ru/x?z=2&a=1');
   assert.equal(controller.getState().pendingSelectionId, null);
 });
 
@@ -410,6 +416,7 @@ test('controller rejects checkout envelopes without a real URL and blocks duplic
   const results = loadResults();
   let resolveCheckout;
   let checkoutCalls = 0;
+  const placeholder = { opener: 'parent-window', location: { replace() { throw new Error('must not navigate'); } }, close() { this.closed = true; } };
   const controller = results.createController({
     api: {
       async tutuSearch() { return { options: [{ option: option(), selectionToken: 'server-token-123' }] }; },
@@ -418,8 +425,8 @@ test('controller rejects checkout envelopes without a real URL and blocks duplic
         return new Promise((resolve) => { resolveCheckout = resolve; });
       },
     },
+    openPlaceholder() { return placeholder; },
     render() {},
-    navigate() { throw new Error('must not navigate'); },
   });
   await controller.search(loadAdapter().mapSearchDetail(validDetail()));
 
@@ -434,25 +441,27 @@ test('controller rejects checkout envelopes without a real URL and blocks duplic
 
 test('controller rejects non-HTTPS checkout schemes without rewriting the opaque URL', async () => {
   const results = loadResults();
-  let navigations = 0;
+  const placeholder = { opener: 'parent-window', location: { replace(url) { this.url = url; } }, close() { this.closed = true; } };
   const controller = results.createController({
     api: {
       async tutuSearch() { return { options: [{ option: option(), selectionToken: 'server-token-123' }] }; },
       async tutuCheckoutLink() { return { checkout: { checkoutUrl: 'javascript:alert(1)' } }; },
     },
+    openPlaceholder() { return placeholder; },
     render() {},
-    navigate() { navigations += 1; },
   });
   await controller.search(loadAdapter().mapSearchDetail(validDetail()));
 
   await controller.select('option-1');
 
-  assert.equal(navigations, 0);
+  assert.equal(placeholder.location.url, undefined);
+  assert.equal(placeholder.closed, true);
   assert.match(controller.getState().errorMessage, /не удалось|недоступ/i);
 });
 
 test('controller reports expired selections as checkout errors and never as search failures', async () => {
   const results = loadResults();
+  const placeholder = { opener: 'parent-window', location: { replace() { throw new Error('must not navigate'); } }, close() { this.closed = true; } };
   const controller = results.createController({
     api: {
       async tutuSearch() { return { options: [{ option: option(), selectionToken: 'expired-token' }] }; },
@@ -460,8 +469,8 @@ test('controller reports expired selections as checkout errors and never as sear
         throw { data: { error: { code: 'TUTU_SELECTION_EXPIRED', message: 'raw token details' } } };
       },
     },
+    openPlaceholder() { return placeholder; },
     render() {},
-    navigate() { throw new Error('must not navigate'); },
   });
   await controller.search(loadAdapter().mapSearchDetail(validDetail()));
 
@@ -486,7 +495,7 @@ test('Search Results page reuses AppShell, AppRoutes, TravelApi, and the frozen 
   ]) {
     assert.match(html, new RegExp(script.replace(/[./]/g, '\\$&')));
   }
-  assert.match(html, /appShellInit\(\{\s*section:\s*"Результаты поиска",\s*variant:\s*"tutu"\s*\}\)/);
+  assert.match(html, /TravelAuthSession\.runProtected\(\{\s*section:\s*"Результаты поиска",\s*variant:\s*"tutu"\s*\}/);
   assert.match(html, /tutuSearchResultsInit/);
 });
 

@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="features/trip-settings.css" />
   <link rel="stylesheet" href="assets/css/core-flow-shared.css" />
   <link rel="stylesheet" href="assets/css/trip-monitoring.css" />
+  <link rel="stylesheet" href="assets/css/smart-workspace.css" />
   <link rel="stylesheet" href="assets/css/trip-messages.css" />
   <link rel="stylesheet" href="assets/css/ai-assistant.css" />
   <style>
@@ -2219,6 +2220,8 @@
           </div>
         </div>
       </div>
+
+      <section id="smart-workspace-root" aria-live="polite"></section>
 
       <!-- Detailed route panel -->
       <div class="tab-panel" id="panel-route" role="tabpanel" aria-labelledby="tab-route" hidden>
@@ -4476,7 +4479,9 @@
     <div id="coreflow-shared-modal-root"></div>
     <div id="coreflow-shared-toast-root"></div>
     <script src="assets/js/auth-storage.js"></script>
-    <script src="assets/js/api-client.js"></script>
+    <script src="assets/js/runtime-config.js"></script>
+  <script src="assets/js/api-client.js"></script>
+    <script src="assets/js/auth-session-bootstrap.js"></script>
     <script src="assets/js/trip-sync.js"></script>
     <script src="assets/js/app-routes.js"></script>
     <script src="assets/js/core-flow-state-adapter.js"></script>
@@ -4488,6 +4493,9 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="assets/js/weather-map.js"></script>
     <script src="assets/js/route-timeline.js"></script>
+    <script src="assets/js/smart-workspace-view-model.js"></script>
+    <script src="assets/js/smart-workspace-renderer.js"></script>
+    <script src="assets/js/smart-workspace-integration.js"></script>
   
   <script>
   // FIX OFF-2: disable SOS in offline

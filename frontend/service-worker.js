@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "travel-assistant-version-b2-staging-20260723";
+const CACHE_NAME = "travel-assistant-final-frontend-integration-phase-a";
 const CACHE_PREFIX = "travel-assistant-";
 const PRECACHE = [
   "/",
@@ -8,6 +8,7 @@ const PRECACHE = [
   "/login.html",
   "/search-results.html",
   "/assets/css/tutu-search-results.css",
+  "/assets/js/runtime-config.js",
   "/assets/js/api-client.js",
   "/assets/js/tutu-search-adapter.js",
   "/assets/js/tutu-search-results.js",

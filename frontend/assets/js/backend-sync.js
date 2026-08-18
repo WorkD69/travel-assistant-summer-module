@@ -13,7 +13,7 @@
   function api(){ return window.TravelApi || null; }
 
   // Кэш последних данных бэкенда. undefined = ещё не загружали (не трогаем UI).
-  var data = { tripId: null, plan: undefined, documents: undefined, signals: undefined };
+  var data = { tripId: null, documents: undefined, signals: undefined };
 
   function esc(v){
     return String(v == null ? "" : v).replace(/[&<>"']/g, function(c){
@@ -149,7 +149,6 @@
   /* ==================== Общий рендер / загрузка ==================== */
 
   function renderAll(){
-    renderPlanCard();
     renderDocsCard();
     renderSignals();
   }
@@ -161,7 +160,6 @@
     if (!id) return;
     data.tripId = id;
     var run = function(){
-      a.getActivePlan(id).then(function(r){ data.plan = (r && r.plan) ? r.plan : null; renderPlanCard(); }).catch(function(){});
       if (a.listDocuments) a.listDocuments(id).then(function(r){ data.documents = (r && r.documents) ? r.documents : []; renderDocsCard(); }).catch(function(){});
       if (a.monitoringSignals) a.monitoringSignals(id).then(function(r){ data.signals = (r && r.signals) ? r.signals : []; renderSignals(); }).catch(function(){});
     };
