@@ -75,7 +75,7 @@
 
   function candidateTitle(candidate) {
     var descriptor = [candidate.carrierName, candidate.serviceNumber].filter(Boolean).join(" · ");
-    if (descriptor) return descriptor;
+    if (descriptor) return escapeHtml(descriptor);
     return "Рейс · " + escapeHtml(candidate.from || "Маршрут уточняется");
   }
 

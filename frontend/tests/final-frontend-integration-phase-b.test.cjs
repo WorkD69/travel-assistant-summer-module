@@ -506,6 +506,36 @@ test('renderer remains API-free and uses factual recommendation copy, pending an
   assert.match(conflict, /data-smart-action="retry-preview">Получить новые варианты/);
 });
 
+test('renderer escapes provider-controlled candidate facts before innerHTML', () => {
+  const renderer = load('assets/js/smart-workspace-renderer.js');
+  const adapter = load('assets/js/smart-workspace-view-model.js');
+  const hostile = preview();
+  hostile.candidates[0].candidateId = 'candidate-" onclick="window.__xss=2';
+  hostile.candidates[0].option.segments[0].carrierName = '<img src=x onerror="window.__xss=1">';
+  hostile.candidates[0].option.segments[0].serviceNumber = '<script>alert(1)</script>';
+  hostile.candidates[0].option.segments[0].departurePlace = '<svg onload="window.__xss=3">';
+  hostile.candidates[0].option.segments[0].arrivalPlace = '</span><script>alert(2)</script>';
+
+  const model = adapter.mergePlanBPreview(
+    adapter.projectCanonicalTrip(canonicalTrip({ monitoringSignals: [signal()] })),
+    hostile,
+  );
+  const markup = renderer.renderMarkup(model, {
+    selectedCandidateId: null,
+    preferences: [],
+    pendingAction: null,
+    error: null,
+  });
+
+  assert.match(markup, /&lt;img src=x onerror=&quot;window\.__xss=1&quot;&gt; · &lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.match(markup, /Россия · SU 777/);
+  assert.match(markup, /data-candidate-id="candidate-&quot; onclick=&quot;window\.__xss=2"/);
+  assert.match(markup, /&lt;svg onload=&quot;window\.__xss=3&quot;&gt;/);
+  assert.match(markup, /&lt;\/span&gt;&lt;script&gt;alert\(2\)&lt;\/script&gt;/);
+  assert.doesNotMatch(markup, /<img\b|<script\b|<svg\b/);
+  assert.doesNotMatch(markup, / onclick="| onload="| onerror="/);
+});
+
 test('trip page preserves runtime bootstrap, canonical route modules, script order, and hides legacy workspace after mount', () => {
   const html = source('trip-overview.html');
   const runtime = html.indexOf('assets/js/runtime-config.js');
