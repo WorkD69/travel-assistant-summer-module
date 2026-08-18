@@ -52,14 +52,19 @@ test('POST /search returns canonical options with user-bound selection tokens', 
     selectionTokens: selectionTokens,
   });
   await withServer(router, async function (baseUrl) {
+    const unnormalized = request(null);
+    unnormalized.origin = '  Москва  ';
+    unnormalized.destination = ' Санкт-Петербург ';
     const response = await fetch(baseUrl + '/api/tutu/search', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(request(null)),
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(unnormalized),
     });
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.equal(body.options.length, 1);
     assert.deepEqual(body.options[0].option, parsedSelection.option);
-    assert.deepEqual(selectionTokens.verifySelection('user-1', body.options[0].selectionToken), parsedSelection);
+    assert.deepEqual(selectionTokens.verifySelection('user-1', body.options[0].selectionToken), Object.assign({}, parsedSelection, {
+      searchRequest: request(null),
+    }));
     assert.equal(seenRequest.returnDate, null);
   });
 });
@@ -155,7 +160,9 @@ test('route errors use a stable envelope without leaking upstream details', asyn
 
 test('POST /demo-purchase-success creates or replays a canonical Trip through TripFactory', async () => {
   const selectionTokens = createSelectionTokenService({ secret: 'route-test-secret' });
-  const token = selectionTokens.signSelection('user-1', parsedSelection);
+  const token = selectionTokens.signSelection('user-1', Object.assign({}, parsedSelection, {
+    searchRequest: request(null),
+  }));
   const calls = [];
   const router = createTutuRouter({
     requireAuth: auth,
@@ -181,5 +188,6 @@ test('POST /demo-purchase-success creates or replays a canonical Trip through Tr
     assert.equal(calls[0].user.id, 'user-1');
     assert.equal(calls[0].idempotencyKey, 'fixture-000000000000');
     assert.deepEqual(calls[0].option, parsedSelection.option);
+    assert.deepEqual(calls[0].searchRequest, request(null));
   });
 });

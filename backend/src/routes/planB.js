@@ -12,6 +12,7 @@ const SAFE_MESSAGES = Object.freeze({
   PLAN_B_DISRUPTION_REQUIRED: 'An active demo disruption is required',
   PLAN_B_CANONICAL_TRIP_UNSUPPORTED: 'This canonical Trip cannot be recovered by Plan B Core',
   PLAN_B_RECOVERY_UNSUPPORTED: 'This recovery scenario is not supported by Plan B Core',
+  PLAN_B_RECOVERY_CONTEXT_INVALID: 'Stored recovery search context is invalid',
   PLAN_B_RECOVERY_CUTOFF_INVALID: 'Trusted recovery timestamps cannot establish a safe cutoff',
   PLAN_B_PREFERENCES_INVALID: 'Plan B preferences are invalid',
   PLAN_B_PREFERENCES_REQUIRED: 'Select one to three supported preferences',

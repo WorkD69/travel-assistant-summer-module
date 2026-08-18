@@ -1,7 +1,10 @@
 'use strict';
 
 const jwt = require('jsonwebtoken');
-const { validateTransportOptionV1 } = require('../contracts/transportOption');
+const {
+  validateSearchRequestV1,
+  validateTransportOptionV1,
+} = require('../contracts/transportOption');
 
 const ISSUER = 'travel-assistant-backend';
 const AUDIENCE = 'tutu-transport-selection';
@@ -40,14 +43,20 @@ function validateProviderContext(input) {
 
 function validateSelection(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input) ||
-      Object.keys(input).some(function (key) { return key !== 'option' && key !== 'providerContext'; })) {
+      Object.keys(input).some(function (key) {
+        return key !== 'option' && key !== 'providerContext' && key !== 'searchRequest';
+      })) {
     throw selectionError('TUTU_SELECTION_INVALID', 'Transport selection is invalid', 400);
   }
   try {
-    return {
+    const normalized = {
       option: validateTransportOptionV1(input.option),
       providerContext: validateProviderContext(input.providerContext),
     };
+    if (Object.hasOwn(input, 'searchRequest')) {
+      normalized.searchRequest = validateSearchRequestV1(input.searchRequest);
+    }
+    return normalized;
   } catch (error) {
     if (error && error.code === 'TUTU_SELECTION_INVALID') throw error;
     throw selectionError('TUTU_SELECTION_INVALID', 'Transport selection is invalid', 400);

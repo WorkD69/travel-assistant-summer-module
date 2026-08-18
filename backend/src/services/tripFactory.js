@@ -1,7 +1,12 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { validateTransportOptionV1 } = require('../contracts/transportOption');
+const {
+  validateSearchRequestV1,
+  validateTransportOptionV1,
+} = require('../contracts/transportOption');
+
+const TUTU_SEARCH_CONTEXT_TYPE = 'tutu_search_context';
 
 function factoryError(code, message, status) {
   const error = new Error(message);
@@ -86,6 +91,9 @@ function createTripFactory(options) {
         throw factoryError('IDEMPOTENCY_KEY_INVALID', 'Idempotency-Key must contain 16 to 128 characters', 400);
       }
       const option = validateTransportOptionV1(input.option);
+      const searchRequest = input.searchRequest === undefined
+        ? null
+        : validateSearchRequestV1(input.searchRequest);
       const tripId = deterministicTripId(owner.id, key);
       const include = { participants: true };
       const existing = await prisma.trip.findUnique({ where: { id: tripId }, include: include });
@@ -122,6 +130,19 @@ function createTripFactory(options) {
             },
             include: include,
           });
+          if (searchRequest) {
+            await tx.tripChange.create({ data: {
+              tripId: trip.id,
+              actorId: owner.id,
+              type: TUTU_SEARCH_CONTEXT_TYPE,
+              newValue: JSON.stringify(searchRequest),
+              details: JSON.stringify({
+                schemaVersion: '1',
+                source: 'tutu-mcp',
+                purpose: 'recovery-search-context',
+              }),
+            } });
+          }
           return { trip: trip, created: true };
         });
         return transactionResult;

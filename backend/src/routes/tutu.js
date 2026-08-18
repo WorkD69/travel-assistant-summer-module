@@ -54,7 +54,9 @@ function createTutuRouter(options) {
         options: selections.map(function (selection) {
           return {
             option: selection.option,
-            selectionToken: selectionTokens.signSelection(req.user.id, selection),
+            selectionToken: selectionTokens.signSelection(req.user.id, Object.assign({}, selection, {
+              searchRequest: request,
+            })),
           };
         }),
       });
@@ -92,6 +94,7 @@ function createTutuRouter(options) {
         user: req.user,
         idempotencyKey: req.get('Idempotency-Key'),
         option: selection.option,
+        searchRequest: selection.searchRequest,
       });
       return res.status(result.created ? 201 : 200).json({
         tripId: result.trip.id,

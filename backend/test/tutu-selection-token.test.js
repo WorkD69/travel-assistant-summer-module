@@ -31,6 +31,14 @@ function selection() {
   };
 }
 
+function searchRequest() {
+  return {
+    schemaVersion: '1', mode: 'flight', origin: 'Москва', destination: 'Санкт-Петербург',
+    departureDate: '2026-08-20', returnDate: null,
+    passengers: { adults: 1, children: 0, infants: 0 },
+  };
+}
+
 test('signs and verifies a short-lived user-bound transport selection', () => {
   const service = createSelectionTokenService({ secret: SECRET });
   const token = service.signSelection('user-1', selection());
@@ -43,6 +51,39 @@ test('signs and verifies a short-lived user-bound transport selection', () => {
   assert.equal(decoded.payload.aud, 'tutu-transport-selection');
   assert.equal(decoded.payload.purpose, 'tutu_transport_selection_v1');
   assert.ok(decoded.payload.exp - decoded.payload.iat <= 15 * 60);
+});
+
+test('signs and verifies a normalized SearchRequestV1 with the transport selection', () => {
+  const service = createSelectionTokenService({ secret: SECRET });
+  const unnormalized = Object.assign({}, searchRequest(), { origin: '  Москва  ', destination: ' Санкт-Петербург ' });
+  const selected = Object.assign({}, selection(), { searchRequest: unnormalized });
+  const token = service.signSelection('user-1', selected);
+
+  assert.deepEqual(service.verifySelection('user-1', token), Object.assign({}, selection(), {
+    searchRequest: searchRequest(),
+  }));
+});
+
+test('rejects a signed selection whose optional searchRequest is not SearchRequestV1', () => {
+  const service = createSelectionTokenService({ secret: SECRET });
+  const invalid = Object.assign({}, selection(), {
+    searchRequest: Object.assign({}, searchRequest(), { passengers: { adults: 2, children: 0, infants: 0 } }),
+  });
+  const token = jwt.sign({ purpose: 'tutu_transport_selection_v1', selection: invalid }, SECRET, {
+    algorithm: 'HS256', subject: 'user-1', issuer: 'travel-assistant-backend',
+    audience: 'tutu-transport-selection', expiresIn: '15m',
+  });
+
+  assert.throws(() => service.verifySelection('user-1', token), function (error) {
+    return error && error.code === 'TUTU_SELECTION_INVALID';
+  });
+});
+
+test('continues to verify a legacy selection token without searchRequest', () => {
+  const service = createSelectionTokenService({ secret: SECRET });
+  const token = service.signSelection('user-1', selection());
+
+  assert.deepEqual(service.verifySelection('user-1', token), selection());
 });
 
 test('rejects tampering, the wrong user, and expired tokens with stable codes', () => {

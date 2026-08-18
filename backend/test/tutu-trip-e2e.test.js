@@ -50,6 +50,12 @@ function option(id) {
   };
 }
 
+const searchRequest = {
+  schemaVersion: '1', mode: 'flight', origin: 'Москва', destination: 'Санкт-Петербург',
+  departureDate: '2026-08-20', returnDate: null,
+  passengers: { adults: 1, children: 0, infants: 0 },
+};
+
 test('demo-success is idempotent and canonical GET rereads the same transport facts', async () => {
   const filename = 'tutu-trip-e2e-' + crypto.randomUUID() + '.db';
   const databasePath = path.join(os.tmpdir(), filename);
@@ -83,6 +89,7 @@ test('demo-success is idempotent and canonical GET rereads the same transport fa
     const selection = {
       option: option('to_e2e_offer_one'),
       providerContext: { offerId: 'offer-1', transport: 'avia', checkoutRef: {}, checkoutUrl: null, searchResultsUrl: null },
+      searchRequest: searchRequest,
     };
     const selectionToken = tokens.signSelection(userId, selection);
     const purchaseHeaders = Object.assign({}, headers, { 'idempotency-key': 'fixture-000000000000' });
@@ -99,6 +106,13 @@ test('demo-success is idempotent and canonical GET rereads the same transport fa
     assert.equal(reread.body.trip.segments[0].departureAt, selection.option.segments[0].departureAt);
     assert.equal(reread.body.trip.segments[0].arrivalAt, selection.option.segments[0].arrivalAt);
     assert.equal(reread.body.trip.segments[0].source, 'tutu-mcp');
+    assert.equal(Object.hasOwn(reread.body.trip, 'changes'), false);
+    const contexts = await prisma.tripChange.findMany({
+      where: { tripId: created.body.tripId, type: 'tutu_search_context' },
+    });
+    assert.equal(contexts.length, 1);
+    assert.deepEqual(JSON.parse(contexts[0].newValue), searchRequest);
+    assert.doesNotMatch(JSON.stringify(contexts[0]), /checkoutRef|selectionToken|providerContext|raw/i);
 
     const differentToken = tokens.signSelection(userId, Object.assign({}, selection, {
       option: option('to_e2e_offer_two'),
@@ -118,6 +132,7 @@ test('demo-success is idempotent and canonical GET rereads the same transport fa
     assert.deepEqual(concurrent.map(function (result) { return result.status; }).sort(), [200, 201]);
     assert.equal(concurrent[0].body.tripId, concurrent[1].body.tripId);
     assert.equal(await prisma.trip.count(), 2);
+    assert.equal(await prisma.tripChange.count({ where: { type: 'tutu_search_context' } }), 2);
   } finally {
     if (server) await new Promise(function (resolve) { server.close(resolve); });
     if (prisma) await prisma.$disconnect();
