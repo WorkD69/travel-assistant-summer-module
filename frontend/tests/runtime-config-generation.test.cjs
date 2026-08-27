@@ -12,6 +12,21 @@ const FRONTEND_ROOT = path.resolve(__dirname, '..');
 const SCRIPT = path.join(FRONTEND_ROOT, 'scripts', 'generate-runtime-config.cjs');
 const API_CLIENT = path.join(FRONTEND_ROOT, 'assets', 'js', 'api-client.js');
 const RUNTIME_CONFIG = path.join(FRONTEND_ROOT, 'assets', 'js', 'runtime-config.js');
+const VERCEL_CONFIG = path.join(FRONTEND_ROOT, 'vercel.json');
+const SOURCE_SNAPSHOT = fs.readFileSync(RUNTIME_CONFIG, 'utf8');
+
+function runReleaseBuild(env = {}, options = {}) {
+  return execFileSync('npm', ['run', 'build'], {
+    cwd: FRONTEND_ROOT,
+    env: { ...process.env, ...env },
+    encoding: 'utf8',
+    stdio: options.stdio || 'pipe',
+  });
+}
+
+function removeOutput(outputPath) {
+  fs.rmSync(outputPath, { recursive: true, force: true });
+}
 
 function tempOutput() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'travel-runtime-'));
@@ -86,21 +101,49 @@ test('production Vercel build fails closed when the required variable is missing
   }
 });
 
-test('local build without the variable keeps the existing safe fallback', () => {
-  const { directory, output } = tempOutput();
+test('local static development keeps the existing tracked safe fallback', () => {
+  const context = { window: {} };
+  vm.runInNewContext(fs.readFileSync(RUNTIME_CONFIG, 'utf8'), context);
+  assert.equal(context.window.TRAVEL_API_BASE, '');
+  assert.equal(fs.readFileSync(RUNTIME_CONFIG, 'utf8'), SOURCE_SNAPSHOT);
+});
+
+test('Vercel explicitly wires the release build and disposable static output', () => {
+  const config = JSON.parse(fs.readFileSync(VERCEL_CONFIG, 'utf8'));
+  assert.equal(config.buildCommand, 'npm run build');
+  assert.equal(config.outputDirectory, 'dist');
+});
+
+test('release build requires the variable regardless of Vercel system env', () => {
+  assert.throws(
+    () => runReleaseBuild({ TRAVEL_RELEASE_API_BASE: '', VERCEL: '', VERCEL_ENV: '' }),
+    /requires TRAVEL_RELEASE_API_BASE/,
+  );
+});
+
+test('release build creates a complete disposable output tree and preserves tracked source', () => {
+  const output = path.join(FRONTEND_ROOT, 'dist');
+  removeOutput(output);
   try {
-    execFileSync(process.execPath, [SCRIPT, output], {
-      cwd: FRONTEND_ROOT,
-      env: { ...process.env, VERCEL: '', VERCEL_ENV: '', TRAVEL_RELEASE_API_BASE: '' },
-      stdio: 'pipe',
-    });
-    assert.equal(fs.existsSync(output), false);
-    const context = { window: {} };
-    vm.runInNewContext(fs.readFileSync(RUNTIME_CONFIG, 'utf8'), context);
-    assert.equal(context.window.TRAVEL_API_BASE, '');
+    runReleaseBuild({ TRAVEL_RELEASE_API_BASE: 'https://example-backend.test/' });
+    assert.equal(fs.readFileSync(RUNTIME_CONFIG, 'utf8'), SOURCE_SNAPSHOT);
+    assert.ok(fs.existsSync(path.join(output, 'assets/js/runtime-config.js')));
+    assert.ok(fs.existsSync(path.join(output, 'assets/js/api-client.js')));
+    assert.ok(fs.existsSync(path.join(output, 'index.html')));
+    assert.ok(fs.existsSync(path.join(output, 'design-tokens.css')));
+    assert.equal(fs.existsSync(path.join(output, 'tests')), false);
+    assert.equal(fs.existsSync(path.join(output, 'node_modules')), false);
+    assert.equal(fs.existsSync(path.join(output, 'dist')), false);
+    const generated = fs.readFileSync(path.join(output, 'assets/js/runtime-config.js'), 'utf8');
+    assert.ok(generated.includes('window.TRAVEL_RELEASE_API_BASE = "https://example-backend.test";'));
   } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
+    removeOutput(output);
   }
+});
+
+test('disposable runtime config is loaded before api-client at the HTML path', () => {
+  const html = fs.readFileSync(path.join(FRONTEND_ROOT, 'login.html'), 'utf8');
+  assert.ok(html.indexOf('assets/js/runtime-config.js') < html.indexOf('assets/js/api-client.js'));
 });
 
 test('api-client remains the only request base authority', () => {
