@@ -1,0 +1,8 @@
+{
+  "name": "travel-assistant-frontend",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/generate-runtime-config.cjs",
+    "test": "node --test tests/*.test.cjs"
+  }
+}
