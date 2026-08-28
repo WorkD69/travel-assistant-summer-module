@@ -132,8 +132,28 @@ test('release build creates a complete disposable output tree and preserves trac
     assert.ok(fs.existsSync(path.join(output, 'index.html')));
     assert.ok(fs.existsSync(path.join(output, 'design-tokens.css')));
     assert.equal(fs.existsSync(path.join(output, 'tests')), false);
+    assert.equal(fs.existsSync(path.join(output, 'scripts')), false);
     assert.equal(fs.existsSync(path.join(output, 'node_modules')), false);
     assert.equal(fs.existsSync(path.join(output, 'dist')), false);
+    assert.equal(fs.existsSync(path.join(output, 'docs')), false);
+    assert.equal(fs.existsSync(path.join(output, 'dev-preview')), false);
+    assert.equal(fs.existsSync(path.join(output, 'START_PREVIEW.bat')), false);
+    assert.equal(fs.existsSync(path.join(output, 'start-preview.sh')), false);
+    for (const requiredFile of [
+      'login.html',
+      'register.html',
+      'home.html',
+      'search-results.html',
+      'trip-overview.html',
+      'design-tokens.css',
+      'assets/js/app-routes.js',
+      'assets/js/runtime-config.js',
+      'assets/js/api-client.js',
+      'service-worker.js',
+    ]) {
+      assert.ok(fs.existsSync(path.join(output, requiredFile)), requiredFile);
+    }
+    assert.ok(fs.readdirSync(path.join(output, 'assets')).length > 0);
     const generated = fs.readFileSync(path.join(output, 'assets/js/runtime-config.js'), 'utf8');
     assert.ok(generated.includes('window.TRAVEL_RELEASE_API_BASE = "https://example-backend.test";'));
   } finally {

@@ -9,12 +9,23 @@ const {
 
 const SOURCE_ROOT = path.resolve(__dirname, '..');
 const OUTPUT_ROOT = path.join(SOURCE_ROOT, 'dist');
-const EXCLUDED_TOP_LEVEL = new Set(['dist', 'node_modules', 'tests', 'scripts', '.git', '.vercel']);
+const EXCLUDED_TOP_LEVEL = new Set([
+  'dist',
+  'node_modules',
+  'tests',
+  'scripts',
+  '.git',
+  '.vercel',
+  'docs',
+  'dev-preview',
+]);
+const EXCLUDED_TOP_LEVEL_FILES = new Set(['START_PREVIEW.bat', 'start-preview.sh']);
 const RELEASE_ENV_NAME = 'TRAVEL_RELEASE_API_BASE';
 
 function shouldCopy(relativePath, directoryEntry) {
-  const topLevel = relativePath.split(path.sep)[0];
-  if (EXCLUDED_TOP_LEVEL.has(topLevel)) return false;
+  const pathParts = relativePath.split(path.sep);
+  const topLevel = pathParts[0];
+  if (EXCLUDED_TOP_LEVEL.has(topLevel) || (pathParts.length === 1 && EXCLUDED_TOP_LEVEL_FILES.has(topLevel))) return false;
   if (directoryEntry.isSymbolicLink()) return false;
   return !relativePath.split(path.sep).some((part) => part === '.git' || part === 'node_modules');
 }
