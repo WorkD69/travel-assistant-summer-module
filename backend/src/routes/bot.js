@@ -190,6 +190,22 @@ function serializeTrip(trip, roleInfo) {
     membership_status: roleInfo.membership,
   };
 }
+function demoDisruptionProjection(signal) {
+  if (!signal || signal.category !== 'plan_b_disruption' ||
+      signal.source !== 'DEMO_SIMULATION' || signal.status !== 'active') {
+    return null;
+  }
+  const detail = jsonParse(signal.detail, {});
+  const factualDetail = detail && typeof detail === 'object' && !Array.isArray(detail) ? detail : {};
+  return {
+    category: signal.category,
+    source: signal.source,
+    status: signal.status,
+    type: typeof factualDetail.type === 'string' ? factualDetail.type : null,
+    context: factualDetail.context && typeof factualDetail.context === 'object' && !Array.isArray(factualDetail.context)
+      ? factualDetail.context : null,
+  };
+}
 
 const TYPE_MAP = {
   'самолёт': 'flight', 'самолет': 'flight', 'flight': 'flight', 'перелёт': 'flight', 'перелет': 'flight',
@@ -470,7 +486,19 @@ router.get('/api/bot/trips/history', requireService, resolveUser, async (req, re
 router.get('/api/bot/trips/:tripId', requireService, resolveUser, async (req, res) => {
   const r = await loadAccessibleTrip(req.params.tripId, req.siteUser.id);
   if (r.error) return fail(res, r.error);
-  res.json(serializeTrip(r.trip, r.roleInfo));
+  const signal = await prisma.monitoringSignal.findFirst({
+    where: {
+      tripId: r.trip.id,
+      category: 'plan_b_disruption',
+      source: 'DEMO_SIMULATION',
+      status: 'active',
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json({
+    ...serializeTrip(r.trip, r.roleInfo),
+    demo_disruption: demoDisruptionProjection(signal),
+  });
 });
 
 router.post('/api/bot/trips/:tripId/select-active', requireService, resolveUser, async (req, res) => {
@@ -734,4 +762,5 @@ router.get('/api/bot/trips/:tripId/assistant-context', requireService, resolveUs
   });
 });
 
+router.demoDisruptionProjection = demoDisruptionProjection;
 module.exports = router;

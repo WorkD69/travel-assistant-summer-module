@@ -1,6 +1,6 @@
 # Telegram-бот «Тревел-помощник»
 
-Aiogram 3 бот для привязки аккаунта сайта, просмотра поездок, событий, документов и сообщений, отправки SOS, получения уведомлений и работы с AI-помощником.
+Aiogram 3 Telegram Companion для привязки аккаунта сайта, просмотра доступных canonical Trips, краткого factual статуса и безопасного перехода в Web Workspace.
 
 ## Требования
 
@@ -30,13 +30,17 @@ Aiogram 3 бот для привязки аккаунта сайта, просм
 
 ## Команды
 
-`/start`, `/trips`, `/history`, `/today`, `/next`, `/documents`, `/messages`, `/sos`, `/mysos`, `/assistant`, `/notifications`, `/settings`, `/unlink`, `/help`, `/cancel`; `/demo` доступна только при `BOT_ENV=development` и `BOT_DATA_MODE=mock`.
+`/start`, `/trips`, `/help`.
 
-Полное описание: [docs/TELEGRAM-FUNCTIONS.md](docs/TELEGRAM-FUNCTIONS.md).
+V1 — короткий companion flow: `/start` → «Мои поездки» → краткий factual status → «Открыть поездку». Бот не создаёт shadow Trip, не выполняет Plan B Apply/Revert, не подтверждает покупку или перебронирование и не заявляет live monitoring от Tutu.
+
+Для detail Trip backend может передать nullable factual `demo_disruption` только при active signal с `category=plan_b_disruption`, `source=DEMO_SIMULATION` и `status=active`. В этом случае бот использует только формулировку демо-события; он не делает provider/live-cancellation claims. Если pipeline backend не enqueue уведомление о таком signal, статус остаётся `TELEGRAM_NOTIFICATION_BACKEND_BLOCKER`.
+
+Web переход строится через единственный существующий `WEB_APP_BASE_URL` и canonical route `trip-overview.html?tripId=<URL-encoded factual Trip ID>`. JWT, service token, selectionToken, proposal ID и другие secrets в deeplink не передаются.
 
 ## Структура
 
-- `app/handlers/` - команды, callbacks и FSM-сценарии;
+- `app/handlers/` - V1 команды и callbacks; legacy modules могут храниться локально, но не включаются в V1 router set;
 - `app/services/travel_api/` - общий интерфейс, mock и HTTP реализации;
 - `app/services/notifications/` - очередь, настройки, deduplication и retry;
 - `app/services/ai/` - Mock/Gemini, исключения и очистка данных;
@@ -53,7 +57,7 @@ Aiogram 3 бот для привязки аккаунта сайта, просм
 
 - Live polling нельзя считать проверенным без настоящего Telegram token.
 - Полный end-to-end API-режим требует готового общего backend.
-- Frontend зафиксирован и сам не открывает вкладку из `tab`; bot deep link открывает нужную поездку. См. [docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md).
+- Финальный production origin Web Workspace определяется значением `WEB_APP_BASE_URL`; V1 использует существующий `trip-overview.html?tripId=<tripId>` и не меняет frontend production code.
 - SQLite FSM предназначен для одного локального процесса бота, не для горизонтального кластера.
 
 Безопасность: [docs/SECURITY.md](docs/SECURITY.md). Demo защиты: [docs/DEMO-SCENARIO.md](docs/DEMO-SCENARIO.md). Актуальные результаты: [docs/TEST-REPORT.md](docs/TEST-REPORT.md).

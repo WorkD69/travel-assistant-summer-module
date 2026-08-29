@@ -31,6 +31,14 @@ TRIP_STATUS_LABELS = {
     "finished": "завершена",
 }
 
+DEMO_DISRUPTION_TYPE_LABELS = {
+    "DELAYED": "Задержка",
+    "CARRIER_CANCELLED": "Отмена сегмента",
+    "CONNECTION_AT_RISK": "Риск пересадки",
+    "USER_REPORTED_PROBLEM": "Проблема, отмеченная пользователем",
+    "OTHER": "Другое",
+}
+
 ROLE_LABELS = {
     "organizer": "организатор",
     "participant": "участник",
@@ -77,6 +85,29 @@ def event_line(event: TripEvent, tz_str: str) -> str:
     if event.note:
         parts.append(f"❗ {event.note}")
     return "\n".join(parts)
+
+
+def companion_trip_summary(trip: Trip) -> str:
+    lines = [f"🧳 {trip.title}"]
+    if trip.route:
+        lines.append(f"Маршрут: {trip.route}")
+    lines.append(
+        f"Даты: {trip.date_start.strftime('%d.%m.%Y')} — {trip.date_end.strftime('%d.%m.%Y')}")
+    lines.append(f"Статус: {TRIP_STATUS_LABELS.get(trip.status, trip.status)}")
+    if trip.demo_disruption is not None:
+        disruption_type = trip.demo_disruption.type or "без уточнённого типа"
+        disruption_label = DEMO_DISRUPTION_TYPE_LABELS.get(disruption_type, disruption_type)
+        lines.append("⚠️ Демо-событие")
+        lines.append(f"Для демонстрации в поездке создано событие: {disruption_label}")
+        context = trip.demo_disruption.context or {}
+        details = [
+            f"{str(key)[:48]}: {str(value)[:120]}"
+            for key, value in context.items()
+            if isinstance(value, (str, int, float, bool))
+        ]
+        if details:
+            lines.append("Детали: " + "; ".join(details[:3]))
+    return "\n".join(lines)
 
 
 def trip_card(trip: Trip) -> str:

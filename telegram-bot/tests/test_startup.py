@@ -47,20 +47,7 @@ async def test_application_factory_registers_routers_and_middleware() -> None:
     application = await build_application(make_settings())
     try:
         router_names = {router.name for router in application.dispatcher.sub_routers}
-        assert {
-            "common",
-            "start",
-            "sos",
-            "assistant",
-            "trips",
-            "today",
-            "next",
-            "documents",
-            "notifications",
-            "settings",
-            "demo",
-            "help",
-        } <= router_names
+        assert router_names == {"common", "start", "trips", "help"}
         assert application.dispatcher.message.middleware
         assert application.dispatcher.callback_query.middleware
     finally:

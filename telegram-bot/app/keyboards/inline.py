@@ -1,7 +1,7 @@
 """Inline-клавиатуры контекстных действий (не более 2–3 кнопок в ряду)."""
 from __future__ import annotations
 
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -17,10 +17,10 @@ def site_link_btn(text: str, url: str) -> InlineKeyboardButton:
     parsed = urlsplit(url)
     if parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1", "::1"}:
         trip_ids = parse_qs(parsed.query).get("tripId", [])
-        callback_data = (
-            f"local_site:trip:{trip_ids[0]}" if trip_ids else "local_site:home"
-        )
-        return _btn(text, callback_data)
+        trip_id = trip_ids[0] if trip_ids else None
+        if not trip_id and parsed.path.startswith("/trips/"):
+            trip_id = unquote(parsed.path[len("/trips/"):])
+        return _btn(text, f"local_site:trip:{trip_id}" if trip_id else "local_site:home")
     return InlineKeyboardButton(text=text, url=url)
 
 
@@ -28,6 +28,20 @@ def unlinked_start_kb(site_url: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [site_link_btn("🌐 Открыть сайт", site_url)],
         [_btn("❓ Как подключить", "help:link"), _btn("🆘 Помощь", "help:main")],
+    ])
+
+
+def companion_trips_kb(trips: list[Trip]) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [_btn(trip.title, f"v1:trip:{trip.id}")]
+        for trip in trips
+    ])
+
+
+def companion_trip_kb(site_url: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [site_link_btn("Открыть поездку", site_url)],
+        [_btn("← Мои поездки", "v1:trips")],
     ])
 
 
