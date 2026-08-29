@@ -1,0 +1,174 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const test = require('node:test');
+const vm = require('node:vm');
+const { execFileSync } = require('node:child_process');
+
+const FRONTEND_ROOT = path.resolve(__dirname, '..');
+const SCRIPT = path.join(FRONTEND_ROOT, 'scripts', 'generate-runtime-config.cjs');
+const API_CLIENT = path.join(FRONTEND_ROOT, 'assets', 'js', 'api-client.js');
+const RUNTIME_CONFIG = path.join(FRONTEND_ROOT, 'assets', 'js', 'runtime-config.js');
+const VERCEL_CONFIG = path.join(FRONTEND_ROOT, 'vercel.json');
+const SOURCE_SNAPSHOT = fs.readFileSync(RUNTIME_CONFIG, 'utf8');
+
+function runReleaseBuild(env = {}, options = {}) {
+  return execFileSync('npm', ['run', 'build'], {
+    cwd: FRONTEND_ROOT,
+    env: { ...process.env, ...env },
+    encoding: 'utf8',
+    stdio: options.stdio || 'pipe',
+  });
+}
+
+function removeOutput(outputPath) {
+  fs.rmSync(outputPath, { recursive: true, force: true });
+}
+
+function tempOutput() {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'travel-runtime-'));
+  return { directory, output: path.join(directory, 'runtime-config.js') };
+}
+
+function generate(value, extraEnv = {}) {
+  const { directory, output } = tempOutput();
+  try {
+    execFileSync(process.execPath, [SCRIPT, output], {
+      cwd: FRONTEND_ROOT,
+      env: { ...process.env, ...extraEnv, TRAVEL_RELEASE_API_BASE: value },
+      stdio: 'pipe',
+    });
+    return fs.readFileSync(output, 'utf8');
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+}
+
+test('valid public HTTPS origin is generated with one normalized trailing slash policy', () => {
+  const source = generate('https://example-backend.test/');
+  assert.ok(source.includes('window.TRAVEL_RELEASE_API_BASE = "https://example-backend.test";'));
+  assert.doesNotMatch(source, /process\.env|OPENAI_API_KEY|TRAVEL_RELEASE_API_BASE.*process/);
+});
+
+test('generated runtime config produces the existing TravelApi base', () => {
+  const source = generate('https://example-backend.test/');
+  const context = {
+    window: {},
+    fetch() {},
+    navigator: {},
+    location: { protocol: 'https:' },
+  };
+  vm.runInNewContext(source, context);
+  vm.runInNewContext(fs.readFileSync(API_CLIENT, 'utf8'), context);
+  assert.equal(context.window.TravelApi.base, 'https://example-backend.test');
+});
+
+test('malformed, non-HTTPS, credentialed, path, query, and hash values are rejected', () => {
+  for (const value of [
+    'not-a-url',
+    'http://example-backend.test',
+    'https://user:pass@example-backend.test',
+    'https://example-backend.test/api',
+    'https://example-backend.test/?x=1',
+    'https://example-backend.test/#fragment',
+  ]) {
+    assert.throws(() => generate(value), /valid HTTPS origin/);
+  }
+});
+
+test('javascript injection-like value is rejected and never serialized', () => {
+  const malicious = 'https://example.test/"; window.evil = true; //';
+  assert.throws(() => generate(malicious), /valid HTTPS origin/);
+});
+
+test('production Vercel build fails closed when the required variable is missing', () => {
+  const { directory, output } = tempOutput();
+  try {
+    assert.throws(
+      () => execFileSync(process.execPath, [SCRIPT, output], {
+        cwd: FRONTEND_ROOT,
+        env: { ...process.env, VERCEL: '1', VERCEL_ENV: 'production', TRAVEL_RELEASE_API_BASE: '' },
+        stdio: 'pipe',
+      }),
+      /requires TRAVEL_RELEASE_API_BASE/,
+    );
+    assert.equal(fs.existsSync(output), false);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('local static development keeps the existing tracked safe fallback', () => {
+  const context = { window: {} };
+  vm.runInNewContext(fs.readFileSync(RUNTIME_CONFIG, 'utf8'), context);
+  assert.equal(context.window.TRAVEL_API_BASE, '');
+  assert.equal(fs.readFileSync(RUNTIME_CONFIG, 'utf8'), SOURCE_SNAPSHOT);
+});
+
+test('Vercel explicitly wires the release build and disposable static output', () => {
+  const config = JSON.parse(fs.readFileSync(VERCEL_CONFIG, 'utf8'));
+  assert.equal(config.buildCommand, 'npm run build');
+  assert.equal(config.outputDirectory, 'dist');
+});
+
+test('release build requires the variable regardless of Vercel system env', () => {
+  assert.throws(
+    () => runReleaseBuild({ TRAVEL_RELEASE_API_BASE: '', VERCEL: '', VERCEL_ENV: '' }),
+    /requires TRAVEL_RELEASE_API_BASE/,
+  );
+});
+
+test('release build creates a complete disposable output tree and preserves tracked source', () => {
+  const output = path.join(FRONTEND_ROOT, 'dist');
+  removeOutput(output);
+  try {
+    runReleaseBuild({ TRAVEL_RELEASE_API_BASE: 'https://example-backend.test/' });
+    assert.equal(fs.readFileSync(RUNTIME_CONFIG, 'utf8'), SOURCE_SNAPSHOT);
+    assert.ok(fs.existsSync(path.join(output, 'assets/js/runtime-config.js')));
+    assert.ok(fs.existsSync(path.join(output, 'assets/js/api-client.js')));
+    assert.ok(fs.existsSync(path.join(output, 'index.html')));
+    assert.ok(fs.existsSync(path.join(output, 'design-tokens.css')));
+    assert.equal(fs.existsSync(path.join(output, 'tests')), false);
+    assert.equal(fs.existsSync(path.join(output, 'scripts')), false);
+    assert.equal(fs.existsSync(path.join(output, 'node_modules')), false);
+    assert.equal(fs.existsSync(path.join(output, 'dist')), false);
+    assert.equal(fs.existsSync(path.join(output, 'docs')), false);
+    assert.equal(fs.existsSync(path.join(output, 'dev-preview')), false);
+    assert.equal(fs.existsSync(path.join(output, 'START_PREVIEW.bat')), false);
+    assert.equal(fs.existsSync(path.join(output, 'start-preview.sh')), false);
+    for (const requiredFile of [
+      'login.html',
+      'register.html',
+      'home.html',
+      'search-results.html',
+      'trip-overview.html',
+      'design-tokens.css',
+      'assets/js/app-routes.js',
+      'assets/js/runtime-config.js',
+      'assets/js/api-client.js',
+      'service-worker.js',
+    ]) {
+      assert.ok(fs.existsSync(path.join(output, requiredFile)), requiredFile);
+    }
+    assert.ok(fs.readdirSync(path.join(output, 'assets')).length > 0);
+    const generated = fs.readFileSync(path.join(output, 'assets/js/runtime-config.js'), 'utf8');
+    assert.ok(generated.includes('window.TRAVEL_RELEASE_API_BASE = "https://example-backend.test";'));
+  } finally {
+    removeOutput(output);
+  }
+});
+
+test('disposable runtime config is loaded before api-client at the HTML path', () => {
+  const html = fs.readFileSync(path.join(FRONTEND_ROOT, 'login.html'), 'utf8');
+  assert.ok(html.indexOf('assets/js/runtime-config.js') < html.indexOf('assets/js/api-client.js'));
+});
+
+test('api-client remains the only request base authority', () => {
+  const apiSource = fs.readFileSync(API_CLIENT, 'utf8');
+  assert.match(apiSource, /window\.TRAVEL_API_BASE/);
+  assert.doesNotMatch(apiSource, /TRAVEL_RELEASE_API_BASE/);
+  assert.doesNotMatch(apiSource, /process\.env/);
+});
